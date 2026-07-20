@@ -33,6 +33,7 @@ from .services import (
     get_email_template,
     get_icp_rule,
     get_list,
+    lead_timeline,
     get_sequence,
     import_source,
     list_agent_actions,
@@ -158,6 +159,12 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         self.send_error_json("Empresa nao encontrada", 404)
                     else:
                         self.send_json(company)
+                elif len(parts) == 4 and parts[1] == "leads" and parts[3] == "timeline":
+                    timeline = lead_timeline(conn, int(parts[2]))
+                    if not timeline:
+                        self.send_error_json("Lead nao encontrado", 404)
+                    else:
+                        self.send_json(timeline)
                 elif len(parts) == 4 and parts[1] == "enrichment" and parts[2] == "company":
                     enrichment = get_company_enrichment(conn, int(parts[3]))
                     if not enrichment:

@@ -3652,6 +3652,526 @@ def command_origin_label(source):
     return labels.get(source or "", source or "Origem nao informada")
 
 
+def timeline_json(value, fallback):
+    try:
+        return json.loads(value or "")
+    except (TypeError, ValueError):
+        return fallback
+
+
+def add_timeline_item(items, occurred_at, source_table, source_id, kind, title, origin_label, detail, metadata=None):
+    if not occurred_at:
+        return
+    items.append(
+        {
+            "occurred_at": occurred_at,
+            "source_table": source_table,
+            "source_id": source_id,
+            "kind": kind,
+            "title": title,
+            "origin_label": origin_label,
+            "detail": detail or "",
+            "metadata": metadata or {},
+        }
+    )
+
+
+def lead_timeline(conn, lead_id):
+    lead_id = int(lead_id or 0)
+    row = conn.execute(
+        """
+        SELECT l.*, c.id AS company_row_id, c.cnpj, c.legal_name, c.trade_name,
+               c.city, c.state, c.main_cnae_code, c.main_cnae_description,
+               c.email AS company_email, c.phone, c.sector,
+               c.opportunity_score, c.source_name, c.legal_basis,
+               c.collected_at
+        FROM leads l
+        LEFT JOIN companies c ON c.id = l.company_id
+        WHERE l.id = ? AND l.org_id = ?
+        """,
+        (lead_id, ORG_ID),
+    ).fetchone()
+    if not row:
+        return None
+
+    data = dict_row(row)
+    lead = {
+        "id": data["id"],
+        "company_id": data.get("company_id"),
+        "list_id": data.get("list_id"),
+        "email": data.get("email") or "",
+        "segment": data.get("segment") or "",
+        "source": data.get("source") or "",
+        "score": data.get("score") or 0,
+        "status": data.get("status") or "",
+        "block_reason": data.get("block_reason") or "",
+        "created_at": data.get("created_at") or "",
+        "updated_at": data.get("updated_at") or "",
+    }
+    company = None
+    if data.get("company_row_id"):
+        company = {
+            "id": data.get("company_row_id"),
+            "cnpj": data.get("cnpj") or "",
+            "legal_name": data.get("legal_name") or "",
+            "trade_name": data.get("trade_name") or "",
+            "city": data.get("city") or "",
+            "state": data.get("state") or "",
+            "main_cnae_code": data.get("main_cnae_code") or "",
+            "main_cnae_description": data.get("main_cnae_description") or "",
+            "email": data.get("company_email") or "",
+            "phone": data.get("phone") or "",
+            "sector": data.get("sector") or "",
+            "opportunity_score": data.get("opportunity_score") or 0,
+            "source_name": data.get("source_name") or "",
+            "legal_basis": data.get("legal_basis") or "",
+            "collected_at": data.get("collected_at") or "",
+        }
+
+    items = []
+    company_name = (company or {}).get("trade_name") or (company or {}).get("legal_name") or lead["email"]
+    add_timeline_item(
+        items,
+        lead["created_at"],
+        "leads",
+        lead["id"],
+        "lead",
+        "Lead criado",
+        "CRM interno",
+        "Lead criado para %s com status %s" % (company_name or lead["email"], lead["status"]),
+        {
+            "email": lead["email"],
+            "source": lead["source"],
+            "score": lead["score"],
+            "list_id": lead["list_id"],
+        },
+    )
+    if lead["updated_at"] and lead["updated_at"] != lead["created_at"]:
+        add_timeline_item(
+            items,
+            lead["updated_at"],
+            "leads",
+            lead["id"],
+            "lead_status",
+            "Status atual do lead",
+            "CRM interno",
+            lead["block_reason"] or "Lead esta em %s" % lead["status"],
+            {"status": lead["status"], "block_reason": lead["block_reason"]},
+        )
+
+    priority_rows = conn.execute(
+        """
+        SELECT q.*, r.name AS icp_name
+        FROM lead_priority_queue q
+        JOIN icp_rules r ON r.id = q.icp_rule_id
+        WHERE q.org_id = ? AND (q.lead_id = ? OR q.company_id = ?)
+        ORDER BY q.id ASC
+        """,
+        (ORG_ID, lead_id, lead.get("company_id") or 0),
+    ).fetchall()
+    for priority in priority_rows:
+        item = dict_row(priority)
+        reason = timeline_json(item.get("reason_json"), {})
+        add_timeline_item(
+            items,
+            item["created_at"],
+            "lead_priority_queue",
+            item["id"],
+            "priority",
+            "Lead priorizado por ICP",
+            "Regra de negocio",
+            "ICP %s sugeriu prioridade %s" % (item.get("icp_name") or item["icp_rule_id"], item["priority_score"]),
+            {
+                "status": item["status"],
+                "fit_score": item["fit_score"],
+                "priority_score": item["priority_score"],
+                "reason": reason,
+            },
+        )
+        if item.get("decision_note") or item.get("updated_at") != item.get("created_at"):
+            add_timeline_item(
+                items,
+                item["updated_at"],
+                "lead_priority_queue",
+                item["id"],
+                "priority_decision",
+                "Decisao de prioridade",
+                "Humano",
+                item.get("decision_note") or "Prioridade atualizada para %s" % item["status"],
+                {"status": item["status"], "decision_note": item.get("decision_note") or ""},
+            )
+
+    journey_rows = conn.execute(
+        """
+        SELECT lj.*, s.name AS sequence_name, ss.name AS step_name
+        FROM lead_journey lj
+        JOIN sequences s ON s.id = lj.sequence_id
+        LEFT JOIN sequence_steps ss ON ss.id = lj.current_step_id
+        WHERE lj.org_id = ? AND lj.lead_id = ?
+        ORDER BY lj.id ASC
+        """,
+        (ORG_ID, lead_id),
+    ).fetchall()
+    journey_ids = []
+    for journey in journey_rows:
+        item = dict_row(journey)
+        journey_ids.append(item["id"])
+        detail = "Sequencia %s, passo %s, status %s" % (
+            item.get("sequence_name") or item["sequence_id"],
+            item.get("current_step_number") or "-",
+            item.get("status") or "-",
+        )
+        add_timeline_item(
+            items,
+            item["created_at"],
+            "lead_journey",
+            item["id"],
+            "journey",
+            "Jornada criada",
+            "CRM interno",
+            detail,
+            {
+                "sequence_id": item["sequence_id"],
+                "sequence_name": item.get("sequence_name") or "",
+                "current_step_id": item.get("current_step_id"),
+                "current_step_number": item.get("current_step_number"),
+                "next_action_at": item.get("next_action_at") or "",
+            },
+        )
+        if item.get("updated_at") and item.get("updated_at") != item.get("created_at"):
+            add_timeline_item(
+                items,
+                item["updated_at"],
+                "lead_journey",
+                item["id"],
+                "journey_status",
+                "Jornada atualizada",
+                "CRM interno",
+                item.get("block_reason") or "Jornada esta em %s" % item.get("status"),
+                {
+                    "status": item.get("status"),
+                    "last_action_at": item.get("last_action_at") or "",
+                    "next_action_at": item.get("next_action_at") or "",
+                },
+            )
+
+    approval_rows = conn.execute(
+        "SELECT * FROM approval_queue WHERE org_id = ? ORDER BY id ASC",
+        (ORG_ID,),
+    ).fetchall()
+    for approval in approval_rows:
+        item = dict_row(approval)
+        context = timeline_json(item.get("context_json"), {})
+        if int(context.get("lead_id") or 0) != lead_id and int(context.get("journey_id") or 0) not in journey_ids:
+            continue
+        add_timeline_item(
+            items,
+            item["created_at"],
+            "approval_queue",
+            item["id"],
+            "approval",
+            item["title"],
+            command_origin_label("approval"),
+            "Aprovacao criada com status %s" % item["status"],
+            {"status": item["status"], "context": context},
+        )
+        if item.get("decided_at"):
+            add_timeline_item(
+                items,
+                item["decided_at"],
+                "approval_queue",
+                item["id"],
+                "approval_decision",
+                "Decisao de aprovacao",
+                "Humano",
+                item.get("decision_note") or "Aprovacao %s" % item["status"],
+                {"status": item["status"], "decision_note": item.get("decision_note") or ""},
+            )
+
+    send_rows = conn.execute(
+        """
+        SELECT s.*, c.name AS campaign_name, v.name AS variant_name
+        FROM sends s
+        JOIN campaigns c ON c.id = s.campaign_id
+        JOIN campaign_variants v ON v.id = s.variant_id
+        WHERE s.lead_id = ?
+        ORDER BY s.id ASC
+        """,
+        (lead_id,),
+    ).fetchall()
+    for send in send_rows:
+        item = dict_row(send)
+        add_timeline_item(
+            items,
+            item["created_at"],
+            "sends",
+            item["id"],
+            "send",
+            "Envio registrado",
+            command_origin_label("system"),
+            "Campanha %s registrou envio %s" % (item.get("campaign_name") or item["campaign_id"], item["status"]),
+            {
+                "campaign_id": item["campaign_id"],
+                "campaign_name": item.get("campaign_name") or "",
+                "variant_id": item["variant_id"],
+                "variant_name": item.get("variant_name") or "",
+                "email": item["email"],
+                "status": item["status"],
+                "provider": item["provider"],
+                "scheduled_at": item.get("scheduled_at") or "",
+                "sent_at": item.get("sent_at") or "",
+                "utm_url": item.get("utm_url") or "",
+            },
+        )
+        if item.get("sent_at") and item.get("sent_at") != item.get("created_at"):
+            add_timeline_item(
+                items,
+                item["sent_at"],
+                "sends",
+                item["id"],
+                "send_sent",
+                "Envio simulado executado",
+                command_origin_label("system"),
+                "Mensagem marcada como enviada para %s" % item["email"],
+                {"provider_message_id": item.get("provider_message_id") or "", "provider": item["provider"]},
+            )
+
+    event_rows = conn.execute(
+        """
+        SELECT e.*, c.name AS campaign_name
+        FROM events e
+        LEFT JOIN campaigns c ON c.id = e.campaign_id
+        WHERE e.lead_id = ?
+        ORDER BY e.id ASC
+        """,
+        (lead_id,),
+    ).fetchall()
+    for event in event_rows:
+        item = dict_row(event)
+        payload = timeline_json(item.get("payload_json"), {})
+        add_timeline_item(
+            items,
+            item["created_at"],
+            "events",
+            item["id"],
+            "event",
+            "Evento de campanha: %s" % item["event_type"],
+            "Evento de campanha",
+            "Evento %s via %s" % (item["event_type"], item["source"]),
+            {
+                "send_id": item.get("send_id"),
+                "campaign_id": item.get("campaign_id"),
+                "campaign_name": item.get("campaign_name") or "",
+                "payload": payload,
+            },
+        )
+
+    reply_rows = conn.execute(
+        "SELECT * FROM reply_classifications WHERE org_id = ? AND lead_id = ? ORDER BY id ASC",
+        (ORG_ID, lead_id),
+    ).fetchall()
+    for reply in reply_rows:
+        item = dict_row(reply)
+        reasons = timeline_json(item.get("reasons_json"), [])
+        raw_payload = timeline_json(item.get("raw_payload_json"), {})
+        add_timeline_item(
+            items,
+            item["created_at"],
+            "reply_classifications",
+            item["id"],
+            "reply",
+            "Resposta classificada",
+            command_origin_label("system"),
+            "Resposta classificada como %s" % item["classification"],
+            {
+                "send_id": item.get("send_id"),
+                "email": item["email"],
+                "subject": item.get("subject") or "",
+                "confidence": item.get("confidence") or 0,
+                "reasons": reasons,
+                "raw_payload": raw_payload,
+            },
+        )
+
+    handoff_rows = conn.execute(
+        "SELECT * FROM handoffs WHERE org_id = ? AND lead_id = ? ORDER BY id ASC",
+        (ORG_ID, lead_id),
+    ).fetchall()
+    for handoff in handoff_rows:
+        item = dict_row(handoff)
+        context = timeline_json(item.get("context_json"), {})
+        add_timeline_item(
+            items,
+            item["created_at"],
+            "handoffs",
+            item["id"],
+            "handoff",
+            "Handoff humano criado",
+            command_origin_label("handoff"),
+            item["reason"],
+            {
+                "status": item["status"],
+                "priority": item["priority"],
+                "reply_classification_id": item.get("reply_classification_id"),
+                "context": context,
+            },
+        )
+        if item.get("resolved_at"):
+            add_timeline_item(
+                items,
+                item["resolved_at"],
+                "handoffs",
+                item["id"],
+                "handoff_decision",
+                "Handoff decidido",
+                "Humano",
+                item.get("resolution_note") or "Handoff %s" % item["status"],
+                {"status": item["status"], "resolution_note": item.get("resolution_note") or ""},
+            )
+
+    meeting_rows = conn.execute(
+        "SELECT * FROM meetings WHERE org_id = ? AND lead_id = ? ORDER BY id ASC",
+        (ORG_ID, lead_id),
+    ).fetchall()
+    for meeting in meeting_rows:
+        item = dict_row(meeting)
+        add_timeline_item(
+            items,
+            item["created_at"],
+            "meetings",
+            item["id"],
+            "meeting",
+            "Reuniao registrada",
+            command_origin_label("meeting"),
+            item.get("notes") or item["title"],
+            {
+                "status": item["status"],
+                "scheduled_at": item.get("scheduled_at") or "",
+                "meeting_url": item.get("meeting_url") or "",
+                "owner_name": item.get("owner_name") or "",
+                "handoff_id": item.get("handoff_id"),
+                "reply_classification_id": item.get("reply_classification_id"),
+            },
+        )
+        if item.get("updated_at") and (
+            item.get("updated_at") != item.get("created_at") or item.get("status") in ("completed", "cancelled", "no_show")
+        ):
+            add_timeline_item(
+                items,
+                item["updated_at"],
+                "meetings",
+                item["id"],
+                "meeting_status",
+                "Status de reuniao",
+                "Humano",
+                item.get("outcome_note") or "Reuniao atualizada para %s" % item["status"],
+                {"status": item["status"], "outcome_note": item.get("outcome_note") or ""},
+            )
+
+    conversion_rows = conn.execute(
+        """
+        SELECT cv.*, c.name AS campaign_name
+        FROM conversions cv
+        LEFT JOIN campaigns c ON c.id = cv.campaign_id
+        WHERE cv.lead_id = ?
+        ORDER BY cv.id ASC
+        """,
+        (lead_id,),
+    ).fetchall()
+    for conversion in conversion_rows:
+        item = dict_row(conversion)
+        add_timeline_item(
+            items,
+            item["created_at"],
+            "conversions",
+            item["id"],
+            "conversion",
+            "Conversao: %s" % item["conversion_type"],
+            "Regra de negocio",
+            item.get("notes") or "Conversao registrada",
+            {
+                "campaign_id": item.get("campaign_id"),
+                "campaign_name": item.get("campaign_name") or "",
+                "utm": timeline_json(item.get("utm_json"), {}),
+            },
+        )
+
+    action_rows = conn.execute(
+        """
+        SELECT aa.*, s.name AS sequence_name
+        FROM agent_actions aa
+        LEFT JOIN sequences s ON s.id = aa.sequence_id
+        WHERE aa.org_id = ? AND aa.lead_id = ?
+        ORDER BY aa.id ASC
+        """,
+        (ORG_ID, lead_id),
+    ).fetchall()
+    for action in action_rows:
+        item = dict_row(action)
+        add_timeline_item(
+            items,
+            item["created_at"],
+            "agent_actions",
+            item["id"],
+            "agent_action",
+            item["action_type"],
+            command_origin_label(item["source"]),
+            item["reason"],
+            {
+                "source": item["source"],
+                "sequence_id": item.get("sequence_id"),
+                "sequence_name": item.get("sequence_name") or "",
+                "payload": timeline_json(item.get("payload_json"), {}),
+            },
+        )
+
+    kind_order = {
+        "lead": 10,
+        "lead_status": 11,
+        "priority": 20,
+        "priority_decision": 21,
+        "journey": 30,
+        "journey_status": 31,
+        "approval": 40,
+        "approval_decision": 41,
+        "send": 50,
+        "send_sent": 51,
+        "event": 60,
+        "reply": 70,
+        "handoff": 80,
+        "handoff_decision": 81,
+        "meeting": 90,
+        "meeting_status": 91,
+        "conversion": 100,
+        "agent_action": 110,
+    }
+    items.sort(key=lambda item: (item["occurred_at"], kind_order.get(item["kind"], 999), item["source_table"], item["source_id"]))
+    for index, item in enumerate(items, start=1):
+        item["sequence"] = index
+
+    def count_kind(*kinds):
+        return sum(1 for item in items if item["kind"] in kinds)
+
+    return {
+        "lead": lead,
+        "company": company,
+        "summary": {
+            "timeline_items": len(items),
+            "priority_items": count_kind("priority", "priority_decision"),
+            "journeys": count_kind("journey", "journey_status"),
+            "actions": count_kind("agent_action"),
+            "approvals": count_kind("approval", "approval_decision"),
+            "sends": count_kind("send", "send_sent"),
+            "events": count_kind("event"),
+            "replies": count_kind("reply"),
+            "handoffs": count_kind("handoff", "handoff_decision"),
+            "meetings": count_kind("meeting", "meeting_status"),
+            "conversions": count_kind("conversion"),
+        },
+        "timeline": items,
+    }
+
+
 def command_center_metrics(conn):
     pending_approvals = conn.execute(
         "SELECT COUNT(*) AS total FROM approval_queue WHERE org_id = ? AND status = 'pending'",

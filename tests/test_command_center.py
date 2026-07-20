@@ -13,6 +13,7 @@ from radar_cnpj.services import (
     create_meeting,
     create_sequence,
     enroll_sequence_from_list,
+    lead_timeline,
     record_inbound_reply,
     upsert_company,
 )
@@ -234,6 +235,90 @@ class CommandCenterTest(unittest.TestCase):
                         "decision": "complete",
                     },
                 )
+        finally:
+            conn.close()
+
+    def test_lead_timeline_reconstructs_operational_journey(self):
+        conn = connect()
+        try:
+            approval_id, lead_id = self.seed_pending_approval(conn)
+            command_center_action(
+                conn,
+                {
+                    "source_type": "approval",
+                    "source_id": approval_id,
+                    "decision": "approve",
+                    "note": "Aprovado para timeline",
+                },
+            )
+            reply = record_inbound_reply(
+                conn,
+                {
+                    "lead_id": lead_id,
+                    "subject": "Re: ideia",
+                    "body": "Tenho interesse, podemos conversar esta semana?",
+                },
+            )
+            command_center_action(
+                conn,
+                {
+                    "source_type": "handoff",
+                    "source_id": reply["handoff"]["id"],
+                    "decision": "resolve",
+                    "note": "Resolvido para timeline",
+                },
+            )
+            meeting = create_meeting(
+                conn,
+                {
+                    "lead_id": lead_id,
+                    "scheduled_at": "2026-07-21T15:00",
+                    "notes": "Reuniao para timeline.",
+                },
+            )
+            command_center_action(
+                conn,
+                {
+                    "source_type": "meeting",
+                    "source_id": meeting["id"],
+                    "decision": "complete",
+                    "note": "Concluida para timeline",
+                },
+            )
+
+            timeline = lead_timeline(conn, lead_id)
+            self.assertEqual(timeline["lead"]["id"], lead_id)
+            self.assertEqual(timeline["company"]["trade_name"], "Delta Flow")
+            kinds = {item["kind"] for item in timeline["timeline"]}
+            self.assertTrue(
+                {
+                    "approval",
+                    "approval_decision",
+                    "send",
+                    "event",
+                    "reply",
+                    "handoff",
+                    "handoff_decision",
+                    "meeting",
+                    "meeting_status",
+                    "conversion",
+                    "agent_action",
+                }.issubset(kinds)
+            )
+            self.assertGreaterEqual(timeline["summary"]["timeline_items"], 10)
+            self.assertEqual(timeline["summary"]["approvals"], 2)
+            self.assertGreaterEqual(timeline["summary"]["actions"], 5)
+            occurred_at = [item["occurred_at"] for item in timeline["timeline"]]
+            self.assertEqual(occurred_at, sorted(occurred_at))
+            self.assertTrue(all(item.get("source_table") for item in timeline["timeline"]))
+            self.assertTrue(all(item.get("origin_label") for item in timeline["timeline"]))
+        finally:
+            conn.close()
+
+    def test_lead_timeline_returns_none_for_missing_lead(self):
+        conn = connect()
+        try:
+            self.assertIsNone(lead_timeline(conn, 9999))
         finally:
             conn.close()
 
