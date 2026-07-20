@@ -62,6 +62,7 @@ function setView(view) {
     lists: "Listas",
     import: "Importacao",
     enrichment: "Enriquecimento",
+    experiments: "Experimentos",
     hygiene: "Higiene de emails",
     audit: "Auditoria",
   };
@@ -73,6 +74,7 @@ function setView(view) {
   }
   if (view === "lists") loadLists(true);
   if (view === "import") loadOfficialCatalog();
+  if (view === "experiments") loadExperiments();
   if (view === "audit") loadAudit();
 }
 
@@ -276,10 +278,12 @@ async function loadLists(renderDetail = false) {
 
 function renderListSelector() {
   const select = $("#targetList");
-  if (!select) return;
-  select.innerHTML = state.lists.length
+  const markup = state.lists.length
     ? state.lists.map((list) => `<option value="${list.id}">${escapeHtml(list.name)} (${list.company_count || 0})</option>`).join("")
     : `<option value="">Crie uma lista</option>`;
+  if (select) select.innerHTML = markup;
+  const experimentSelect = $("#experimentList");
+  if (experimentSelect) experimentSelect.innerHTML = markup;
 }
 
 function renderListsIndex() {
@@ -558,6 +562,138 @@ async function loadEnrichmentFromForm() {
   renderEnrichmentResult(result);
 }
 
+async function loadExperiments() {
+  await loadLists();
+  await Promise.all([loadExperimentLeads(), loadCampaigns()]);
+}
+
+function experimentStatusTone(status) {
+  if (["eligible", "in_campaign", "converted", "simulated_sent", "delivered", "clicked"].includes(status)) return "green";
+  if (["new", "draft", "running", "replied", "responded"].includes(status)) return "amber";
+  return "red";
+}
+
+async function createLeadsFromExperimentList() {
+  const listId = $("#experimentList").value;
+  if (!listId) return showStatus("Selecione uma lista.", "warn");
+  const result = await api("/api/experiments/leads/from-list", {
+    method: "POST",
+    body: JSON.stringify({ list_id: Number(listId), source: "lista qualificada" }),
+  });
+  $("#experimentLeadSummary").textContent = `${result.total} processados / ${result.eligible} elegiveis / ${result.blocked} bloqueados`;
+  showStatus("Leads criados com guardrails de higiene e supressao.");
+  await loadExperimentLeads();
+}
+
+async function loadExperimentLeads() {
+  const data = await api("/api/experiments/leads?limit=200");
+  renderExperimentLeads(data.items || []);
+}
+
+function renderExperimentLeads(items) {
+  const container = $("#experimentLeadsTable");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhum lead criado ainda.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["ID", "Empresa", "Lista", "Email", "Status", "Score", "Bloqueio"],
+    items.map((lead) => [
+      lead.id,
+      escapeHtml(lead.trade_name || lead.legal_name || lead.cnpj || "-"),
+      escapeHtml(fmt(lead.list_name)),
+      escapeHtml(fmt(lead.email)),
+      badge(lead.status, experimentStatusTone(lead.status)),
+      badge(lead.score, scoreTone(lead.score || 0)),
+      escapeHtml(fmt(lead.block_reason)),
+    ]),
+  );
+}
+
+async function createCampaignFromForm() {
+  const payload = {
+    name: $("#campaignName").value.trim(),
+    niche: $("#campaignNiche").value.trim(),
+    subject: $("#campaignSubject").value.trim(),
+    body: $("#campaignBody").value.trim(),
+    cta_url: $("#campaignCta").value.trim(),
+    daily_limit: Number($("#campaignDailyLimit").value || 50),
+    interval_seconds: Number($("#campaignInterval").value || 300),
+  };
+  if (!payload.name || !payload.subject || !payload.body) {
+    return showStatus("Informe nome, assunto e corpo da campanha.", "warn");
+  }
+  await api("/api/experiments/campaigns", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  $("#campaignName").value = "";
+  $("#campaignSubject").value = "";
+  $("#campaignBody").value = "";
+  showStatus("Campanha simulada criada.");
+  await loadCampaigns();
+}
+
+async function loadCampaigns() {
+  const data = await api("/api/experiments/campaigns");
+  renderCampaigns(data.items || []);
+}
+
+function renderCampaigns(items) {
+  const container = $("#campaignsTable");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhuma campanha criada ainda.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["ID", "Campanha", "Status", "Modo", "Envios", "Cliques", "Respostas", "Conversoes", "Bloqueios", ""],
+    items.map((campaign) => {
+      const funnel = campaign.funnel || {};
+      return [
+        campaign.id,
+        `<span class="truncate" title="${escapeHtml(campaign.name)}">${escapeHtml(campaign.name)}</span>`,
+        badge(campaign.status, experimentStatusTone(campaign.status)),
+        badge(campaign.mode, campaign.mode === "simulated" ? "purple" : "red"),
+        badge(funnel.sent || 0, "green"),
+        badge(funnel.clicked || 0, "amber"),
+        badge(funnel.replied || 0, "amber"),
+        badge(funnel.converted || 0, "green"),
+        badge(funnel.blocked || 0, funnel.blocked ? "red" : ""),
+        `<button class="row-action" data-simulate-campaign="${campaign.id}">Simular</button>`,
+      ];
+    }),
+  );
+  $$("[data-simulate-campaign]").forEach((button) => {
+    button.addEventListener("click", () => simulateCampaign(button.dataset.simulateCampaign));
+  });
+}
+
+async function simulateCampaign(campaignId) {
+  const listId = $("#experimentList").value;
+  if (!listId) return showStatus("Selecione uma lista para simular.", "warn");
+  const result = await api(`/api/experiments/campaigns/${campaignId}/simulate`, {
+    method: "POST",
+    body: JSON.stringify({ list_id: Number(listId), limit: 50 }),
+  });
+  const simulation = result.simulation || {};
+  showStatus(`${simulation.sent || 0} envios simulados / ${simulation.blocked || 0} bloqueados.`);
+  await Promise.all([loadCampaigns(), loadExperimentLeads()]);
+}
+
+async function recordExperimentEvent() {
+  const sendId = Number($("#experimentSendId").value || 0);
+  const eventType = $("#experimentEventType").value;
+  if (!sendId) return showStatus("Informe o ID do envio.", "warn");
+  await api("/api/experiments/events", {
+    method: "POST",
+    body: JSON.stringify({ send_id: sendId, event_type: eventType }),
+  });
+  showStatus("Evento registrado no funil.");
+  await Promise.all([loadCampaigns(), loadExperimentLeads()]);
+}
+
 async function seed() {
   const result = await api("/api/seed", { method: "POST", body: "{}" });
   showStatus(result.message || "Amostra carregada.");
@@ -654,6 +790,11 @@ function wireEvents() {
   $("#brasilApiBtn").addEventListener("click", lookupBrasilApi);
   $("#enrichCompanyBtn").addEventListener("click", enrichCompanyFromForm);
   $("#loadEnrichmentBtn").addEventListener("click", loadEnrichmentFromForm);
+  $("#createLeadsFromListBtn").addEventListener("click", createLeadsFromExperimentList);
+  $("#refreshExperimentLeadsBtn").addEventListener("click", loadExperimentLeads);
+  $("#createCampaignBtn").addEventListener("click", createCampaignFromForm);
+  $("#refreshCampaignsBtn").addEventListener("click", loadCampaigns);
+  $("#recordExperimentEventBtn").addEventListener("click", recordExperimentEvent);
   $("#seedBtn").addEventListener("click", seed);
   $("#seedBtnImport").addEventListener("click", seed);
   $("#validateEmailsBtn").addEventListener("click", validateFreeEmails);

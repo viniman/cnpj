@@ -22,6 +22,7 @@
           <button class="nav-item" data-view="lists">Listas</button>
           <button class="nav-item" data-view="import">Importacao</button>
           <button class="nav-item" data-view="enrichment">Enriquecimento</button>
+          <button class="nav-item" data-view="experiments">Experimentos</button>
           <button class="nav-item" data-view="hygiene">Higiene</button>
           <button class="nav-item" data-view="audit">Auditoria</button>
         </nav>
@@ -258,6 +259,111 @@
             <div id="enrichmentResult" class="table-wrap">
               <div class="empty-state">Informe uma empresa para iniciar o enriquecimento.</div>
             </div>
+          </section>
+        </section>
+
+        <section id="experiments" class="view">
+          <div class="content-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Leads de lista</h2>
+                <button id="refreshExperimentLeadsBtn" class="button">Atualizar</button>
+              </div>
+              <div class="form-grid one">
+                <label>
+                  Lista qualificada
+                  <select id="experimentList" class="input"></select>
+                </label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <button id="createLeadsFromListBtn" class="button primary">Criar leads</button>
+                <p id="experimentLeadSummary" class="muted">Selecione uma lista para criar leads.</p>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Evento manual</h2>
+              </div>
+              <div class="form-grid">
+                <label>
+                  ID do envio
+                  <input id="experimentSendId" class="input" type="number" min="1" placeholder="1" />
+                </label>
+                <label>
+                  Evento
+                  <select id="experimentEventType" class="input">
+                    <option value="delivered">Entregue</option>
+                    <option value="clicked">Clique</option>
+                    <option value="replied">Resposta</option>
+                    <option value="converted">Conversao</option>
+                    <option value="bounce">Bounce</option>
+                    <option value="complaint">Complaint</option>
+                  </select>
+                </label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <button id="recordExperimentEventBtn" class="button">Registrar evento</button>
+                <p class="muted">Eventos alimentam o funil sem enviar e-mail real.</p>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Nova campanha simulada</h2>
+            </div>
+            <div class="form-grid">
+              <label>
+                Nome
+                <input id="campaignName" class="input" placeholder="Teste padarias SP" />
+              </label>
+              <label>
+                Nicho
+                <input id="campaignNiche" class="input" placeholder="Padarias SP" />
+              </label>
+              <label>
+                Assunto
+                <input id="campaignSubject" class="input" placeholder="Ideia rapida para {{nome_empresa}}" />
+              </label>
+              <label>
+                CTA
+                <input id="campaignCta" class="input" placeholder="https://usevagou.com.br/contato" />
+              </label>
+              <label>
+                Limite diario
+                <input id="campaignDailyLimit" class="input" type="number" min="1" value="50" />
+              </label>
+              <label>
+                Intervalo em segundos
+                <input id="campaignInterval" class="input" type="number" min="1" value="300" />
+              </label>
+            </div>
+            <div class="form-grid one">
+              <label>
+                Corpo
+                <textarea id="campaignBody" class="textarea" placeholder="Mensagem direta, B2B e com motivo claro do contato."></textarea>
+              </label>
+            </div>
+            <div class="toolbar panel-toolbar">
+              <button id="createCampaignBtn" class="button primary">Criar campanha</button>
+              <p class="muted">Campanhas deste MVP sempre nascem em modo simulado.</p>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Campanhas</h2>
+              <button id="refreshCampaignsBtn" class="button">Atualizar</button>
+            </div>
+            <div id="campaignsTable" class="table-wrap"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Leads</h2>
+            </div>
+            <div id="experimentLeadsTable" class="table-wrap"></div>
           </section>
         </section>
 
