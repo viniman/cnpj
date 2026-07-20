@@ -5270,6 +5270,311 @@ def playbook_library(conn):
     }
 
 
+NOTIFICATION_STATUSES = {"pending", "sent", "read", "dismissed"}
+HANDOFF_NOTIFICATION_KEYWORDS = ("interesse", "reuniao", "duvida", "ambigu", "pessoa errada", "lead quente")
+
+
+def parse_notification_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["metadata"] = json.loads(data.pop("metadata_json") or "{}")
+    return data
+
+
+def notification_exists(conn, notification_type, source_type, source_id):
+    row = conn.execute(
+        """
+        SELECT id
+        FROM notifications
+        WHERE org_id = ?
+          AND notification_type = ?
+          AND source_type = ?
+          AND source_id = ?
+          AND status != 'dismissed'
+        LIMIT 1
+        """,
+        (ORG_ID, notification_type, source_type, str(source_id)),
+    ).fetchone()
+    return row is not None
+
+
+def create_notification(conn, notification_type, severity, title, body, source_type, source_id, metadata=None, channel="local"):
+    if notification_exists(conn, notification_type, source_type, source_id):
+        return None
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO notifications (
+            org_id, notification_type, severity, channel, status, title, body,
+            source_type, source_id, metadata_json, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            ORG_ID,
+            notification_type,
+            severity,
+            channel,
+            "pending",
+            title,
+            body,
+            source_type,
+            str(source_id),
+            json.dumps(metadata or {}, ensure_ascii=True),
+            timestamp,
+            timestamp,
+        ),
+    )
+    audit(
+        conn,
+        "create_notification",
+        "notification",
+        cursor.lastrowid,
+        {"type": notification_type, "source_type": source_type, "source_id": str(source_id)},
+    )
+    return parse_notification_row(
+        conn.execute("SELECT * FROM notifications WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    )
+
+
+def notification_summary(conn):
+    rows = conn.execute(
+        """
+        SELECT status, COUNT(*) AS total
+        FROM notifications
+        WHERE org_id = ?
+        GROUP BY status
+        """,
+        (ORG_ID,),
+    ).fetchall()
+    summary = {"pending": 0, "sent": 0, "read": 0, "dismissed": 0, "total": 0}
+    for row in rows:
+        status = row["status"]
+        total = int(row["total"] or 0)
+        summary[status] = total
+        summary["total"] += total
+    severity_rows = conn.execute(
+        """
+        SELECT severity, COUNT(*) AS total
+        FROM notifications
+        WHERE org_id = ? AND status IN ('pending', 'sent')
+        GROUP BY severity
+        """,
+        (ORG_ID,),
+    ).fetchall()
+    summary["pending_by_severity"] = {row["severity"]: int(row["total"] or 0) for row in severity_rows}
+    return summary
+
+
+def list_notifications(conn, params=None):
+    params = params or {}
+    status = (params.get("status") or "").strip()
+    limit = min(int(params.get("limit", 100) or 100), 500)
+    where = ["org_id = ?"]
+    values = [ORG_ID]
+    if status:
+        if status not in NOTIFICATION_STATUSES:
+            raise ValueError("Status de notificacao invalido")
+        where.append("status = ?")
+        values.append(status)
+    rows = conn.execute(
+        """
+        SELECT *
+        FROM notifications
+        WHERE %s
+        ORDER BY
+          CASE severity
+            WHEN 'critical' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            WHEN 'success' THEN 4
+            ELSE 5
+          END,
+          id DESC
+        LIMIT ?
+        """
+        % " AND ".join(where),
+        values + [limit],
+    ).fetchall()
+    return {"summary": notification_summary(conn), "items": [parse_notification_row(row) for row in rows]}
+
+
+def company_label(row):
+    return row["trade_name"] or row["legal_name"] or row["email"] or "Lead sem empresa"
+
+
+def handoff_should_notify(row):
+    priority = (row["priority"] or "").lower()
+    if priority in ("urgent", "high"):
+        return True
+    reason = (row["reason"] or "").lower()
+    return any(keyword in reason for keyword in HANDOFF_NOTIFICATION_KEYWORDS)
+
+
+def generate_handoff_notifications(conn):
+    rows = conn.execute(
+        """
+        SELECT h.*, l.email, c.legal_name, c.trade_name
+        FROM handoffs h
+        LEFT JOIN leads l ON l.id = h.lead_id
+        LEFT JOIN companies c ON c.id = l.company_id
+        WHERE h.org_id = ? AND h.status = 'pending'
+        ORDER BY h.id ASC
+        """,
+        (ORG_ID,),
+    ).fetchall()
+    created = []
+    for row in rows:
+        if not handoff_should_notify(row):
+            continue
+        priority = (row["priority"] or "medium").lower()
+        severity = "critical" if priority == "urgent" else "high" if priority == "high" else "medium"
+        item = create_notification(
+            conn,
+            "hot_lead",
+            severity,
+            "Handoff pendente: %s" % company_label(row),
+            row["reason"] or "Handoff pendente exige decisao humana.",
+            "handoff",
+            row["id"],
+            {
+                "priority": priority,
+                "lead_id": row["lead_id"],
+                "email": row["email"] or "",
+                "company": company_label(row),
+            },
+        )
+        if item:
+            created.append(item)
+    return created
+
+
+def generate_campaign_pause_notifications(conn):
+    rows = conn.execute(
+        """
+        SELECT p.*, c.name AS campaign_name, c.status AS campaign_status
+        FROM pause_events p
+        LEFT JOIN campaigns c ON c.id = p.campaign_id
+        WHERE c.org_id = ? OR c.id IS NULL
+        ORDER BY p.id ASC
+        """,
+        (ORG_ID,),
+    ).fetchall()
+    created = []
+    for row in rows:
+        severity = "critical" if row["pause_type"] == "auto" else "high"
+        item = create_notification(
+            conn,
+            "campaign_paused",
+            severity,
+            "Campanha pausada: %s" % (row["campaign_name"] or "global"),
+            row["reason"] or "Pausa operacional ativa.",
+            "pause_event",
+            row["id"],
+            {
+                "campaign_id": row["campaign_id"],
+                "campaign_status": row["campaign_status"] or "",
+                "pause_type": row["pause_type"],
+            },
+        )
+        if item:
+            created.append(item)
+    return created
+
+
+def parse_period_end(value):
+    value = (value or "").strip()
+    if not value:
+        return None
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ"):
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def generate_okr_notifications(conn):
+    dashboard_data = okr_dashboard(conn)
+    today = datetime.utcnow()
+    created = []
+    for objective in dashboard_data["objectives"]:
+        if objective["id"] == "default":
+            continue
+        period_end = parse_period_end(objective.get("period_end"))
+        days_left = (period_end - today).days if period_end else None
+        for key_result in objective.get("key_results", []):
+            source_id = key_result["id"]
+            if key_result["progress"] >= 100:
+                item = create_notification(
+                    conn,
+                    "okr_achieved",
+                    "success",
+                    "KR atingido: %s" % key_result["title"],
+                    "Objetivo: %s" % objective["title"],
+                    "key_result",
+                    source_id,
+                    {
+                        "objective_id": objective["id"],
+                        "progress": key_result["progress"],
+                        "current_value": key_result["current_value"],
+                        "target_value": key_result["target_value"],
+                    },
+                )
+                if item:
+                    created.append(item)
+            if days_left is not None and 0 <= days_left <= 14 and key_result["progress"] < 50:
+                item = create_notification(
+                    conn,
+                    "okr_at_risk",
+                    "high",
+                    "KR em risco: %s" % key_result["title"],
+                    "Faltam %s dias e o progresso esta em %s%%." % (days_left, key_result["progress"]),
+                    "key_result",
+                    source_id,
+                    {
+                        "objective_id": objective["id"],
+                        "days_left": days_left,
+                        "progress": key_result["progress"],
+                        "current_value": key_result["current_value"],
+                        "target_value": key_result["target_value"],
+                    },
+                )
+                if item:
+                    created.append(item)
+    return created
+
+
+def generate_notifications(conn):
+    created = []
+    created.extend(generate_handoff_notifications(conn))
+    created.extend(generate_campaign_pause_notifications(conn))
+    created.extend(generate_okr_notifications(conn))
+    return {"created": len(created), "items": created, "summary": notification_summary(conn)}
+
+
+def update_notification_status(conn, notification_id, status):
+    if status not in ("read", "dismissed"):
+        raise ValueError("Status de notificacao invalido")
+    row = conn.execute(
+        "SELECT * FROM notifications WHERE id = ? AND org_id = ?",
+        (int(notification_id), ORG_ID),
+    ).fetchone()
+    if not row:
+        raise ValueError("Notificacao nao encontrada")
+    timestamp = now_iso()
+    field = "read_at" if status == "read" else "dismissed_at"
+    conn.execute(
+        "UPDATE notifications SET status = ?, updated_at = ?, %s = ? WHERE id = ?" % field,
+        (status, timestamp, timestamp, int(notification_id)),
+    )
+    audit(conn, "update_notification_status", "notification", int(notification_id), {"status": status})
+    return parse_notification_row(
+        conn.execute("SELECT * FROM notifications WHERE id = ?", (int(notification_id),)).fetchone()
+    )
+
+
 def command_center_metrics(conn):
     pending_approvals = conn.execute(
         "SELECT COUNT(*) AS total FROM approval_queue WHERE org_id = ? AND status = 'pending'",

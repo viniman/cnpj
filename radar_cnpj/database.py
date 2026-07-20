@@ -752,6 +752,26 @@ def init_db():
                 FOREIGN KEY (version_id) REFERENCES playbook_versions(id)
             );
 
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                notification_type TEXT NOT NULL,
+                severity TEXT NOT NULL DEFAULT 'info',
+                channel TEXT NOT NULL DEFAULT 'local',
+                status TEXT NOT NULL DEFAULT 'pending',
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                source_type TEXT NOT NULL,
+                source_id TEXT NOT NULL,
+                metadata_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                sent_at TEXT,
+                read_at TEXT,
+                dismissed_at TEXT,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -865,6 +885,8 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_playbooks_status ON playbooks(org_id, status);
             CREATE INDEX IF NOT EXISTS idx_playbook_versions_active ON playbook_versions(playbook_id, status);
             CREATE INDEX IF NOT EXISTS idx_playbook_applications_active ON workspace_playbook_applications(org_id, status);
+            CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(org_id, status);
+            CREATE INDEX IF NOT EXISTS idx_notifications_source ON notifications(org_id, notification_type, source_type, source_id);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);

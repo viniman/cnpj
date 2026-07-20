@@ -44,6 +44,7 @@ from .services import (
     get_sequence,
     import_source,
     create_okr,
+    generate_notifications,
     record_agent_cost,
     list_agent_actions,
     list_approvals,
@@ -55,6 +56,7 @@ from .services import (
     list_journeys,
     list_lists,
     list_meetings,
+    list_notifications,
     okr_dashboard,
     playbook_library,
     list_priority_queue,
@@ -72,6 +74,7 @@ from .services import (
     seed_sample,
     simulate_campaign,
     update_meeting_status,
+    update_notification_status,
     validate_emails,
 )
 from .official_sources import catalog, download_files, import_brasilapi_cnpj, list_snapshot_files, sync_official_snapshot
@@ -166,6 +169,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(agent_governance(conn))
                 elif parsed.path == "/api/playbooks":
                     self.send_json(playbook_library(conn))
+                elif parsed.path == "/api/notifications":
+                    self.send_json(list_notifications(conn, params))
                 elif parsed.path == "/api/okrs":
                     self.send_json(okr_dashboard(conn))
                 elif parsed.path == "/api/companies":
@@ -373,6 +378,12 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, create_playbook_version(conn, int(parts[2]), data), 201)
                 elif len(parts) == 4 and parts[1] == "playbooks" and parts[3] == "apply":
                     self.send_json_commit(conn, apply_playbook(conn, int(parts[2]), data), 201)
+                elif parsed.path == "/api/notifications/generate":
+                    self.send_json_commit(conn, generate_notifications(conn), 201)
+                elif len(parts) == 4 and parts[1] == "notifications" and parts[3] == "mark-read":
+                    self.send_json_commit(conn, update_notification_status(conn, int(parts[2]), "read"))
+                elif len(parts) == 4 and parts[1] == "notifications" and parts[3] == "dismiss":
+                    self.send_json_commit(conn, update_notification_status(conn, int(parts[2]), "dismissed"))
                 elif len(parts) == 4 and parts[1] == "icp-rules" and parts[3] == "prioritize":
                     self.send_json_commit(
                         conn,
