@@ -1097,3 +1097,30 @@ read_total=1
 pending_after_read=6
 types=campaign_paused,okr_at_risk,hot_lead,okr_achieved
 ```
+
+## 2026-07-20 - Inicio da fase 16 de comparacao multi-workspace
+
+Branch: `feature/16-workspace-comparison-foundation`
+
+Estado inicial:
+
+- Fase 15 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 57 tests`, `OK`.
+
+Meta da fase:
+
+- Criar comparacao executiva de workspaces.
+- Permitir criar perfis de workspace internos.
+- Calcular metricas essenciais por `org_id`.
+- Criar snapshots executivos manuais.
+- Expor API e painel local no Command Center.
+
+Documento principal:
+
+- `docs/WORKSPACE_COMPARISON_SPEC.md`
+
+Commits:
+
+- `pending docs: define workspace comparison phase`

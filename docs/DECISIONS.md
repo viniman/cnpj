@@ -430,3 +430,31 @@ Consequencias:
   campanhas ou OKRs.
 - Fases futuras podem adicionar Slack/WhatsApp como adaptadores de entrega.
 - Dedupe distribuido e preferencias por usuario ficam fora do MVP local.
+
+## ADR-018 - Comparacao multi-workspace nasce como camada executiva
+
+Data: 2026-07-20
+
+Decisao:
+
+- Criar workspaces em `organizations` e `company_profiles`.
+- Calcular metricas executivas agrupadas por `org_id`.
+- Guardar snapshots em `workspace_metric_snapshots`.
+- Manter o restante do MVP local operando com o workspace interno enquanto a
+  migracao multi-tenant completa nao chega.
+
+Racional:
+
+- O prompt pede comparar empresas/workspaces, mas reescrever todos os servicos
+  para `org_id` dinamico de uma vez aumentaria risco e blast radius.
+- Uma camada executiva ja cria valor e evidencia quais metricas precisam ser
+  isoladas por workspace.
+- Snapshots permitem acompanhar tendencia futura mesmo antes de grafico
+  historico completo.
+
+Consequencias:
+
+- Workspaces recem-criados podem aparecer com zeros ate receberem dados.
+- A UI deve deixar claro que a comparacao e executiva, nao troca de contexto
+  operacional.
+- Fases futuras devem remover gradualmente o `ORG_ID` fixo dos servicos.
