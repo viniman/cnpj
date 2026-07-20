@@ -1023,3 +1023,29 @@ active_playbook_name=Smoke Playbook 20260720015844
 active_version=2
 playbooks_after=2
 ```
+
+## 2026-07-20 - Inicio da fase 15 de notificacoes proativas
+
+Branch: `feature/15-notification-center-foundation`
+
+Estado inicial:
+
+- Fase 14 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 54 tests`, `OK`.
+
+Meta da fase:
+
+- Criar fila local de notificacoes proativas.
+- Gerar alertas auditaveis para handoffs, campanhas pausadas e OKRs.
+- Permitir marcar notificacao como lida ou dispensada sem alterar a origem.
+- Expor API e painel local no Command Center.
+
+Documento principal:
+
+- `docs/NOTIFICATION_CENTER_SPEC.md`
+
+Commits:
+
+- `pending docs: define notification center phase`

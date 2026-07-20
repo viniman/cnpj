@@ -405,3 +405,28 @@ Consequencias:
 - Fases futuras podem transformar uma aplicacao em preenchimento guiado de ICP,
   template, sequencia e OKR.
 - Comparacao multi-workspace deve sempre indicar a versao do playbook usada.
+
+## ADR-017 - Notificacoes sao consequencias auditaveis, nao fonte de verdade
+
+Data: 2026-07-20
+
+Decisao:
+
+- Notificacoes ficam em `notifications`.
+- Cada notificacao referencia `source_type` e `source_id`.
+- Marcar como lida ou dispensada altera apenas a notificacao.
+- A geracao local deve ser idempotente para a mesma origem ativa.
+
+Racional:
+
+- O prompt de governanca pede notificacao proativa, mas sem esconder o dado que
+  originou o alerta.
+- Alertas precisam acelerar a operacao sem duplicar regras de negocio.
+- Canais externos futuros devem consumir a mesma fila, preservando auditoria.
+
+Consequencias:
+
+- O Command Center pode priorizar o que merece atencao sem editar handoffs,
+  campanhas ou OKRs.
+- Fases futuras podem adicionar Slack/WhatsApp como adaptadores de entrega.
+- Dedupe distribuido e preferencias por usuario ficam fora do MVP local.

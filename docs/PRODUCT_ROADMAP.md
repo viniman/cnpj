@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 14 implementada localmente em `feature/14-playbook-library-foundation`.
+Status: fase 15 iniciada em `feature/15-notification-center-foundation`.
 
 Fases:
 
@@ -120,7 +120,8 @@ Fases:
 7. OKRs/KPIs ligados a metricas reais.
 8. Governanca de agente, versionamento e custo de IA.
 9. Biblioteca de playbooks reutilizaveis por workspace.
-10. Comparacao multi-workspace no dashboard executivo.
+10. Notificacoes proativas para lead quente, campanha pausada e OKR em risco.
+11. Comparacao multi-workspace no dashboard executivo.
 
 ## Camada 6 - SaaS monetizavel
 
