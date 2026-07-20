@@ -525,6 +525,7 @@ Commits:
 - `81a98f0 docs: define meeting scheduling phase`
 - `433a916 feat: add meeting scheduling backend`
 - `ca7a53a feat: add meeting scheduling workspace UI`
+- `0607319 docs: add phase 08 meeting scheduling notes`
 
 Implementado:
 
@@ -552,4 +553,25 @@ Resultado esperado nesta etapa:
 ```text
 Ran 37 tests
 OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+company_id=11
+company_email=dados@axisanalytics.com.br
+list_id=12
+companies_added=1
+leads_eligible=1
+lead_id=20
+reply_id=3
+classification=interest_meeting
+handoff_id=3
+handoff_priority=high
+meeting_id=1
+meeting_status_after_create=scheduled
+meeting_status_after_update=completed
+meetings_listed=1
+agent_actions_total=18
 ```

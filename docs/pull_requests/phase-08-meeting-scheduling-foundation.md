@@ -44,7 +44,7 @@ ou envio automatico.
 - [x] API lista reunioes com contexto da empresa e do lead.
 - [x] UI permite criar e revisar reunioes na aba `Respostas`.
 - [x] Testes automatizados cobrem criacao, bloqueio e status.
-- [ ] Smoke test HTTP final executado apos reiniciar servidor.
+- [x] Smoke test HTTP final executado apos reiniciar servidor.
 
 ## Como testar localmente
 
@@ -77,3 +77,21 @@ python -m radar_cnpj.server
 - Nao ha remoto Git configurado, entao este PR esta documentado localmente.
 - Esta fase nao envia convite nem sincroniza calendario.
 - Opt-out e supressao bloqueiam criacao de reuniao.
+
+## Smoke HTTP
+
+```text
+health=True
+company_email=dados@axisanalytics.com.br
+leads_eligible=1
+lead_id=20
+reply_id=3
+classification=interest_meeting
+handoff_id=3
+handoff_priority=high
+meeting_id=1
+meeting_status_after_create=scheduled
+meeting_status_after_update=completed
+meetings_listed=1
+agent_actions_total=18
+```
