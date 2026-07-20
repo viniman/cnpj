@@ -1243,3 +1243,29 @@ dashboard_lists=0
 dashboard_companies=0
 workspace_restored=1
 ```
+
+## 2026-07-20 - Inicio da fase 18 de contexto em experimentos
+
+Branch: `feature/18-experiment-context-foundation`
+
+Estado inicial:
+
+- Fase 17 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 64 tests`, `OK`.
+
+Meta da fase:
+
+- Migrar leads, campanhas, simulacoes e eventos de experimento para o workspace
+  ativo.
+- Bloquear acesso cruzado a campanha/lista/envio de outro workspace.
+- Preservar envio real fora de escopo; o provider continua `simulated`.
+
+Documento principal:
+
+- `docs/EXPERIMENT_CONTEXT_SPEC.md`
+
+Commits:
+
+- `pending docs: define experiment context phase`

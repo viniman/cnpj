@@ -484,3 +484,29 @@ Consequencias:
 - Durante a transicao, algumas telas continuam operando no workspace interno.
 - Testes de cada fase devem provar quais superficies foram migradas.
 - A UI deve recarregar dados contextuais ao trocar workspace.
+
+## ADR-020 - Experimentos comerciais seguem o workspace ativo
+
+Data: 2026-07-20
+
+Decisao:
+
+- Leads de experimento e campanhas simuladas devem usar `current_org_id(conn)`.
+- A UI nao envia `org_id` para escolher tenant operacional.
+- Listas, campanhas, envios e eventos devem ser validados no backend contra o
+  workspace ativo antes de qualquer criacao ou simulacao.
+
+Racional:
+
+- A Fase 17 tornou listas contextuais; o fluxo seguinte e transformar listas em
+  leads e campanhas sem misturar empresas internas diferentes.
+- O modulo ainda e simulado, mas ja representa risco operacional se gerar
+  metricas ou supressoes no workspace errado.
+- Validacao no backend mantem a decisao em trilho duro, nao em estado de UI.
+
+Consequencias:
+
+- Campanhas criadas antes da migracao permanecem vinculadas ao `org_id` salvo.
+- Ao trocar workspace, campanhas e leads de outro workspace desaparecem das
+  telas migradas.
+- Sequencias e agente SDR ainda precisam de fases proprias de migracao.
