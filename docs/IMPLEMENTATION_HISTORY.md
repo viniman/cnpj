@@ -1423,3 +1423,33 @@ Meta da fase:
 Documento principal:
 
 - `docs/ICP_CONTEXT_SPEC.md`
+
+Commits:
+
+- `3565f1b docs: define icp context phase`
+- `8ea15fc feat: scope icp prioritization to active workspace`
+
+Implementado:
+
+- Regras ICP criadas, listadas e detalhadas a partir do workspace ativo.
+- Priorizacao recusando regra ou lista de outro workspace.
+- Candidatos de lista e leads auxiliares validados pelo workspace ativo.
+- Itens de `lead_priority_queue` gravados, listados e decididos por workspace.
+- Auditoria e `agent_actions` de priorizacao/decisao gravados no contexto
+  ativo.
+- Teste multi-workspace em `tests/test_icp_prioritization.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_icp_prioritization
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 68 tests
+OK
+```

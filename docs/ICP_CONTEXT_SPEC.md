@@ -62,3 +62,16 @@ sugestoes ou decisoes humanas.
 - Itens priorizados e leads auxiliares ficam no workspace ativo.
 - Logs de `agent_actions` da priorizacao e da decisao ficam no workspace ativo.
 - Testes automatizados provam isolamento entre dois workspaces.
+
+## Implementado nesta fase
+
+- `create_icp_rule`, `get_icp_rule` e `list_icp_rules` usam o workspace ativo.
+- `icp_candidate_rows` valida listas contra o workspace ativo.
+- `prioritize_icp_rule` recusa regra ou lista de outro workspace antes de
+  avaliar candidatos.
+- `lead_priority_queue` nasce e atualiza itens no workspace ativo.
+- `list_priority_queue` e `decide_priority_queue_item` filtram pelo workspace
+  ativo.
+- Auditoria e `agent_actions` da priorizacao/decisao recebem `org_id` ativo.
+- `tests/test_icp_prioritization.py` cobre isolamento entre workspace interno
+  e workspace secundario.

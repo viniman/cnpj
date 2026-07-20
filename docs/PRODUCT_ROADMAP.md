@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 21 iniciada localmente em `feature/21-icp-context-foundation`.
+Status: fase 21 implementada localmente em `feature/21-icp-context-foundation`.
 
 Fases:
 

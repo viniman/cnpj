@@ -780,6 +780,8 @@ python -m unittest discover -s tests
   versoes e renderizacao nao atravessam workspaces.
 - Sequencias, jornadas, aprovacoes humanas e acoes de cadencia tambem usam o
   workspace ativo; IDs de outro workspace sao recusados pelo backend.
+- ICP estruturado e fila SDR tambem usam o workspace ativo; regras, listas e
+  sugestoes de outro workspace sao recusadas pelo backend.
 
 ## Proximas fases sugeridas
 
