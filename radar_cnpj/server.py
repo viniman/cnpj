@@ -80,6 +80,10 @@ class RadarHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def send_json_commit(self, conn, payload, status=200):
+        conn.commit()
+        self.send_json(payload, status=status)
+
     def send_error_json(self, message, status=400):
         self.send_json({"error": message}, status=status)
 
@@ -142,6 +146,7 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         params.get("format", "csv"),
                         params.get("purpose", ""),
                     )
+                    conn.commit()
                     extension = "xlsx" if params.get("format") == "xlsx" else "csv"
                     self.send_response(200)
                     self.send_header("Content-Type", content_type)
@@ -177,7 +182,7 @@ class RadarHandler(SimpleHTTPRequestHandler):
             with connect() as conn:
                 if parsed.path == "/api/seed":
                     result = seed_sample(conn)
-                    self.send_json(result)
+                    self.send_json_commit(conn, result)
                 elif parsed.path == "/api/import":
                     result = import_source(
                         conn,
@@ -187,19 +192,19 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         data.get("legal_basis") or "Legitimo interesse B2B",
                         data.get("limit") or 1000,
                     )
-                    self.send_json(result)
+                    self.send_json_commit(conn, result)
                 elif parsed.path == "/api/lists":
                     name = (data.get("name") or "").strip()
                     if not name:
                         self.send_error_json("Nome da lista e obrigatorio")
                     else:
-                        self.send_json(create_list(conn, name, data.get("description") or ""), 201)
+                        self.send_json_commit(conn, create_list(conn, name, data.get("description") or ""), 201)
                 elif len(parts) == 4 and parts[1] == "lists" and parts[3] == "companies":
                     ids = data.get("company_ids") or []
-                    self.send_json(add_companies_to_list(conn, int(parts[2]), ids))
+                    self.send_json_commit(conn, add_companies_to_list(conn, int(parts[2]), ids))
                 elif parsed.path == "/api/emails/validate":
                     results = validate_emails(conn, data.get("emails") or [], data.get("list_id"))
-                    self.send_json({"items": results})
+                    self.send_json_commit(conn, {"items": results})
                 elif parsed.path == "/api/emails/score":
                     results = score_emails(
                         conn,
@@ -207,7 +212,7 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         list_id=data.get("list_id"),
                         company_id=data.get("company_id"),
                     )
-                    self.send_json({"items": results})
+                    self.send_json_commit(conn, {"items": results})
                 elif parsed.path == "/api/enrichment/company":
                     result = enrich_company(
                         conn,
@@ -217,18 +222,19 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         source_url=data.get("source_url") or "",
                         ttl_days=data.get("ttl_days") or 30,
                     )
-                    self.send_json(result)
+                    self.send_json_commit(conn, result)
                 elif parsed.path == "/api/experiments/leads/from-list":
                     result = create_leads_from_list(
                         conn,
                         int(data.get("list_id") or 0),
                         data.get("source") or "lista qualificada",
                     )
-                    self.send_json(result)
+                    self.send_json_commit(conn, result)
                 elif parsed.path == "/api/experiments/campaigns":
-                    self.send_json(create_campaign(conn, data), 201)
+                    self.send_json_commit(conn, create_campaign(conn, data), 201)
                 elif len(parts) == 5 and parts[1] == "experiments" and parts[2] == "campaigns" and parts[4] == "simulate":
-                    self.send_json(
+                    self.send_json_commit(
+                        conn,
                         simulate_campaign(
                             conn,
                             int(parts[3]),
@@ -237,18 +243,19 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         )
                     )
                 elif parsed.path == "/api/experiments/events":
-                    self.send_json(record_campaign_event(conn, data))
+                    self.send_json_commit(conn, record_campaign_event(conn, data))
                 elif parsed.path == "/api/suppression":
-                    self.send_json(add_suppression(conn, data.get("email"), data.get("reason") or "manual"))
+                    self.send_json_commit(conn, add_suppression(conn, data.get("email"), data.get("reason") or "manual"))
                 elif parsed.path == "/api/sources/official/download":
                     snapshot = data.get("snapshot")
                     filenames = data.get("filenames") or []
                     if not snapshot or not filenames:
                         self.send_error_json("Informe snapshot e filenames")
                     else:
-                        self.send_json({"items": download_files(conn, snapshot, filenames, data.get("force") is True)})
+                        self.send_json_commit(conn, {"items": download_files(conn, snapshot, filenames, data.get("force") is True)})
                 elif parsed.path == "/api/sources/official/sync":
-                    self.send_json(
+                    self.send_json_commit(
+                        conn,
                         sync_official_snapshot(
                             conn,
                             snapshot=data.get("snapshot"),
@@ -258,7 +265,7 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         )
                     )
                 elif parsed.path == "/api/sources/brasilapi/cnpj":
-                    self.send_json(import_brasilapi_cnpj(conn, data.get("cnpj")))
+                    self.send_json_commit(conn, import_brasilapi_cnpj(conn, data.get("cnpj")))
                 else:
                     self.send_error_json("Endpoint nao encontrado", 404)
         except Exception as exc:
@@ -269,7 +276,7 @@ class RadarHandler(SimpleHTTPRequestHandler):
         try:
             with connect() as conn:
                 if len(parts) == 5 and parts[1] == "lists" and parts[3] == "companies":
-                    self.send_json(remove_company_from_list(conn, int(parts[2]), int(parts[4])))
+                    self.send_json_commit(conn, remove_company_from_list(conn, int(parts[2]), int(parts[4])))
                 else:
                     self.send_error_json("Endpoint nao encontrado", 404)
         except Exception as exc:
