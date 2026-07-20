@@ -752,4 +752,52 @@ Documento principal:
 
 Commits:
 
-- `pending docs: define lead replay timeline phase`
+- `033007e docs: define lead replay timeline phase`
+- `24be57a feat: add lead replay timeline API`
+- `c2f2e4f feat: add lead replay timeline UI`
+
+Implementado:
+
+- Endpoint `GET /api/leads/{lead_id}/timeline`.
+- Composicao de timeline por leitura das tabelas de origem.
+- Inclusao de lead, empresa, fila SDR, jornadas, aprovacoes, envios, eventos,
+  respostas, handoffs, reunioes, conversoes e `agent_actions`.
+- Cada item preserva `source_table`, `source_id`, `kind`, `origin_label`,
+  `detail` e `metadata`.
+- Ordenacao cronologica ascendente com desempate operacional estavel.
+- Painel `Replay por lead` na aba `Comando`.
+- Botao `Replay` nos cards do Kanban.
+- Testes cobrindo timeline completa e lead inexistente.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 43 tests
+OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+lead_id=25
+list_id=16
+sequence_id=6
+approval_id=7
+timeline_items=21
+actions=7
+approvals=2
+replies=1
+handoffs=2
+meetings=2
+conversions=2
+first_kind=lead
+kinds=agent_action,approval,approval_decision,conversion,event,handoff,handoff_decision,journey,lead,lead_status,meeting,meeting_status,reply,send
+```

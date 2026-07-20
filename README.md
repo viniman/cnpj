@@ -12,6 +12,8 @@ A aba `Comando` agrega a operacao em uma tela unica:
 - Inbox humano com itens vindos de `approval_queue`, `handoffs` e `meetings`.
 - CRM Kanban por estado do lead e da jornada.
 - Feed de atividade baseado em `agent_actions`, sempre com origem e motivo.
+- Replay por lead, com timeline auditavel de priorizacao, aprovacao, envio,
+  resposta, handoff, reuniao, conversao e acoes do agente.
 
 Endpoint:
 
@@ -33,6 +35,12 @@ Importante: o Command Center nao cria uma fonte paralela de verdade. Ele mostra
 os dados agregados e preserva `source_type` e `source_id` para a acao continuar
 no modulo de origem. As decisoes da inbox sao roteadas para esses mesmos
 modulos.
+
+Consultar replay de um lead:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/leads/1/timeline"
+```
 
 ## Rodar localmente
 
@@ -572,6 +580,7 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `GET /api/dashboard`
 - `GET /api/command-center`
 - `POST /api/command-center/actions`
+- `GET /api/leads/{id}/timeline`
 - `GET /api/companies`
 - `GET /api/companies/{id}`
 - `POST /api/import`
@@ -650,6 +659,8 @@ python -m unittest discover -s tests
 - Opt-out detectado em resposta vira supressao imediata.
 - Respostas ambiguas ou quentes viram handoff humano.
 - Reunioes exigem acao humana e respeitam opt-out/supressao.
+- Replay por lead e uma composicao de leitura; ele nao substitui as tabelas
+  originais nem altera regras de origem.
 
 ## Proximas fases sugeridas
 
@@ -661,5 +672,5 @@ python -m unittest discover -s tests
 6. Motor de score configuravel por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
 8. Templates de resposta manual assistida.
-9. Command Center com caixa unica de aprovacoes, handoffs e reunioes.
+9. OKRs/KPIs ligados a metricas reais do funil.
 10. Integracao futura com provedores de email somente com opt-out, bounce e limites.

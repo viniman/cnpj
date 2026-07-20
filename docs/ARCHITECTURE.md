@@ -96,6 +96,8 @@ Tabelas principais:
   nao substitui as regras dos modulos de origem.
 - A inbox acionavel do Command Center roteia decisoes para os servicos de
   origem, mantendo guardrails e auditoria existentes.
+- O replay por lead e uma composicao de leitura sobre tabelas de origem, com
+  `source_table`, `source_id`, origem e metadados para auditoria.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

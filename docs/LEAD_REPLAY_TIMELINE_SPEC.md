@@ -17,6 +17,7 @@ Command Center, sem criar nova fonte paralela de verdade.
 - Timeline consolidada a partir de:
   - `leads`
   - `companies`
+  - `lead_priority_queue`
   - `lead_journey`
   - `approval_queue`
   - `sends`
@@ -92,7 +93,7 @@ Resposta:
   reuniao e conversao quando esses dados existem.
 - Itens sao ordenados por `occurred_at` e desempate estavel.
 - Cada item possui `source_table`, `source_id`, `kind`, `title`,
-  `origin_label` e `detail`.
+  `origin_label`, `detail` e `metadata`.
 - UI do Command Center carrega a timeline de um `lead_id` e exibe resumo,
   empresa e eventos sem navegar para outra tela.
 - Testes automatizados cobrem composicao e ordenacao.
