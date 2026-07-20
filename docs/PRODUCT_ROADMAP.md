@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 19 implementada localmente em `feature/19-template-context-foundation`.
+Status: fase 20 iniciada em `feature/20-sequence-context-foundation`.
 
 Fases:
 
@@ -126,6 +126,7 @@ Fases:
 13. Migracao gradual dos modulos restantes para `current_org_id`.
 14. Experimentos comerciais simulados por workspace ativo.
 15. Templates de e-mail por workspace ativo.
+16. Sequencias, jornadas e aprovacoes por workspace ativo.
 
 ## Camada 6 - SaaS monetizavel
 
