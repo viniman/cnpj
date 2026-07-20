@@ -10,6 +10,7 @@ from .services import (
     add_suppression,
     activate_agent_config,
     agent_governance,
+    apply_playbook,
     approve_sequence_step,
     audit_events,
     create_icp_rule,
@@ -22,6 +23,8 @@ from .services import (
     create_leads_from_list,
     create_meeting,
     create_meeting_from_handoff,
+    create_playbook,
+    create_playbook_version,
     create_sequence,
     command_center_action,
     command_center,
@@ -53,6 +56,7 @@ from .services import (
     list_lists,
     list_meetings,
     okr_dashboard,
+    playbook_library,
     list_priority_queue,
     list_reply_classifications,
     list_sequences,
@@ -160,6 +164,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(command_center(conn))
                 elif parsed.path == "/api/agent-governance":
                     self.send_json(agent_governance(conn))
+                elif parsed.path == "/api/playbooks":
+                    self.send_json(playbook_library(conn))
                 elif parsed.path == "/api/okrs":
                     self.send_json(okr_dashboard(conn))
                 elif parsed.path == "/api/companies":
@@ -361,6 +367,12 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, create_agent_simulation(conn, data), 201)
                 elif parsed.path == "/api/agent-governance/costs":
                     self.send_json_commit(conn, record_agent_cost(conn, data), 201)
+                elif parsed.path == "/api/playbooks":
+                    self.send_json_commit(conn, create_playbook(conn, data), 201)
+                elif len(parts) == 4 and parts[1] == "playbooks" and parts[3] == "versions":
+                    self.send_json_commit(conn, create_playbook_version(conn, int(parts[2]), data), 201)
+                elif len(parts) == 4 and parts[1] == "playbooks" and parts[3] == "apply":
+                    self.send_json_commit(conn, apply_playbook(conn, int(parts[2]), data), 201)
                 elif len(parts) == 4 and parts[1] == "icp-rules" and parts[3] == "prioritize":
                     self.send_json_commit(
                         conn,

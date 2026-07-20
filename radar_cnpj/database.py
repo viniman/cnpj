@@ -696,6 +696,62 @@ def init_db():
                 FOREIGN KEY (config_version_id) REFERENCES agent_config_versions(id) ON DELETE SET NULL
             );
 
+            CREATE TABLE IF NOT EXISTS company_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL UNIQUE,
+                display_name TEXT NOT NULL,
+                vertical TEXT NOT NULL DEFAULT '',
+                default_tone TEXT NOT NULL DEFAULT '',
+                sending_domain TEXT NOT NULL DEFAULT '',
+                sender_name TEXT NOT NULL DEFAULT '',
+                brand_color TEXT NOT NULL DEFAULT '#2458d3',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS playbooks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'active',
+                source TEXT NOT NULL DEFAULT 'manual',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE (org_id, name),
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS playbook_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                playbook_id INTEGER NOT NULL,
+                version_number INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                description TEXT NOT NULL DEFAULT '',
+                content_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                activated_at TEXT,
+                archived_at TEXT,
+                UNIQUE (playbook_id, version_number),
+                FOREIGN KEY (playbook_id) REFERENCES playbooks(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS workspace_playbook_applications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                company_profile_id INTEGER NOT NULL,
+                playbook_id INTEGER NOT NULL,
+                version_id INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                note TEXT NOT NULL DEFAULT '',
+                applied_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (company_profile_id) REFERENCES company_profiles(id),
+                FOREIGN KEY (playbook_id) REFERENCES playbooks(id),
+                FOREIGN KEY (version_id) REFERENCES playbook_versions(id)
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -806,6 +862,9 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_agent_simulations_config ON agent_simulations(config_version_id);
             CREATE INDEX IF NOT EXISTS idx_agent_cost_log_created ON agent_cost_log(created_at);
             CREATE INDEX IF NOT EXISTS idx_agent_cost_log_lead ON agent_cost_log(lead_id);
+            CREATE INDEX IF NOT EXISTS idx_playbooks_status ON playbooks(org_id, status);
+            CREATE INDEX IF NOT EXISTS idx_playbook_versions_active ON playbook_versions(playbook_id, status);
+            CREATE INDEX IF NOT EXISTS idx_playbook_applications_active ON workspace_playbook_applications(org_id, status);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);
