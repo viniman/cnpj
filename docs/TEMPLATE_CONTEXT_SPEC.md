@@ -48,3 +48,15 @@ efeito colateral de lista global.
 - Renderizacao recusa template ou versao de outro workspace.
 - Rodape de compliance continua injetado pelo backend.
 - Testes automatizados provam isolamento entre dois workspaces.
+
+## Implementado nesta fase
+
+- `create_email_template` grava templates no workspace ativo.
+- `list_email_templates` lista apenas templates do workspace ativo.
+- `get_email_template` retorna vazio para template de outro workspace.
+- `create_email_template_version` recusa template fora do workspace ativo.
+- `template_version_for_render` filtra por workspace ativo tanto por template
+  quanto por versao.
+- `render_email_template` audita no workspace ativo e preserva rodape de
+  compliance.
+- Teste de isolamento multi-workspace em `tests/test_email_templates.py`.

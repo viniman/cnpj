@@ -1322,4 +1322,30 @@ Documento principal:
 
 Commits:
 
-- `pending docs: define template context phase`
+- `4c573e2 docs: define template context phase`
+- `b8cd137 feat: scope email templates to active workspace`
+
+Implementado:
+
+- Templates criados no workspace ativo.
+- Listagem e detalhe de templates filtrados por workspace ativo.
+- Criacao de versao bloqueada para template fora do workspace ativo.
+- Renderizacao bloqueada por template ou versao fora do workspace ativo.
+- Auditoria de criacao, versionamento e renderizacao no workspace ativo.
+- Rodape de compliance preservado no backend.
+- Teste de isolamento multi-workspace em `tests/test_email_templates.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_email_templates
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 66 tests
+OK
+```
