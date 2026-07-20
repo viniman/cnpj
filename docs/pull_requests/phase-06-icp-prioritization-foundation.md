@@ -49,7 +49,7 @@ opere sobre leads que passem por filtros objetivos de fit e compliance.
 - [x] Aceitar/rejeitar sugestao muda status.
 - [x] Priorizacao e decisoes registram `agent_actions`.
 - [x] Testes automatizados cobrem fit, bloqueio e decisao.
-- [ ] Smoke test HTTP final executado apos reiniciar servidor.
+- [x] Smoke test HTTP final executado apos reiniciar servidor.
 
 ## Como testar localmente
 
@@ -83,3 +83,18 @@ python -m radar_cnpj.server
 - Nao ha remoto Git configurado, entao este PR esta documentado localmente.
 - A fila SDR nao envia e-mail nem inscreve automaticamente em sequencia.
 - Esta fase reduz risco de drift do agente: o ICP e regra de backend.
+
+## Smoke HTTP
+
+```text
+health=True
+company_email=comercial@prismafin.com.br
+companies_added=1
+icp_rule_id=2
+suggested=1
+blocked=0
+queue_item_id=1
+priority_score=69
+accepted_status=accepted
+agent_actions_total=8
+```

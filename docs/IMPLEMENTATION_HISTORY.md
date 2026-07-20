@@ -373,6 +373,7 @@ Commits:
 - `99bcfcc docs: define icp prioritization phase`
 - `dcf0f0a feat: add icp prioritization backend`
 - `6d7eff8 feat: add icp prioritization workspace UI`
+- `3ebdcaf docs: add phase 06 icp prioritization notes`
 
 Implementado:
 
@@ -400,4 +401,22 @@ Resultado esperado nesta etapa:
 ```text
 Ran 30 tests
 OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+company_id=7
+company_email=comercial@prismafin.com.br
+list_id=9
+companies_added=1
+icp_rule_id=2
+suggested=1
+updated=0
+blocked=0
+queue_item_id=1
+priority_score=69
+accepted_status=accepted
+agent_actions_total=8
 ```
