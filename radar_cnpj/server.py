@@ -16,6 +16,8 @@ from .services import (
     create_email_template,
     create_email_template_version,
     create_leads_from_list,
+    create_meeting,
+    create_meeting_from_handoff,
     create_sequence,
     dashboard,
     decide_handoff,
@@ -40,6 +42,7 @@ from .services import (
     list_icp_rules,
     list_journeys,
     list_lists,
+    list_meetings,
     list_priority_queue,
     list_reply_classifications,
     list_sequences,
@@ -54,6 +57,7 @@ from .services import (
     search_companies,
     seed_sample,
     simulate_campaign,
+    update_meeting_status,
     validate_emails,
 )
 from .official_sources import catalog, download_files, import_brasilapi_cnpj, list_snapshot_files, sync_official_snapshot
@@ -227,6 +231,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(list_reply_classifications(conn, params))
                 elif parsed.path == "/api/handoffs":
                     self.send_json(list_handoffs(conn, params))
+                elif parsed.path == "/api/meetings":
+                    self.send_json(list_meetings(conn, params))
                 elif parsed.path == "/api/sources/official":
                     self.send_json(catalog())
                 elif len(parts) == 5 and parts[1] == "sources" and parts[2] == "official" and parts[3] == "snapshots":
@@ -339,10 +345,16 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, decide_priority_queue_item(conn, int(parts[2]), "reject", data.get("note") or ""))
                 elif parsed.path == "/api/replies/classify":
                     self.send_json_commit(conn, record_inbound_reply(conn, data), 201)
+                elif len(parts) == 4 and parts[1] == "handoffs" and parts[3] == "meeting":
+                    self.send_json_commit(conn, create_meeting_from_handoff(conn, int(parts[2]), data), 201)
                 elif len(parts) == 4 and parts[1] == "handoffs" and parts[3] == "resolve":
                     self.send_json_commit(conn, decide_handoff(conn, int(parts[2]), "resolve", data.get("note") or ""))
                 elif len(parts) == 4 and parts[1] == "handoffs" and parts[3] == "dismiss":
                     self.send_json_commit(conn, decide_handoff(conn, int(parts[2]), "dismiss", data.get("note") or ""))
+                elif parsed.path == "/api/meetings":
+                    self.send_json_commit(conn, create_meeting(conn, data), 201)
+                elif len(parts) == 4 and parts[1] == "meetings" and parts[3] == "status":
+                    self.send_json_commit(conn, update_meeting_status(conn, int(parts[2]), data.get("status"), data.get("note") or ""))
                 elif parsed.path == "/api/suppression":
                     self.send_json_commit(conn, add_suppression(conn, data.get("email"), data.get("reason") or "manual"))
                 elif parsed.path == "/api/sources/official/download":

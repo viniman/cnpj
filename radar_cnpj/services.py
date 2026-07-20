@@ -3358,6 +3358,275 @@ def decide_handoff(conn, handoff_id, decision, note=""):
     return get_handoff(conn, handoff_id)
 
 
+MEETING_STATUSES = {"proposed", "scheduled", "completed", "cancelled", "no_show"}
+MEETING_LEAD_STATUS = {
+    "proposed": "meeting_scheduled",
+    "scheduled": "meeting_scheduled",
+    "completed": "qualified",
+    "cancelled": "meeting_review",
+    "no_show": "meeting_review",
+}
+
+
+def parse_meeting_row(row):
+    return dict_row(row)
+
+
+def get_meeting(conn, meeting_id):
+    row = conn.execute(
+        """
+        SELECT m.*, l.email AS lead_email, l.status AS lead_status,
+               c.legal_name, c.trade_name, c.cnpj, c.city, c.state,
+               rc.classification AS reply_classification,
+               h.priority AS handoff_priority
+        FROM meetings m
+        JOIN leads l ON l.id = m.lead_id
+        LEFT JOIN companies c ON c.id = m.company_id
+        LEFT JOIN reply_classifications rc ON rc.id = m.reply_classification_id
+        LEFT JOIN handoffs h ON h.id = m.handoff_id
+        WHERE m.id = ? AND m.org_id = ?
+        """,
+        (meeting_id, ORG_ID),
+    ).fetchone()
+    return parse_meeting_row(row)
+
+
+def meeting_lead(conn, lead_id):
+    row = conn.execute(
+        """
+        SELECT l.*, c.legal_name, c.trade_name
+        FROM leads l
+        LEFT JOIN companies c ON c.id = l.company_id
+        WHERE l.id = ? AND l.org_id = ?
+        """,
+        (lead_id, ORG_ID),
+    ).fetchone()
+    if not row:
+        raise ValueError("Lead nao encontrado")
+    return dict_row(row)
+
+
+def ensure_meeting_allowed(conn, lead):
+    email = normalize_email(lead.get("email") or "")
+    if not email:
+        raise ValueError("Lead sem e-mail para reuniao")
+    if lead.get("status") == "opt_out":
+        raise ValueError("Lead em opt-out nao pode receber reuniao")
+    suppression, opt_out = suppression_sets(conn)
+    if email in suppression or email in opt_out:
+        raise ValueError("E-mail suprimido ou em opt-out nao pode receber reuniao")
+
+
+def meeting_status_from_payload(payload):
+    status = (payload.get("status") or "").strip() or ("scheduled" if payload.get("scheduled_at") else "proposed")
+    if status not in MEETING_STATUSES:
+        raise ValueError("Status de reuniao invalido")
+    return status
+
+
+def meeting_duration(value):
+    try:
+        duration = int(value or 30)
+    except (TypeError, ValueError):
+        duration = 30
+    return max(5, min(duration, 240))
+
+
+def handoff_for_meeting(conn, handoff_id):
+    row = conn.execute(
+        """
+        SELECT h.*, rc.classification
+        FROM handoffs h
+        LEFT JOIN reply_classifications rc ON rc.id = h.reply_classification_id
+        WHERE h.id = ? AND h.org_id = ?
+        """,
+        (handoff_id, ORG_ID),
+    ).fetchone()
+    if not row:
+        raise ValueError("Handoff nao encontrado")
+    if row["status"] != "pending":
+        raise ValueError("Handoff ja decidido")
+    if not row["lead_id"]:
+        raise ValueError("Handoff sem lead vinculado")
+    return dict_row(row)
+
+
+def create_meeting(conn, payload):
+    payload = payload or {}
+    handoff = None
+    handoff_id = int(payload.get("handoff_id") or 0)
+    lead_id = int(payload.get("lead_id") or 0)
+    reply_id = int(payload.get("reply_classification_id") or 0) or None
+    source = payload.get("source") or "manual"
+    if handoff_id:
+        handoff = handoff_for_meeting(conn, handoff_id)
+        lead_id = int(handoff["lead_id"])
+        reply_id = handoff["reply_classification_id"]
+        source = "handoff"
+    if not lead_id:
+        raise ValueError("Informe lead_id ou handoff_id")
+
+    lead = meeting_lead(conn, lead_id)
+    ensure_meeting_allowed(conn, lead)
+    status = meeting_status_from_payload(payload)
+    timestamp = now_iso()
+    company_name = lead.get("trade_name") or lead.get("legal_name") or "lead"
+    title = (payload.get("title") or "Reuniao com %s" % company_name).strip()
+    note = payload.get("notes") or payload.get("note") or ""
+    cursor = conn.execute(
+        """
+        INSERT INTO meetings (
+            org_id, lead_id, company_id, reply_classification_id, handoff_id, status,
+            title, attendee_email, scheduled_at, duration_minutes, meeting_url,
+            owner_name, notes, outcome_note, source, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            ORG_ID,
+            lead_id,
+            lead.get("company_id"),
+            reply_id,
+            handoff_id or None,
+            status,
+            title,
+            normalize_email(payload.get("attendee_email") or lead.get("email") or ""),
+            payload.get("scheduled_at") or "",
+            meeting_duration(payload.get("duration_minutes")),
+            payload.get("meeting_url") or "",
+            payload.get("owner_name") or "Operador interno",
+            note,
+            payload.get("outcome_note") or "",
+            source,
+            timestamp,
+            timestamp,
+        ),
+    )
+    meeting_id = cursor.lastrowid
+    conn.execute(
+        "UPDATE leads SET status = ?, block_reason = ?, updated_at = ? WHERE id = ?",
+        (MEETING_LEAD_STATUS[status], "", timestamp, lead_id),
+    )
+    conn.execute(
+        """
+        INSERT INTO conversions (lead_id, campaign_id, conversion_type, utm_json, notes, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (lead_id, None, "meeting_scheduled", json.dumps({}, ensure_ascii=True), note, timestamp),
+    )
+    if handoff:
+        resolution_note = payload.get("resolution_note") or note or "Reuniao registrada a partir do handoff"
+        conn.execute(
+            "UPDATE handoffs SET status = ?, resolved_at = ?, resolution_note = ? WHERE id = ?",
+            ("resolved", timestamp, resolution_note, handoff_id),
+        )
+        log_agent_action(
+            conn,
+            lead_id,
+            None,
+            "handoff_resolved",
+            "human",
+            resolution_note,
+            {"handoff_id": handoff_id, "meeting_id": meeting_id},
+        )
+    log_agent_action(
+        conn,
+        lead_id,
+        None,
+        "meeting_created",
+        "human",
+        note or "Reuniao registrada",
+        {"meeting_id": meeting_id, "handoff_id": handoff_id or None, "status": status},
+    )
+    audit(conn, "create_meeting", "meeting", meeting_id, {"handoff_id": handoff_id or None, "status": status})
+    return get_meeting(conn, meeting_id)
+
+
+def create_meeting_from_handoff(conn, handoff_id, payload):
+    payload = dict(payload or {})
+    payload["handoff_id"] = handoff_id
+    return create_meeting(conn, payload)
+
+
+def list_meetings(conn, params=None):
+    params = params or {}
+    where = ["m.org_id = ?"]
+    values = [ORG_ID]
+    if params.get("status"):
+        where.append("m.status = ?")
+        values.append(params.get("status"))
+    if params.get("lead_id"):
+        where.append("m.lead_id = ?")
+        values.append(int(params.get("lead_id")))
+    rows = conn.execute(
+        """
+        SELECT m.*, l.email AS lead_email, l.status AS lead_status,
+               c.legal_name, c.trade_name, c.cnpj, c.city, c.state,
+               rc.classification AS reply_classification,
+               h.priority AS handoff_priority
+        FROM meetings m
+        JOIN leads l ON l.id = m.lead_id
+        LEFT JOIN companies c ON c.id = m.company_id
+        LEFT JOIN reply_classifications rc ON rc.id = m.reply_classification_id
+        LEFT JOIN handoffs h ON h.id = m.handoff_id
+        WHERE %s
+        ORDER BY COALESCE(NULLIF(m.scheduled_at, ''), m.created_at) DESC, m.id DESC
+        LIMIT ?
+        """
+        % " AND ".join(where),
+        values + [min(int(params.get("limit", 100) or 100), 500)],
+    ).fetchall()
+    return {"items": [parse_meeting_row(row) for row in rows]}
+
+
+def update_meeting_status(conn, meeting_id, status, note=""):
+    status = (status or "").strip()
+    if status not in MEETING_STATUSES:
+        raise ValueError("Status de reuniao invalido")
+    row = conn.execute(
+        """
+        SELECT m.*, l.email AS lead_email, l.status AS lead_status
+        FROM meetings m
+        JOIN leads l ON l.id = m.lead_id
+        WHERE m.id = ? AND m.org_id = ?
+        """,
+        (meeting_id, ORG_ID),
+    ).fetchone()
+    if not row:
+        raise ValueError("Reuniao nao encontrada")
+    current = dict_row(row)
+    if status in ("proposed", "scheduled"):
+        ensure_meeting_allowed(conn, {"email": current["lead_email"], "status": current["lead_status"]})
+    timestamp = now_iso()
+    conn.execute(
+        "UPDATE meetings SET status = ?, outcome_note = ?, updated_at = ? WHERE id = ?",
+        (status, note or current.get("outcome_note") or "", timestamp, meeting_id),
+    )
+    conn.execute(
+        "UPDATE leads SET status = ?, updated_at = ? WHERE id = ?",
+        (MEETING_LEAD_STATUS[status], timestamp, current["lead_id"]),
+    )
+    if status == "completed" and current["status"] != "completed":
+        conn.execute(
+            """
+            INSERT INTO conversions (lead_id, campaign_id, conversion_type, utm_json, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (current["lead_id"], None, "meeting_completed", json.dumps({}, ensure_ascii=True), note or "", timestamp),
+        )
+    log_agent_action(
+        conn,
+        current["lead_id"],
+        None,
+        "meeting_status_updated",
+        "human",
+        note or "Status de reuniao atualizado para %s" % status,
+        {"meeting_id": meeting_id, "from": current["status"], "to": status},
+    )
+    audit(conn, "update_meeting_status", "meeting", meeting_id, {"from": current["status"], "to": status})
+    return get_meeting(conn, meeting_id)
+
+
 def audit_events(conn, limit=100):
     rows = conn.execute(
         "SELECT * FROM audit_logs WHERE org_id = ? ORDER BY id DESC LIMIT ?",

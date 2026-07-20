@@ -578,6 +578,32 @@ def init_db():
                 FOREIGN KEY (reply_classification_id) REFERENCES reply_classifications(id) ON DELETE SET NULL
             );
 
+            CREATE TABLE IF NOT EXISTS meetings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                lead_id INTEGER NOT NULL,
+                company_id INTEGER,
+                reply_classification_id INTEGER,
+                handoff_id INTEGER,
+                status TEXT NOT NULL DEFAULT 'scheduled',
+                title TEXT NOT NULL,
+                attendee_email TEXT NOT NULL,
+                scheduled_at TEXT,
+                duration_minutes INTEGER NOT NULL DEFAULT 30,
+                meeting_url TEXT,
+                owner_name TEXT,
+                notes TEXT,
+                outcome_note TEXT,
+                source TEXT NOT NULL DEFAULT 'manual',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE,
+                FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL,
+                FOREIGN KEY (reply_classification_id) REFERENCES reply_classifications(id) ON DELETE SET NULL,
+                FOREIGN KEY (handoff_id) REFERENCES handoffs(id) ON DELETE SET NULL
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -678,6 +704,9 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_reply_classifications_class ON reply_classifications(classification);
             CREATE INDEX IF NOT EXISTS idx_handoffs_status ON handoffs(status);
             CREATE INDEX IF NOT EXISTS idx_handoffs_priority ON handoffs(priority);
+            CREATE INDEX IF NOT EXISTS idx_meetings_status ON meetings(status);
+            CREATE INDEX IF NOT EXISTS idx_meetings_lead ON meetings(lead_id);
+            CREATE INDEX IF NOT EXISTS idx_meetings_scheduled ON meetings(scheduled_at);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);
