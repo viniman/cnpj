@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 13 implementada localmente em `feature/13-agent-governance-foundation`.
+Status: fase 14 iniciada em `feature/14-playbook-library-foundation`.
 
 Fases:
 
@@ -119,6 +119,8 @@ Fases:
 6. Replay/auditoria por lead.
 7. OKRs/KPIs ligados a metricas reais.
 8. Governanca de agente, versionamento e custo de IA.
+9. Biblioteca de playbooks reutilizaveis por workspace.
+10. Comparacao multi-workspace no dashboard executivo.
 
 ## Camada 6 - SaaS monetizavel
 

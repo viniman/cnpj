@@ -948,3 +948,29 @@ total_calls=2
 total_tokens=1240
 estimated_cost=0.024
 ```
+
+## 2026-07-20 - Inicio da fase 14 de biblioteca de playbooks
+
+Branch: `feature/14-playbook-library-foundation`
+
+Estado inicial:
+
+- Fase 13 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 50 tests`, `OK`.
+
+Meta da fase:
+
+- Criar biblioteca de playbooks reutilizaveis por workspace.
+- Versionar conteudo estruturado de ICP, copy, cadencia, OKR e governanca.
+- Permitir aplicacao explicita do playbook ao workspace interno.
+- Expor API e painel local no Command Center.
+
+Documento principal:
+
+- `docs/PLAYBOOK_LIBRARY_SPEC.md`
+
+Commits:
+
+- `pending docs: define playbook library phase`

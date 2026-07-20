@@ -378,3 +378,30 @@ Consequencias:
 - A ativacao de uma versao arquiva a versao ativa anterior.
 - Chamadas reais de modelo futuras devem registrar custo nessa tabela.
 - Simulacoes podem ser usadas para revisar comportamento antes de ativar.
+
+## ADR-016 - Playbooks sao referencias versionadas, nao sobrescrita automatica
+
+Data: 2026-07-20
+
+Decisao:
+
+- Playbooks ficam em `playbooks` e `playbook_versions`.
+- A aplicacao de um playbook ao workspace fica registrada em
+  `workspace_playbook_applications`.
+- Aplicar um playbook nesta fase nao sobrescreve ICP, sequencias, OKRs ou
+  configuracoes do agente ja existentes.
+
+Racional:
+
+- O prompt de governanca exige reuso entre empresas sem automacao silenciosa.
+- Playbook deve acelerar onboarding, mas toda mudanca operacional precisa ser
+  explicita e auditavel.
+- Versionamento permite saber qual pacote de ICP/copy/cadencia/meta foi usado
+  como referencia em cada momento.
+
+Consequencias:
+
+- A UI mostra o playbook ativo como referencia do workspace.
+- Fases futuras podem transformar uma aplicacao em preenchimento guiado de ICP,
+  template, sequencia e OKR.
+- Comparacao multi-workspace deve sempre indicar a versao do playbook usada.
