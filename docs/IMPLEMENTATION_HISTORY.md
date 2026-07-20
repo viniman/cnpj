@@ -1530,3 +1530,34 @@ Meta da fase:
 Documento principal:
 
 - `docs/COMMAND_CENTER_CONTEXT_SPEC.md`
+
+Commits:
+
+- `cd6fd8e docs: define command center context phase`
+- `a0272be feat: scope command center to active workspace`
+
+Implementado:
+
+- Replay por lead filtrando pelo workspace ativo.
+- Metricas, inbox, Kanban e feed de atividade do Command Center usando o
+  workspace ativo.
+- Inbox de reunioes e feed com joins protegidos por `org_id`.
+- Acoes do Command Center permanecendo delegadas para os servicos de origem.
+- Teste multi-workspace em `tests/test_command_center.py`.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_command_center
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 71 tests
+OK
+```

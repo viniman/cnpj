@@ -90,12 +90,12 @@ Define o workspace ativo local.
 
 - A tabela `companies` continua global nesta fase; o dashboard conta empresas
   por vinculo em listas do workspace.
-- Command Center/replay completo e governanca avancada ainda mantem migracoes
-  dedicadas para fases futuras. Experimentos/campanhas simuladas foram
-  migrados na Fase 18; templates de e-mail foram migrados na Fase 19;
+- Governanca avancada, playbooks e auditoria ainda mantem migracoes dedicadas
+  para fases futuras. Experimentos/campanhas simuladas foram migrados na Fase
+  18; templates de e-mail foram migrados na Fase 19;
   sequencias/jornadas/aprovacoes foram migradas na Fase 20; ICP e fila SDR
   foram migrados na Fase 21; respostas, handoffs e reunioes foram migrados na
-  Fase 22.
+  Fase 22; Command Center e replay foram migrados na Fase 23.
 - O contexto e local/singleton, adequado para localhost. Produto SaaS exigira
   contexto por usuario/sessao e RBAC.
 

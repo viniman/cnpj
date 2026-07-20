@@ -43,3 +43,14 @@ proprios guardrails.
 - `command_center_action` recusa item de outro workspace por delegacao ao
   servico de origem.
 - Testes automatizados provam isolamento entre workspace interno e secundario.
+
+## Implementado nesta fase
+
+- `lead_timeline` usa `current_org_id(conn)` e recusa lead fora do workspace
+  ativo.
+- `command_center_metrics`, `command_center_inbox`, `command_center_kanban` e
+  `command_center_activity` usam o workspace ativo.
+- Reunioes da inbox e acoes do feed validam joins por `org_id`.
+- `command_center_action` continua delegando para servicos de origem migrados.
+- `tests/test_command_center.py` cobre isolamento de metricas, inbox, Kanban,
+  atividade, replay e acao cruzada.

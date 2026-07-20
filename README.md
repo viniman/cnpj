@@ -784,6 +784,8 @@ python -m unittest discover -s tests
   sugestoes de outro workspace sao recusadas pelo backend.
 - Respostas, handoffs e reunioes tambem usam o workspace ativo; leads, envios,
   handoffs e reunioes de outro workspace sao recusados pelo backend.
+- Command Center e replay por lead tambem usam o workspace ativo; metricas,
+  inbox, Kanban, atividade e timeline seguem a empresa selecionada na topbar.
 
 ## Proximas fases sugeridas
 
