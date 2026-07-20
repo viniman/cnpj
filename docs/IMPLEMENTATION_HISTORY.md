@@ -1298,3 +1298,28 @@ Resultado esperado nesta etapa:
 Ran 65 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 19 de templates por workspace
+
+Branch: `feature/19-template-context-foundation`
+
+Estado inicial:
+
+- Fase 18 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 65 tests`, `OK`.
+
+Meta da fase:
+
+- Migrar biblioteca de templates, versoes e renderizacao para o workspace ativo.
+- Bloquear detalhe, versionamento e renderizacao de template fora do contexto.
+- Preservar rodape de compliance injetado pelo backend.
+
+Documento principal:
+
+- `docs/TEMPLATE_CONTEXT_SPEC.md`
+
+Commits:
+
+- `pending docs: define template context phase`
