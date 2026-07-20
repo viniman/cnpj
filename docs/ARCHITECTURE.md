@@ -77,6 +77,8 @@ Tabelas principais:
 - `company_profiles`, `playbooks`, `playbook_versions`,
   `workspace_playbook_applications`: perfil operacional do workspace,
   biblioteca reutilizavel de ICP/copy/cadencia/OKR e aplicacao auditavel.
+- `notifications`: fila local de alertas proativos com origem operacional,
+  status e metadados de auditoria.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -116,6 +118,8 @@ Tabelas principais:
   operacao, lead e versao de configuracao.
 - Playbooks sao referencias versionadas; aplicar um playbook nao sobrescreve
   dados operacionais existentes sem uma fase guiada explicita.
+- Notificacoes sao consequencias auditaveis; marcar como lida ou dispensada
+  nao altera handoffs, campanhas, OKRs ou outros registros de origem.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

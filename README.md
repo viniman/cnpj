@@ -19,6 +19,8 @@ A aba `Comando` agrega a operacao em uma tela unica:
   versionado.
 - Governanca do agente com versoes de configuracao, staging, ativacao,
   simulacoes locais e custo estimado de IA.
+- Notificacoes proativas para lead quente, campanha pausada e OKR atingido ou
+  em risco.
 
 Endpoint:
 
@@ -83,6 +85,22 @@ Invoke-RestMethod `
   -Uri "http://127.0.0.1:8000/api/playbooks" `
   -Body '{"name":"Outbound B2B Servicos Locais","description":"Pacote inicial","content":{"icp":{"states":["SP"],"target_cnaes":["620"],"min_email_score":30},"copy":{"tone":"direto, B2B, consultivo"},"cadence":{"steps":[{"name":"Primeiro contato","wait_days":0}]},"okr":{"objective":"Validar nicho","key_results":[{"kpi_key":"replies_received","target_value":10}]},"governance":{"requires_human_approval":true}}}' `
   -ContentType "application/json"
+```
+
+Gerar notificacoes proativas locais:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/notifications/generate" `
+  -Body '{}' `
+  -ContentType "application/json"
+```
+
+Consultar notificacoes:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/notifications"
 ```
 
 ## Rodar localmente
@@ -635,6 +653,10 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/playbooks`
 - `POST /api/playbooks/{id}/versions`
 - `POST /api/playbooks/{id}/apply`
+- `GET /api/notifications`
+- `POST /api/notifications/generate`
+- `POST /api/notifications/{id}/mark-read`
+- `POST /api/notifications/{id}/dismiss`
 - `GET /api/companies`
 - `GET /api/companies/{id}`
 - `POST /api/import`
@@ -722,6 +744,8 @@ python -m unittest discover -s tests
 - Custos de IA ficam registrados por operacao/modelo/versao para auditoria.
 - Aplicar playbook grava uma referencia ativa do workspace; nao sobrescreve ICP,
   sequencias, OKRs ou configuracoes do agente automaticamente.
+- Notificacoes guardam origem (`source_type` e `source_id`) e nao alteram o
+  registro operacional original ao serem lidas ou dispensadas.
 
 ## Proximas fases sugeridas
 
@@ -733,6 +757,6 @@ python -m unittest discover -s tests
 6. Motor de score configuravel por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
 8. Templates de resposta manual assistida.
-9. Notificacoes proativas para lead quente, campanha pausada e OKR em risco.
-10. Comparacao multi-workspace no dashboard executivo.
+9. Comparacao multi-workspace no dashboard executivo.
+10. Adaptadores reais de notificacao: Slack, WhatsApp e resumo por e-mail.
 11. Integracao futura com provedores de email somente com opt-out, bounce e limites.

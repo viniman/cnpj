@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 15 iniciada em `feature/15-notification-center-foundation`.
+Status: fase 15 implementada localmente em `feature/15-notification-center-foundation`.
 
 Fases:
 

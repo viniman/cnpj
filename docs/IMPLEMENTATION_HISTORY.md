@@ -1048,4 +1048,52 @@ Documento principal:
 
 Commits:
 
-- `pending docs: define notification center phase`
+- `052fd05 docs: define notification center phase`
+- `a556136 feat: add notification center backend`
+- `a953cd5 feat: add notification command panel`
+
+Implementado:
+
+- Tabela `notifications`.
+- Geracao local idempotente para:
+  - handoffs pendentes relevantes;
+  - `pause_events` ativos;
+  - key results atingidos;
+  - key results em risco com prazo proximo.
+- Endpoint `GET /api/notifications`.
+- Endpoint `POST /api/notifications/generate`.
+- Endpoints `POST /api/notifications/{id}/mark-read` e
+  `POST /api/notifications/{id}/dismiss`.
+- Painel `Notificacoes proativas` na aba `Comando`, com resumo, lista e
+  acoes.
+- Testes cobrindo geracao, idempotencia e decisoes sem alterar a origem.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 57 tests
+OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+handoff_id=8
+pause_id=1
+okr_id=2
+generated=7
+listed_total=7
+pending_before_read=7
+first_status_after_read=read
+read_total=1
+pending_after_read=6
+types=campaign_paused,okr_at_risk,hot_lead,okr_achieved
+```
