@@ -622,3 +622,29 @@ Consequencias:
 - Reunioes continuam registros locais auditaveis, sem calendario real.
 - Replay e Command Center completo ainda podem exigir fases proprias para
   remover todos os usos remanescentes de `ORG_ID`.
+
+## ADR-025 - Command Center e replay sao leituras do workspace ativo
+
+Data: 2026-07-20
+
+Decisao:
+
+- `command_center` e `lead_timeline` devem usar `current_org_id(conn)`.
+- Agregadores do Command Center nao devem materializar estado paralelo.
+- `command_center_action` continua delegando para aprovacoes, handoffs e
+  reunioes, que validam seus proprios IDs no workspace ativo.
+
+Racional:
+
+- A camada de comando precisa ser confiavel quando o operador troca de empresa
+  interna; mostrar pendencias de outro workspace quebraria a promessa de
+  transparencia.
+- Como as tabelas de origem ja foram migradas por dominio, a agregacao deve
+  apenas respeitar a fronteira e preservar `source_type`/`source_id`.
+- Manter a acao delegada evita duplicar regras de negocio e guardrails.
+
+Consequencias:
+
+- Replay de lead fora do workspace ativo retorna vazio.
+- A aba `Comando` passa a refletir o contexto operacional selecionado.
+- Auditoria global e governanca/playbooks seguem com fases dedicadas futuras.
