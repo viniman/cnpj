@@ -3866,6 +3866,7 @@ def add_timeline_item(items, occurred_at, source_table, source_id, kind, title, 
 
 
 def lead_timeline(conn, lead_id):
+    org_id = current_org_id(conn)
     lead_id = int(lead_id or 0)
     row = conn.execute(
         """
@@ -3878,7 +3879,7 @@ def lead_timeline(conn, lead_id):
         LEFT JOIN companies c ON c.id = l.company_id
         WHERE l.id = ? AND l.org_id = ?
         """,
-        (lead_id, ORG_ID),
+        (lead_id, org_id),
     ).fetchone()
     if not row:
         return None
@@ -3952,11 +3953,11 @@ def lead_timeline(conn, lead_id):
         """
         SELECT q.*, r.name AS icp_name
         FROM lead_priority_queue q
-        JOIN icp_rules r ON r.id = q.icp_rule_id
+        JOIN icp_rules r ON r.id = q.icp_rule_id AND r.org_id = q.org_id
         WHERE q.org_id = ? AND (q.lead_id = ? OR q.company_id = ?)
         ORDER BY q.id ASC
         """,
-        (ORG_ID, lead_id, lead.get("company_id") or 0),
+        (org_id, lead_id, lead.get("company_id") or 0),
     ).fetchall()
     for priority in priority_rows:
         item = dict_row(priority)
@@ -3994,12 +3995,12 @@ def lead_timeline(conn, lead_id):
         """
         SELECT lj.*, s.name AS sequence_name, ss.name AS step_name
         FROM lead_journey lj
-        JOIN sequences s ON s.id = lj.sequence_id
+        JOIN sequences s ON s.id = lj.sequence_id AND s.org_id = lj.org_id
         LEFT JOIN sequence_steps ss ON ss.id = lj.current_step_id
         WHERE lj.org_id = ? AND lj.lead_id = ?
         ORDER BY lj.id ASC
         """,
-        (ORG_ID, lead_id),
+        (org_id, lead_id),
     ).fetchall()
     journey_ids = []
     for journey in journey_rows:
@@ -4046,7 +4047,7 @@ def lead_timeline(conn, lead_id):
 
     approval_rows = conn.execute(
         "SELECT * FROM approval_queue WHERE org_id = ? ORDER BY id ASC",
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     for approval in approval_rows:
         item = dict_row(approval)
@@ -4083,10 +4084,10 @@ def lead_timeline(conn, lead_id):
         FROM sends s
         JOIN campaigns c ON c.id = s.campaign_id
         JOIN campaign_variants v ON v.id = s.variant_id
-        WHERE s.lead_id = ?
+        WHERE s.lead_id = ? AND c.org_id = ?
         ORDER BY s.id ASC
         """,
-        (lead_id,),
+        (lead_id, org_id),
     ).fetchall()
     for send in send_rows:
         item = dict_row(send)
@@ -4130,10 +4131,10 @@ def lead_timeline(conn, lead_id):
         SELECT e.*, c.name AS campaign_name
         FROM events e
         LEFT JOIN campaigns c ON c.id = e.campaign_id
-        WHERE e.lead_id = ?
+        WHERE e.lead_id = ? AND (c.org_id = ? OR e.campaign_id IS NULL)
         ORDER BY e.id ASC
         """,
-        (lead_id,),
+        (lead_id, org_id),
     ).fetchall()
     for event in event_rows:
         item = dict_row(event)
@@ -4157,7 +4158,7 @@ def lead_timeline(conn, lead_id):
 
     reply_rows = conn.execute(
         "SELECT * FROM reply_classifications WHERE org_id = ? AND lead_id = ? ORDER BY id ASC",
-        (ORG_ID, lead_id),
+        (org_id, lead_id),
     ).fetchall()
     for reply in reply_rows:
         item = dict_row(reply)
@@ -4184,7 +4185,7 @@ def lead_timeline(conn, lead_id):
 
     handoff_rows = conn.execute(
         "SELECT * FROM handoffs WHERE org_id = ? AND lead_id = ? ORDER BY id ASC",
-        (ORG_ID, lead_id),
+        (org_id, lead_id),
     ).fetchall()
     for handoff in handoff_rows:
         item = dict_row(handoff)
@@ -4220,7 +4221,7 @@ def lead_timeline(conn, lead_id):
 
     meeting_rows = conn.execute(
         "SELECT * FROM meetings WHERE org_id = ? AND lead_id = ? ORDER BY id ASC",
-        (ORG_ID, lead_id),
+        (org_id, lead_id),
     ).fetchall()
     for meeting in meeting_rows:
         item = dict_row(meeting)
@@ -4262,10 +4263,10 @@ def lead_timeline(conn, lead_id):
         SELECT cv.*, c.name AS campaign_name
         FROM conversions cv
         LEFT JOIN campaigns c ON c.id = cv.campaign_id
-        WHERE cv.lead_id = ?
+        WHERE cv.lead_id = ? AND (c.org_id = ? OR cv.campaign_id IS NULL)
         ORDER BY cv.id ASC
         """,
-        (lead_id,),
+        (lead_id, org_id),
     ).fetchall()
     for conversion in conversion_rows:
         item = dict_row(conversion)
@@ -4289,11 +4290,11 @@ def lead_timeline(conn, lead_id):
         """
         SELECT aa.*, s.name AS sequence_name
         FROM agent_actions aa
-        LEFT JOIN sequences s ON s.id = aa.sequence_id
+        LEFT JOIN sequences s ON s.id = aa.sequence_id AND s.org_id = aa.org_id
         WHERE aa.org_id = ? AND aa.lead_id = ?
         ORDER BY aa.id ASC
         """,
-        (ORG_ID, lead_id),
+        (org_id, lead_id),
     ).fetchall()
     for action in action_rows:
         item = dict_row(action)
@@ -5987,17 +5988,18 @@ def update_notification_status(conn, notification_id, status):
 
 
 def command_center_metrics(conn):
+    org_id = current_org_id(conn)
     pending_approvals = conn.execute(
         "SELECT COUNT(*) AS total FROM approval_queue WHERE org_id = ? AND status = 'pending'",
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()["total"]
     pending_handoffs = conn.execute(
         "SELECT COUNT(*) AS total FROM handoffs WHERE org_id = ? AND status = 'pending'",
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()["total"]
     open_meetings = conn.execute(
         "SELECT COUNT(*) AS total FROM meetings WHERE org_id = ? AND status IN ('proposed', 'scheduled')",
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()["total"]
     active_leads = conn.execute(
         """
@@ -6006,11 +6008,11 @@ def command_center_metrics(conn):
         WHERE org_id = ?
           AND status NOT IN ('disqualified', 'opt_out', 'blocked')
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()["total"]
     recent_actions = conn.execute(
         "SELECT COUNT(*) AS total FROM agent_actions WHERE org_id = ?",
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()["total"]
     return {
         "pending_approvals": int(pending_approvals or 0),
@@ -6022,6 +6024,7 @@ def command_center_metrics(conn):
 
 
 def command_center_inbox(conn, limit=50):
+    org_id = current_org_id(conn)
     items = []
     for approval in list_approvals(conn, {"status": "pending", "limit": limit})["items"]:
         context = approval.get("context") or {}
@@ -6069,13 +6072,13 @@ def command_center_inbox(conn, limit=50):
         """
         SELECT m.*, l.email AS lead_email, c.legal_name, c.trade_name
         FROM meetings m
-        JOIN leads l ON l.id = m.lead_id
+        JOIN leads l ON l.id = m.lead_id AND l.org_id = m.org_id
         LEFT JOIN companies c ON c.id = m.company_id
         WHERE m.org_id = ? AND m.status IN ('proposed', 'scheduled')
         ORDER BY COALESCE(NULLIF(m.scheduled_at, ''), m.created_at) ASC, m.id ASC
         LIMIT ?
         """,
-        (ORG_ID, min(int(limit), 500)),
+        (org_id, min(int(limit), 500)),
     ).fetchall()
     for row in meeting_rows:
         meeting = dict_row(row)
@@ -6123,6 +6126,7 @@ def command_column_key(status):
 
 
 def command_center_kanban(conn, limit=200):
+    org_id = current_org_id(conn)
     rows = conn.execute(
         """
         SELECT l.id, l.email, l.score, l.status AS lead_status, l.updated_at,
@@ -6138,12 +6142,12 @@ def command_center_kanban(conn, limit=200):
             ORDER BY latest.id DESC
             LIMIT 1
         )
-        LEFT JOIN sequences s ON s.id = lj.sequence_id
+        LEFT JOIN sequences s ON s.id = lj.sequence_id AND s.org_id = l.org_id
         WHERE l.org_id = ?
         ORDER BY l.updated_at DESC, l.id DESC
         LIMIT ?
         """,
-        (ORG_ID, min(int(limit), 500)),
+        (org_id, min(int(limit), 500)),
     ).fetchall()
     columns = [{"key": key, "label": label, "items": []} for key, label, _statuses in COMMAND_CENTER_COLUMNS]
     by_key = {column["key"]: column for column in columns}
@@ -6169,17 +6173,18 @@ def command_center_kanban(conn, limit=200):
 
 
 def command_center_activity(conn, limit=100):
+    org_id = current_org_id(conn)
     rows = conn.execute(
         """
         SELECT aa.*, l.email AS lead_email, c.legal_name, c.trade_name
         FROM agent_actions aa
-        LEFT JOIN leads l ON l.id = aa.lead_id
+        LEFT JOIN leads l ON l.id = aa.lead_id AND l.org_id = aa.org_id
         LEFT JOIN companies c ON c.id = l.company_id
         WHERE aa.org_id = ?
         ORDER BY aa.id DESC
         LIMIT ?
         """,
-        (ORG_ID, min(int(limit), 500)),
+        (org_id, min(int(limit), 500)),
     ).fetchall()
     items = []
     for row in rows:

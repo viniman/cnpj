@@ -12,9 +12,11 @@ from radar_cnpj.services import (
     create_list,
     create_meeting,
     create_sequence,
+    create_workspace,
     enroll_sequence_from_list,
     lead_timeline,
     record_inbound_reply,
+    set_current_workspace,
     upsert_company,
 )
 
@@ -55,7 +57,10 @@ class CommandCenterTest(unittest.TestCase):
         lead_list = create_list(conn, "Lista Command Center", "Teste")
         add_companies_to_list(conn, lead_list["id"], [company_id])
         create_leads_from_list(conn, lead_list["id"], "teste command center")
-        lead = conn.execute("SELECT * FROM leads WHERE company_id = ?", (company_id,)).fetchone()
+        lead = conn.execute(
+            "SELECT * FROM leads WHERE company_id = ? AND list_id = ? ORDER BY id DESC LIMIT 1",
+            (company_id, lead_list["id"]),
+        ).fetchone()
         template = create_email_template(
             conn,
             {
@@ -132,7 +137,10 @@ class CommandCenterTest(unittest.TestCase):
         )
         enroll_sequence_from_list(conn, sequence["id"], lead_list["id"])
         approval = conn.execute("SELECT * FROM approval_queue WHERE status = 'pending' ORDER BY id DESC LIMIT 1").fetchone()
-        lead = conn.execute("SELECT * FROM leads WHERE company_id = ?", (company_id,)).fetchone()
+        lead = conn.execute(
+            "SELECT * FROM leads WHERE company_id = ? AND list_id = ? ORDER BY id DESC LIMIT 1",
+            (company_id, lead_list["id"]),
+        ).fetchone()
         return approval["id"], lead["id"]
 
     def test_command_center_aggregates_inbox_kanban_and_activity(self):
@@ -319,6 +327,53 @@ class CommandCenterTest(unittest.TestCase):
         conn = connect()
         try:
             self.assertIsNone(lead_timeline(conn, 9999))
+        finally:
+            conn.close()
+
+    def test_command_center_and_replay_follow_active_workspace(self):
+        conn = connect()
+        try:
+            internal_approval_id, internal_lead_id = self.seed_pending_approval(conn)
+            internal_snapshot = command_center(conn)
+            self.assertGreaterEqual(internal_snapshot["metrics"]["pending_approvals"], 1)
+            self.assertIsNotNone(lead_timeline(conn, internal_lead_id))
+
+            workspace = create_workspace(conn, {"name": "Nine Command Center"})
+            set_current_workspace(conn, workspace["id"])
+
+            empty_snapshot = command_center(conn)
+            self.assertEqual(empty_snapshot["metrics"]["pending_approvals"], 0)
+            self.assertEqual(empty_snapshot["metrics"]["pending_handoffs"], 0)
+            self.assertEqual(empty_snapshot["metrics"]["open_meetings"], 0)
+            self.assertEqual(empty_snapshot["inbox"]["items"], [])
+            empty_cards = [card for column in empty_snapshot["kanban"]["columns"] for card in column["items"]]
+            self.assertEqual(empty_cards, [])
+            self.assertEqual(empty_snapshot["activity"]["items"], [])
+            self.assertIsNone(lead_timeline(conn, internal_lead_id))
+            with self.assertRaises(ValueError):
+                command_center_action(
+                    conn,
+                    {
+                        "source_type": "approval",
+                        "source_id": internal_approval_id,
+                        "decision": "approve",
+                    },
+                )
+
+            scoped_lead_id = self.seed_command_center_context(conn)
+            scoped_snapshot = command_center(conn)
+            self.assertGreaterEqual(scoped_snapshot["metrics"]["pending_approvals"], 1)
+            self.assertGreaterEqual(scoped_snapshot["metrics"]["pending_handoffs"], 1)
+            self.assertGreaterEqual(scoped_snapshot["metrics"]["open_meetings"], 1)
+            scoped_cards = [card for column in scoped_snapshot["kanban"]["columns"] for card in column["items"]]
+            self.assertEqual({card["lead_id"] for card in scoped_cards}, {scoped_lead_id})
+            self.assertIsNotNone(lead_timeline(conn, scoped_lead_id))
+
+            set_current_workspace(conn, 1)
+            restored_snapshot = command_center(conn)
+            restored_cards = [card for column in restored_snapshot["kanban"]["columns"] for card in column["items"]]
+            self.assertIn(internal_lead_id, {card["lead_id"] for card in restored_cards})
+            self.assertIsNone(lead_timeline(conn, scoped_lead_id))
         finally:
             conn.close()
 
