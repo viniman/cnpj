@@ -4172,6 +4172,315 @@ def lead_timeline(conn, lead_id):
     }
 
 
+DEFAULT_KPIS = [
+    {
+        "kpi_key": "active_leads",
+        "name": "Leads ativos",
+        "description": "Leads que ainda nao estao encerrados, bloqueados ou em opt-out.",
+        "formula": "COUNT(leads) WHERE status NOT IN ('disqualified','opt_out','blocked')",
+        "unit": "count",
+        "direction": "increase",
+        "source_tables": ["leads"],
+    },
+    {
+        "kpi_key": "simulated_sends",
+        "name": "Envios simulados",
+        "description": "Passos aprovados que criaram envio simulado.",
+        "formula": "COUNT(sends) WHERE status = 'sent'",
+        "unit": "count",
+        "direction": "increase",
+        "source_tables": ["sends"],
+    },
+    {
+        "kpi_key": "replies_received",
+        "name": "Respostas recebidas",
+        "description": "Respostas classificadas no funil.",
+        "formula": "COUNT(reply_classifications)",
+        "unit": "count",
+        "direction": "increase",
+        "source_tables": ["reply_classifications"],
+    },
+    {
+        "kpi_key": "pending_handoffs",
+        "name": "Handoffs pendentes",
+        "description": "Itens que ainda exigem decisao humana.",
+        "formula": "COUNT(handoffs) WHERE status = 'pending'",
+        "unit": "count",
+        "direction": "decrease",
+        "source_tables": ["handoffs"],
+    },
+    {
+        "kpi_key": "open_meetings",
+        "name": "Reunioes abertas",
+        "description": "Reunioes propostas ou agendadas.",
+        "formula": "COUNT(meetings) WHERE status IN ('proposed','scheduled')",
+        "unit": "count",
+        "direction": "increase",
+        "source_tables": ["meetings"],
+    },
+    {
+        "kpi_key": "meetings_completed",
+        "name": "Reunioes concluidas",
+        "description": "Reunioes marcadas como concluidas.",
+        "formula": "COUNT(meetings) WHERE status = 'completed'",
+        "unit": "count",
+        "direction": "increase",
+        "source_tables": ["meetings"],
+    },
+    {
+        "kpi_key": "conversions_registered",
+        "name": "Conversoes registradas",
+        "description": "Conversoes de negocio registradas no funil.",
+        "formula": "COUNT(conversions)",
+        "unit": "count",
+        "direction": "increase",
+        "source_tables": ["conversions"],
+    },
+]
+
+
+def ensure_default_kpis(conn):
+    timestamp = now_iso()
+    for kpi in DEFAULT_KPIS:
+        conn.execute(
+            """
+            INSERT INTO kpi_definitions (
+                org_id, kpi_key, name, description, formula, unit, direction,
+                source_tables_json, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(org_id, kpi_key) DO UPDATE SET
+                name = excluded.name,
+                description = excluded.description,
+                formula = excluded.formula,
+                unit = excluded.unit,
+                direction = excluded.direction,
+                source_tables_json = excluded.source_tables_json,
+                updated_at = excluded.updated_at
+            """,
+            (
+                ORG_ID,
+                kpi["kpi_key"],
+                kpi["name"],
+                kpi["description"],
+                kpi["formula"],
+                kpi["unit"],
+                kpi["direction"],
+                json.dumps(kpi["source_tables"], ensure_ascii=True),
+                timestamp,
+                timestamp,
+            ),
+        )
+
+
+def kpi_value(conn, kpi_key):
+    queries = {
+        "active_leads": (
+            """
+            SELECT COUNT(*) AS value
+            FROM leads
+            WHERE org_id = ? AND status NOT IN ('disqualified', 'opt_out', 'blocked')
+            """,
+            (ORG_ID,),
+        ),
+        "simulated_sends": (
+            "SELECT COUNT(*) AS value FROM sends WHERE status = 'sent'",
+            (),
+        ),
+        "replies_received": (
+            "SELECT COUNT(*) AS value FROM reply_classifications WHERE org_id = ?",
+            (ORG_ID,),
+        ),
+        "pending_handoffs": (
+            "SELECT COUNT(*) AS value FROM handoffs WHERE org_id = ? AND status = 'pending'",
+            (ORG_ID,),
+        ),
+        "open_meetings": (
+            "SELECT COUNT(*) AS value FROM meetings WHERE org_id = ? AND status IN ('proposed', 'scheduled')",
+            (ORG_ID,),
+        ),
+        "meetings_completed": (
+            "SELECT COUNT(*) AS value FROM meetings WHERE org_id = ? AND status = 'completed'",
+            (ORG_ID,),
+        ),
+        "conversions_registered": (
+            "SELECT COUNT(*) AS value FROM conversions",
+            (),
+        ),
+    }
+    if kpi_key not in queries:
+        raise ValueError("KPI desconhecido")
+    sql, values = queries[kpi_key]
+    return int(conn.execute(sql, values).fetchone()["value"] or 0)
+
+
+def parse_kpi_row(conn, row):
+    data = dict_row(row)
+    data["source_tables"] = json.loads(data.pop("source_tables_json") or "[]")
+    data["current_value"] = kpi_value(conn, data["kpi_key"])
+    return data
+
+
+def list_kpis(conn):
+    ensure_default_kpis(conn)
+    rows = conn.execute(
+        """
+        SELECT *
+        FROM kpi_definitions
+        WHERE org_id = ?
+        ORDER BY id ASC
+        """,
+        (ORG_ID,),
+    ).fetchall()
+    return [parse_kpi_row(conn, row) for row in rows]
+
+
+def kr_progress(current_value, target_value):
+    try:
+        target = float(target_value)
+        current = float(current_value)
+    except (TypeError, ValueError):
+        return 0
+    if target <= 0:
+        return 0
+    return int(min(100, round((current / target) * 100)))
+
+
+def parse_key_result(conn, row, kpi_by_key):
+    data = dict_row(row)
+    kpi = kpi_by_key.get(data["kpi_key"])
+    current = kpi["current_value"] if kpi else 0
+    data["current_value"] = current
+    data["progress"] = kr_progress(current, data["target_value"])
+    data["kpi"] = kpi
+    return data
+
+
+def default_objective(kpi_by_key):
+    defaults = [
+        ("Gerar 20 respostas recebidas", "replies_received", 20),
+        ("Concluir 5 reunioes", "meetings_completed", 5),
+        ("Registrar 3 conversoes", "conversions_registered", 3),
+    ]
+    key_results = []
+    for index, (title, kpi_key, target) in enumerate(defaults, start=1):
+        kpi = kpi_by_key[kpi_key]
+        current = kpi["current_value"]
+        key_results.append(
+            {
+                "id": "default-%s" % index,
+                "title": title,
+                "kpi_key": kpi_key,
+                "target_value": target,
+                "current_value": current,
+                "progress": kr_progress(current, target),
+                "kpi": kpi,
+            }
+        )
+    return {
+        "id": "default",
+        "title": "Validar outbound B2B com operacao auditavel",
+        "description": "OKR default sintetico enquanto nenhum objetivo foi salvo.",
+        "status": "template",
+        "period_start": "",
+        "period_end": "",
+        "key_results": key_results,
+    }
+
+
+def list_objectives(conn, kpis):
+    kpi_by_key = {item["kpi_key"]: item for item in kpis}
+    objectives = conn.execute(
+        """
+        SELECT *
+        FROM objectives
+        WHERE org_id = ?
+        ORDER BY id DESC
+        """,
+        (ORG_ID,),
+    ).fetchall()
+    if not objectives:
+        return [default_objective(kpi_by_key)]
+
+    result = []
+    for objective in objectives:
+        data = dict_row(objective)
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM key_results
+            WHERE objective_id = ?
+            ORDER BY id ASC
+            """,
+            (data["id"],),
+        ).fetchall()
+        data["key_results"] = [parse_key_result(conn, row, kpi_by_key) for row in rows]
+        result.append(data)
+    return result
+
+
+def okr_dashboard(conn):
+    kpis = list_kpis(conn)
+    return {
+        "kpis": kpis,
+        "objectives": list_objectives(conn, kpis),
+    }
+
+
+def create_okr(conn, payload):
+    ensure_default_kpis(conn)
+    payload = payload or {}
+    title = (payload.get("title") or "").strip()
+    if not title:
+        raise ValueError("Titulo do objetivo e obrigatorio")
+    key_results = payload.get("key_results") or []
+    if not key_results:
+        raise ValueError("Informe ao menos um key result")
+    kpi_keys = {row["kpi_key"] for row in list_kpis(conn)}
+    prepared_key_results = []
+    for item in key_results:
+        kpi_key = (item.get("kpi_key") or "").strip()
+        if kpi_key not in kpi_keys:
+            raise ValueError("KPI desconhecido: %s" % kpi_key)
+        target_value = float(item.get("target_value") or 0)
+        if target_value <= 0:
+            raise ValueError("Meta do key result deve ser maior que zero")
+        kr_title = (item.get("title") or "").strip() or "KR %s" % kpi_key
+        prepared_key_results.append((kr_title, kpi_key, target_value))
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO objectives (
+            org_id, title, description, status, period_start, period_end, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            ORG_ID,
+            title,
+            payload.get("description") or "",
+            payload.get("status") or "active",
+            payload.get("period_start") or "",
+            payload.get("period_end") or "",
+            timestamp,
+            timestamp,
+        ),
+    )
+    objective_id = cursor.lastrowid
+    for kr_title, kpi_key, target_value in prepared_key_results:
+        conn.execute(
+            """
+            INSERT INTO key_results (
+                objective_id, title, kpi_key, target_value, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (objective_id, kr_title, kpi_key, target_value, timestamp, timestamp),
+        )
+    audit(conn, "create_okr", "objective", objective_id, {"key_results": len(key_results)})
+    return next(item for item in list_objectives(conn, list_kpis(conn)) if item["id"] == objective_id)
+
+
 def command_center_metrics(conn):
     pending_approvals = conn.execute(
         "SELECT COUNT(*) AS total FROM approval_queue WHERE org_id = ? AND status = 'pending'",

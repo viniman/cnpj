@@ -604,6 +604,46 @@ def init_db():
                 FOREIGN KEY (handoff_id) REFERENCES handoffs(id) ON DELETE SET NULL
             );
 
+            CREATE TABLE IF NOT EXISTS kpi_definitions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                kpi_key TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                formula TEXT NOT NULL,
+                unit TEXT NOT NULL DEFAULT 'count',
+                direction TEXT NOT NULL DEFAULT 'increase',
+                source_tables_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE (org_id, kpi_key),
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS objectives (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                period_start TEXT,
+                period_end TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS key_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                objective_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                kpi_key TEXT NOT NULL,
+                target_value REAL NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (objective_id) REFERENCES objectives(id) ON DELETE CASCADE
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -707,6 +747,9 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_meetings_status ON meetings(status);
             CREATE INDEX IF NOT EXISTS idx_meetings_lead ON meetings(lead_id);
             CREATE INDEX IF NOT EXISTS idx_meetings_scheduled ON meetings(scheduled_at);
+            CREATE INDEX IF NOT EXISTS idx_kpi_definitions_key ON kpi_definitions(org_id, kpi_key);
+            CREATE INDEX IF NOT EXISTS idx_objectives_status ON objectives(org_id, status);
+            CREATE INDEX IF NOT EXISTS idx_key_results_objective ON key_results(objective_id);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);

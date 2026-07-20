@@ -36,6 +36,7 @@ from .services import (
     lead_timeline,
     get_sequence,
     import_source,
+    create_okr,
     list_agent_actions,
     list_approvals,
     list_campaigns,
@@ -46,6 +47,7 @@ from .services import (
     list_journeys,
     list_lists,
     list_meetings,
+    okr_dashboard,
     list_priority_queue,
     list_reply_classifications,
     list_sequences,
@@ -151,6 +153,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(dashboard(conn))
                 elif parsed.path == "/api/command-center":
                     self.send_json(command_center(conn))
+                elif parsed.path == "/api/okrs":
+                    self.send_json(okr_dashboard(conn))
                 elif parsed.path == "/api/companies":
                     self.send_json(search_companies(conn, params))
                 elif len(parts) == 3 and parts[1] == "companies":
@@ -340,6 +344,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, reject_sequence_step(conn, int(parts[2]), data.get("note") or ""))
                 elif parsed.path == "/api/icp-rules":
                     self.send_json_commit(conn, create_icp_rule(conn, data), 201)
+                elif parsed.path == "/api/okrs":
+                    self.send_json_commit(conn, create_okr(conn, data), 201)
                 elif len(parts) == 4 and parts[1] == "icp-rules" and parts[3] == "prioritize":
                     self.send_json_commit(
                         conn,
