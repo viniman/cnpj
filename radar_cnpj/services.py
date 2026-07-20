@@ -3145,6 +3145,7 @@ def classify_reply_text(subject="", body=""):
 
 
 def reply_target(conn, payload):
+    org_id = current_org_id(conn)
     send_id = int(payload.get("send_id") or 0)
     lead_id = int(payload.get("lead_id") or 0)
     email = normalize_email(payload.get("email") or "")
@@ -3156,9 +3157,10 @@ def reply_target(conn, payload):
                    l.company_id, l.list_id, l.status AS lead_status
             FROM sends s
             JOIN leads l ON l.id = s.lead_id
-            WHERE s.id = ?
+            JOIN campaigns ca ON ca.id = s.campaign_id
+            WHERE s.id = ? AND l.org_id = ? AND ca.org_id = ?
             """,
-            (send_id,),
+            (send_id, org_id, org_id),
         ).fetchone()
         if not row:
             raise ValueError("Envio nao encontrado")
@@ -3168,7 +3170,7 @@ def reply_target(conn, payload):
     if lead_id:
         row = conn.execute(
             "SELECT id AS lead_id, company_id, list_id, email, status AS lead_status FROM leads WHERE id = ? AND org_id = ?",
-            (lead_id, ORG_ID),
+            (lead_id, org_id),
         ).fetchone()
         if not row:
             raise ValueError("Lead nao encontrado")
@@ -3184,7 +3186,7 @@ def reply_target(conn, payload):
             ORDER BY id DESC
             LIMIT 1
             """,
-            (ORG_ID, email),
+            (org_id, email),
         ).fetchone()
         if row:
             target.update(dict_row(row))
@@ -3193,6 +3195,7 @@ def reply_target(conn, payload):
 
 
 def add_opt_out(conn, email, reason, source="reply"):
+    org_id = current_org_id(conn)
     email = normalize_email(email)
     if not email:
         return
@@ -3203,15 +3206,16 @@ def add_opt_out(conn, email, reason, source="reply"):
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(email) DO UPDATE SET reason = excluded.reason
         """,
-        (ORG_ID, email, source, reason, timestamp),
+        (org_id, email, source, reason, timestamp),
     )
 
 
 def stop_journeys_for_reply(conn, lead_id, status, reason, timestamp):
     if not lead_id:
         return 0
+    org_id = current_org_id(conn)
     placeholders = ",".join("?" for _ in ACTIVE_JOURNEY_STATUSES)
-    values = [status, reason, timestamp, int(lead_id), ORG_ID] + sorted(ACTIVE_JOURNEY_STATUSES)
+    values = [status, reason, timestamp, int(lead_id), org_id] + sorted(ACTIVE_JOURNEY_STATUSES)
     cursor = conn.execute(
         """
         UPDATE lead_journey
@@ -3264,6 +3268,7 @@ def register_reply_event(conn, target, classification, payload, timestamp):
 
 
 def create_handoff_for_reply(conn, target, reply_id, classification, reason, priority, payload, timestamp):
+    org_id = current_org_id(conn)
     context = {
         "reply_classification_id": reply_id,
         "classification": classification,
@@ -3282,7 +3287,7 @@ def create_handoff_for_reply(conn, target, reply_id, classification, reason, pri
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             target.get("lead_id"),
             reply_id,
             "pending",
@@ -3296,6 +3301,7 @@ def create_handoff_for_reply(conn, target, reply_id, classification, reason, pri
 
 
 def record_inbound_reply(conn, payload):
+    org_id = current_org_id(conn)
     subject = payload.get("subject") or ""
     body = payload.get("body") or payload.get("body_text") or ""
     if not body.strip() and not subject.strip():
@@ -3316,7 +3322,7 @@ def record_inbound_reply(conn, payload):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             target.get("lead_id"),
             target.get("send_id"),
             email,
@@ -3337,12 +3343,13 @@ def record_inbound_reply(conn, payload):
         add_suppression(conn, email, "opt_out_reply", source="reply")
     if target.get("lead_id"):
         conn.execute(
-            "UPDATE leads SET status = ?, block_reason = ?, updated_at = ? WHERE id = ?",
+            "UPDATE leads SET status = ?, block_reason = ?, updated_at = ? WHERE id = ? AND org_id = ?",
             (
                 lead_status,
                 "Resposta classificada como %s" % label if label in ("opt_out", "not_interested") else "",
                 timestamp,
                 target["lead_id"],
+                org_id,
             ),
         )
     stopped = stop_journeys_for_reply(conn, target.get("lead_id"), journey_status, "Resposta classificada como %s" % label, timestamp)
@@ -3365,6 +3372,7 @@ def record_inbound_reply(conn, payload):
             "handoff_id": handoff_id,
             "journeys_stopped": stopped,
         },
+        org_id=org_id,
     )
     if handoff_id:
         log_agent_action(
@@ -3375,6 +3383,7 @@ def record_inbound_reply(conn, payload):
             "system",
             "Handoff criado para resposta %s" % label,
             {"reply_classification_id": reply_id, "handoff_id": handoff_id},
+            org_id=org_id,
         )
     audit(
         conn,
@@ -3382,6 +3391,7 @@ def record_inbound_reply(conn, payload):
         "reply_classification",
         reply_id,
         {"classification": label, "handoff_id": handoff_id, "journeys_stopped": stopped},
+        org_id=org_id,
     )
     return {
         "reply": get_reply_classification(conn, reply_id),
@@ -3400,23 +3410,25 @@ def parse_reply_row(row):
 
 
 def get_reply_classification(conn, reply_id):
+    org_id = current_org_id(conn)
     row = conn.execute(
         """
         SELECT rc.*, l.email AS lead_email, c.legal_name, c.trade_name
         FROM reply_classifications rc
-        LEFT JOIN leads l ON l.id = rc.lead_id
+        LEFT JOIN leads l ON l.id = rc.lead_id AND l.org_id = rc.org_id
         LEFT JOIN companies c ON c.id = l.company_id
         WHERE rc.id = ? AND rc.org_id = ?
         """,
-        (reply_id, ORG_ID),
+        (reply_id, org_id),
     ).fetchone()
     return parse_reply_row(row)
 
 
 def list_reply_classifications(conn, params=None):
+    org_id = current_org_id(conn)
     params = params or {}
     where = ["rc.org_id = ?"]
-    values = [ORG_ID]
+    values = [org_id]
     if params.get("classification"):
         where.append("rc.classification = ?")
         values.append(params.get("classification"))
@@ -3424,7 +3436,7 @@ def list_reply_classifications(conn, params=None):
         """
         SELECT rc.*, l.email AS lead_email, c.legal_name, c.trade_name
         FROM reply_classifications rc
-        LEFT JOIN leads l ON l.id = rc.lead_id
+        LEFT JOIN leads l ON l.id = rc.lead_id AND l.org_id = rc.org_id
         LEFT JOIN companies c ON c.id = l.company_id
         WHERE %s
         ORDER BY rc.id DESC
@@ -3447,23 +3459,25 @@ def parse_handoff_row(row):
 def get_handoff(conn, handoff_id):
     if not handoff_id:
         return None
+    org_id = current_org_id(conn)
     row = conn.execute(
         """
         SELECT h.*, l.email AS lead_email, c.legal_name, c.trade_name
         FROM handoffs h
-        LEFT JOIN leads l ON l.id = h.lead_id
+        LEFT JOIN leads l ON l.id = h.lead_id AND l.org_id = h.org_id
         LEFT JOIN companies c ON c.id = l.company_id
         WHERE h.id = ? AND h.org_id = ?
         """,
-        (handoff_id, ORG_ID),
+        (handoff_id, org_id),
     ).fetchone()
     return parse_handoff_row(row)
 
 
 def list_handoffs(conn, params=None):
+    org_id = current_org_id(conn)
     params = params or {}
     where = ["h.org_id = ?"]
-    values = [ORG_ID]
+    values = [org_id]
     if params.get("status"):
         where.append("h.status = ?")
         values.append(params.get("status"))
@@ -3473,7 +3487,7 @@ def list_handoffs(conn, params=None):
         """
         SELECT h.*, l.email AS lead_email, c.legal_name, c.trade_name
         FROM handoffs h
-        LEFT JOIN leads l ON l.id = h.lead_id
+        LEFT JOIN leads l ON l.id = h.lead_id AND l.org_id = h.org_id
         LEFT JOIN companies c ON c.id = l.company_id
         WHERE %s
         ORDER BY
@@ -3493,11 +3507,12 @@ def list_handoffs(conn, params=None):
 
 
 def decide_handoff(conn, handoff_id, decision, note=""):
+    org_id = current_org_id(conn)
     if decision not in ("resolve", "dismiss"):
         raise ValueError("Decisao de handoff invalida")
     handoff = conn.execute(
         "SELECT * FROM handoffs WHERE id = ? AND org_id = ?",
-        (handoff_id, ORG_ID),
+        (handoff_id, org_id),
     ).fetchone()
     if not handoff:
         raise ValueError("Handoff nao encontrado")
@@ -3506,8 +3521,8 @@ def decide_handoff(conn, handoff_id, decision, note=""):
     status = "resolved" if decision == "resolve" else "dismissed"
     timestamp = now_iso()
     conn.execute(
-        "UPDATE handoffs SET status = ?, resolved_at = ?, resolution_note = ? WHERE id = ?",
-        (status, timestamp, note or "", handoff_id),
+        "UPDATE handoffs SET status = ?, resolved_at = ?, resolution_note = ? WHERE id = ? AND org_id = ?",
+        (status, timestamp, note or "", handoff_id, org_id),
     )
     log_agent_action(
         conn,
@@ -3517,8 +3532,9 @@ def decide_handoff(conn, handoff_id, decision, note=""):
         "human",
         note or "Handoff %s por humano" % status,
         {"handoff_id": handoff_id, "reply_classification_id": handoff["reply_classification_id"]},
+        org_id=org_id,
     )
-    audit(conn, "decide_handoff", "handoff", handoff_id, {"status": status, "note": note})
+    audit(conn, "decide_handoff", "handoff", handoff_id, {"status": status, "note": note}, org_id=org_id)
     return get_handoff(conn, handoff_id)
 
 
@@ -3537,6 +3553,7 @@ def parse_meeting_row(row):
 
 
 def get_meeting(conn, meeting_id):
+    org_id = current_org_id(conn)
     row = conn.execute(
         """
         SELECT m.*, l.email AS lead_email, l.status AS lead_status,
@@ -3544,18 +3561,19 @@ def get_meeting(conn, meeting_id):
                rc.classification AS reply_classification,
                h.priority AS handoff_priority
         FROM meetings m
-        JOIN leads l ON l.id = m.lead_id
+        JOIN leads l ON l.id = m.lead_id AND l.org_id = m.org_id
         LEFT JOIN companies c ON c.id = m.company_id
-        LEFT JOIN reply_classifications rc ON rc.id = m.reply_classification_id
-        LEFT JOIN handoffs h ON h.id = m.handoff_id
+        LEFT JOIN reply_classifications rc ON rc.id = m.reply_classification_id AND rc.org_id = m.org_id
+        LEFT JOIN handoffs h ON h.id = m.handoff_id AND h.org_id = m.org_id
         WHERE m.id = ? AND m.org_id = ?
         """,
-        (meeting_id, ORG_ID),
+        (meeting_id, org_id),
     ).fetchone()
     return parse_meeting_row(row)
 
 
 def meeting_lead(conn, lead_id):
+    org_id = current_org_id(conn)
     row = conn.execute(
         """
         SELECT l.*, c.legal_name, c.trade_name
@@ -3563,7 +3581,7 @@ def meeting_lead(conn, lead_id):
         LEFT JOIN companies c ON c.id = l.company_id
         WHERE l.id = ? AND l.org_id = ?
         """,
-        (lead_id, ORG_ID),
+        (lead_id, org_id),
     ).fetchone()
     if not row:
         raise ValueError("Lead nao encontrado")
@@ -3597,14 +3615,15 @@ def meeting_duration(value):
 
 
 def handoff_for_meeting(conn, handoff_id):
+    org_id = current_org_id(conn)
     row = conn.execute(
         """
         SELECT h.*, rc.classification
         FROM handoffs h
-        LEFT JOIN reply_classifications rc ON rc.id = h.reply_classification_id
+        LEFT JOIN reply_classifications rc ON rc.id = h.reply_classification_id AND rc.org_id = h.org_id
         WHERE h.id = ? AND h.org_id = ?
         """,
-        (handoff_id, ORG_ID),
+        (handoff_id, org_id),
     ).fetchone()
     if not row:
         raise ValueError("Handoff nao encontrado")
@@ -3616,6 +3635,7 @@ def handoff_for_meeting(conn, handoff_id):
 
 
 def create_meeting(conn, payload):
+    org_id = current_org_id(conn)
     payload = payload or {}
     handoff = None
     handoff_id = int(payload.get("handoff_id") or 0)
@@ -3647,7 +3667,7 @@ def create_meeting(conn, payload):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             lead_id,
             lead.get("company_id"),
             reply_id,
@@ -3668,8 +3688,8 @@ def create_meeting(conn, payload):
     )
     meeting_id = cursor.lastrowid
     conn.execute(
-        "UPDATE leads SET status = ?, block_reason = ?, updated_at = ? WHERE id = ?",
-        (MEETING_LEAD_STATUS[status], "", timestamp, lead_id),
+        "UPDATE leads SET status = ?, block_reason = ?, updated_at = ? WHERE id = ? AND org_id = ?",
+        (MEETING_LEAD_STATUS[status], "", timestamp, lead_id, org_id),
     )
     conn.execute(
         """
@@ -3681,8 +3701,8 @@ def create_meeting(conn, payload):
     if handoff:
         resolution_note = payload.get("resolution_note") or note or "Reuniao registrada a partir do handoff"
         conn.execute(
-            "UPDATE handoffs SET status = ?, resolved_at = ?, resolution_note = ? WHERE id = ?",
-            ("resolved", timestamp, resolution_note, handoff_id),
+            "UPDATE handoffs SET status = ?, resolved_at = ?, resolution_note = ? WHERE id = ? AND org_id = ?",
+            ("resolved", timestamp, resolution_note, handoff_id, org_id),
         )
         log_agent_action(
             conn,
@@ -3692,6 +3712,7 @@ def create_meeting(conn, payload):
             "human",
             resolution_note,
             {"handoff_id": handoff_id, "meeting_id": meeting_id},
+            org_id=org_id,
         )
     log_agent_action(
         conn,
@@ -3701,8 +3722,9 @@ def create_meeting(conn, payload):
         "human",
         note or "Reuniao registrada",
         {"meeting_id": meeting_id, "handoff_id": handoff_id or None, "status": status},
+        org_id=org_id,
     )
-    audit(conn, "create_meeting", "meeting", meeting_id, {"handoff_id": handoff_id or None, "status": status})
+    audit(conn, "create_meeting", "meeting", meeting_id, {"handoff_id": handoff_id or None, "status": status}, org_id=org_id)
     return get_meeting(conn, meeting_id)
 
 
@@ -3713,9 +3735,10 @@ def create_meeting_from_handoff(conn, handoff_id, payload):
 
 
 def list_meetings(conn, params=None):
+    org_id = current_org_id(conn)
     params = params or {}
     where = ["m.org_id = ?"]
-    values = [ORG_ID]
+    values = [org_id]
     if params.get("status"):
         where.append("m.status = ?")
         values.append(params.get("status"))
@@ -3729,10 +3752,10 @@ def list_meetings(conn, params=None):
                rc.classification AS reply_classification,
                h.priority AS handoff_priority
         FROM meetings m
-        JOIN leads l ON l.id = m.lead_id
+        JOIN leads l ON l.id = m.lead_id AND l.org_id = m.org_id
         LEFT JOIN companies c ON c.id = m.company_id
-        LEFT JOIN reply_classifications rc ON rc.id = m.reply_classification_id
-        LEFT JOIN handoffs h ON h.id = m.handoff_id
+        LEFT JOIN reply_classifications rc ON rc.id = m.reply_classification_id AND rc.org_id = m.org_id
+        LEFT JOIN handoffs h ON h.id = m.handoff_id AND h.org_id = m.org_id
         WHERE %s
         ORDER BY COALESCE(NULLIF(m.scheduled_at, ''), m.created_at) DESC, m.id DESC
         LIMIT ?
@@ -3744,6 +3767,7 @@ def list_meetings(conn, params=None):
 
 
 def update_meeting_status(conn, meeting_id, status, note=""):
+    org_id = current_org_id(conn)
     status = (status or "").strip()
     if status not in MEETING_STATUSES:
         raise ValueError("Status de reuniao invalido")
@@ -3751,10 +3775,10 @@ def update_meeting_status(conn, meeting_id, status, note=""):
         """
         SELECT m.*, l.email AS lead_email, l.status AS lead_status
         FROM meetings m
-        JOIN leads l ON l.id = m.lead_id
+        JOIN leads l ON l.id = m.lead_id AND l.org_id = m.org_id
         WHERE m.id = ? AND m.org_id = ?
         """,
-        (meeting_id, ORG_ID),
+        (meeting_id, org_id),
     ).fetchone()
     if not row:
         raise ValueError("Reuniao nao encontrada")
@@ -3763,12 +3787,12 @@ def update_meeting_status(conn, meeting_id, status, note=""):
         ensure_meeting_allowed(conn, {"email": current["lead_email"], "status": current["lead_status"]})
     timestamp = now_iso()
     conn.execute(
-        "UPDATE meetings SET status = ?, outcome_note = ?, updated_at = ? WHERE id = ?",
-        (status, note or current.get("outcome_note") or "", timestamp, meeting_id),
+        "UPDATE meetings SET status = ?, outcome_note = ?, updated_at = ? WHERE id = ? AND org_id = ?",
+        (status, note or current.get("outcome_note") or "", timestamp, meeting_id, org_id),
     )
     conn.execute(
-        "UPDATE leads SET status = ?, updated_at = ? WHERE id = ?",
-        (MEETING_LEAD_STATUS[status], timestamp, current["lead_id"]),
+        "UPDATE leads SET status = ?, updated_at = ? WHERE id = ? AND org_id = ?",
+        (MEETING_LEAD_STATUS[status], timestamp, current["lead_id"], org_id),
     )
     if status == "completed" and current["status"] != "completed":
         conn.execute(
@@ -3786,8 +3810,9 @@ def update_meeting_status(conn, meeting_id, status, note=""):
         "human",
         note or "Status de reuniao atualizado para %s" % status,
         {"meeting_id": meeting_id, "from": current["status"], "to": status},
+        org_id=org_id,
     )
-    audit(conn, "update_meeting_status", "meeting", meeting_id, {"from": current["status"], "to": status})
+    audit(conn, "update_meeting_status", "meeting", meeting_id, {"from": current["status"], "to": status}, org_id=org_id)
     return get_meeting(conn, meeting_id)
 
 

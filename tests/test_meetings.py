@@ -9,12 +9,16 @@ from radar_cnpj.services import (
     create_email_template,
     create_leads_from_list,
     create_list,
+    create_meeting,
     create_meeting_from_handoff,
     create_sequence,
+    create_workspace,
     enroll_sequence_from_list,
+    get_meeting,
     list_agent_actions,
     list_meetings,
     record_inbound_reply,
+    set_current_workspace,
     simulate_campaign,
     update_meeting_status,
     upsert_company,
@@ -57,7 +61,10 @@ class MeetingSchedulingTest(unittest.TestCase):
         lead_list = create_list(conn, "Lista Reunioes", "Teste")
         add_companies_to_list(conn, lead_list["id"], [company_id])
         create_leads_from_list(conn, lead_list["id"], "teste reuniao")
-        lead = conn.execute("SELECT * FROM leads WHERE company_id = ?", (company_id,)).fetchone()
+        lead = conn.execute(
+            "SELECT * FROM leads WHERE company_id = ? AND list_id = ? ORDER BY id DESC LIMIT 1",
+            (company_id, lead_list["id"]),
+        ).fetchone()
         campaign = create_campaign(
             conn,
             {
@@ -69,7 +76,10 @@ class MeetingSchedulingTest(unittest.TestCase):
             },
         )
         simulate_campaign(conn, campaign["id"], list_id=lead_list["id"], limit=1)
-        send = conn.execute("SELECT * FROM sends WHERE lead_id = ?", (lead["id"],)).fetchone()
+        send = conn.execute(
+            "SELECT * FROM sends WHERE lead_id = ? AND campaign_id = ? ORDER BY id DESC LIMIT 1",
+            (lead["id"], campaign["id"]),
+        ).fetchone()
         template = create_email_template(
             conn,
             {
@@ -143,6 +153,59 @@ class MeetingSchedulingTest(unittest.TestCase):
                 for row in conn.execute("SELECT conversion_type FROM conversions WHERE lead_id = ? ORDER BY id", (lead_id,)).fetchall()
             ]
             self.assertIn("meeting_completed", conversion_types)
+        finally:
+            conn.close()
+
+    def test_meetings_follow_active_workspace(self):
+        conn = connect()
+        try:
+            internal_lead_id, internal_reply = self.seed_reply(conn, "Tenho interesse, podemos conversar esta semana?")
+            internal_meeting = create_meeting_from_handoff(
+                conn,
+                internal_reply["handoff"]["id"],
+                {"scheduled_at": "2026-07-21T14:00:00-03:00"},
+            )
+
+            workspace = create_workspace(conn, {"name": "Nine Reunioes"})
+            set_current_workspace(conn, workspace["id"])
+
+            self.assertEqual(list_meetings(conn)["items"], [])
+            self.assertIsNone(get_meeting(conn, internal_meeting["id"]))
+            with self.assertRaises(ValueError):
+                create_meeting(conn, {"lead_id": internal_lead_id, "scheduled_at": "2026-07-22T14:00:00-03:00"})
+            with self.assertRaises(ValueError):
+                create_meeting_from_handoff(
+                    conn,
+                    internal_reply["handoff"]["id"],
+                    {"scheduled_at": "2026-07-22T14:00:00-03:00"},
+                )
+            with self.assertRaises(ValueError):
+                update_meeting_status(conn, internal_meeting["id"], "completed", "Nao deveria cruzar")
+
+            scoped_lead_id, scoped_reply = self.seed_reply(conn, "Tenho interesse, podemos conversar esta semana?")
+            scoped_meeting = create_meeting_from_handoff(
+                conn,
+                scoped_reply["handoff"]["id"],
+                {"scheduled_at": "2026-07-22T15:00:00-03:00"},
+            )
+            self.assertEqual(scoped_meeting["org_id"], workspace["id"])
+            scoped_action_orgs = {
+                row["org_id"]
+                for row in conn.execute(
+                    "SELECT org_id FROM agent_actions WHERE lead_id = ? AND action_type IN ('meeting_created','handoff_resolved')",
+                    (scoped_lead_id,),
+                ).fetchall()
+            }
+            self.assertEqual(scoped_action_orgs, {workspace["id"]})
+
+            set_current_workspace(conn, 1)
+            self.assertIsNotNone(get_meeting(conn, internal_meeting["id"]))
+            self.assertIsNone(get_meeting(conn, scoped_meeting["id"]))
+            with self.assertRaises(ValueError):
+                update_meeting_status(conn, scoped_meeting["id"], "completed", "Nao deveria cruzar")
+
+            updated = update_meeting_status(conn, internal_meeting["id"], "completed", "Reuniao interna concluida")
+            self.assertEqual(updated["status"], "completed")
         finally:
             conn.close()
 

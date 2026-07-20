@@ -10,11 +10,16 @@ from radar_cnpj.services import (
     create_leads_from_list,
     create_list,
     create_sequence,
+    create_workspace,
     decide_handoff,
     enroll_sequence_from_list,
+    get_handoff,
+    get_reply_classification,
     list_agent_actions,
     list_handoffs,
+    list_reply_classifications,
     record_inbound_reply,
+    set_current_workspace,
     simulate_campaign,
     upsert_company,
 )
@@ -56,7 +61,10 @@ class ReplyHandoffTest(unittest.TestCase):
         lead_list = create_list(conn, "Lista Respostas", "Teste")
         add_companies_to_list(conn, lead_list["id"], [company_id])
         create_leads_from_list(conn, lead_list["id"], "teste resposta")
-        lead = conn.execute("SELECT * FROM leads WHERE company_id = ?", (company_id,)).fetchone()
+        lead = conn.execute(
+            "SELECT * FROM leads WHERE company_id = ? AND list_id = ? ORDER BY id DESC LIMIT 1",
+            (company_id, lead_list["id"]),
+        ).fetchone()
         campaign = create_campaign(
             conn,
             {
@@ -68,7 +76,10 @@ class ReplyHandoffTest(unittest.TestCase):
             },
         )
         simulate_campaign(conn, campaign["id"], list_id=lead_list["id"], limit=1)
-        send = conn.execute("SELECT * FROM sends WHERE lead_id = ?", (lead["id"],)).fetchone()
+        send = conn.execute(
+            "SELECT * FROM sends WHERE lead_id = ? AND campaign_id = ? ORDER BY id DESC LIMIT 1",
+            (lead["id"], campaign["id"]),
+        ).fetchone()
         template = create_email_template(
             conn,
             {
@@ -151,6 +162,65 @@ class ReplyHandoffTest(unittest.TestCase):
             self.assertEqual(lead["status"], "disqualified")
             handoffs = list_handoffs(conn, {"status": "pending"})["items"]
             self.assertEqual(handoffs, [])
+        finally:
+            conn.close()
+
+    def test_replies_and_handoffs_follow_active_workspace(self):
+        conn = connect()
+        try:
+            internal_lead_id, internal_send_id = self.seed_send_and_journey(conn)
+            internal_reply = record_inbound_reply(
+                conn,
+                {
+                    "send_id": internal_send_id,
+                    "subject": "Re: teste",
+                    "body": "Tenho interesse, podemos conversar esta semana?",
+                },
+            )
+
+            workspace = create_workspace(conn, {"name": "Nine Respostas"})
+            set_current_workspace(conn, workspace["id"])
+
+            self.assertEqual(list_reply_classifications(conn)["items"], [])
+            self.assertEqual(list_handoffs(conn, {"status": "pending"})["items"], [])
+            self.assertIsNone(get_reply_classification(conn, internal_reply["reply"]["id"]))
+            self.assertIsNone(get_handoff(conn, internal_reply["handoff"]["id"]))
+            with self.assertRaises(ValueError):
+                record_inbound_reply(conn, {"send_id": internal_send_id, "body": "Tenho interesse."})
+            with self.assertRaises(ValueError):
+                record_inbound_reply(conn, {"lead_id": internal_lead_id, "body": "Tenho interesse."})
+            with self.assertRaises(ValueError):
+                decide_handoff(conn, internal_reply["handoff"]["id"], "resolve", "Nao deveria cruzar")
+
+            scoped_lead_id, scoped_send_id = self.seed_send_and_journey(conn)
+            scoped_reply = record_inbound_reply(
+                conn,
+                {
+                    "send_id": scoped_send_id,
+                    "subject": "Re: teste",
+                    "body": "Tenho interesse, podemos conversar esta semana?",
+                },
+            )
+            self.assertEqual(scoped_reply["reply"]["org_id"], workspace["id"])
+            self.assertEqual(scoped_reply["handoff"]["org_id"], workspace["id"])
+            scoped_actions = {
+                row["org_id"]
+                for row in conn.execute(
+                    "SELECT org_id FROM agent_actions WHERE lead_id = ? AND action_type IN ('reply_classified','handoff_created')",
+                    (scoped_lead_id,),
+                ).fetchall()
+            }
+            self.assertEqual(scoped_actions, {workspace["id"]})
+
+            set_current_workspace(conn, 1)
+            self.assertIsNotNone(get_reply_classification(conn, internal_reply["reply"]["id"]))
+            self.assertIsNone(get_reply_classification(conn, scoped_reply["reply"]["id"]))
+            self.assertIsNone(get_handoff(conn, scoped_reply["handoff"]["id"]))
+            with self.assertRaises(ValueError):
+                decide_handoff(conn, scoped_reply["handoff"]["id"], "resolve", "Nao deveria cruzar")
+
+            resolved = decide_handoff(conn, internal_reply["handoff"]["id"], "resolve", "Revisado internamente")
+            self.assertEqual(resolved["status"], "resolved")
         finally:
             conn.close()
 
