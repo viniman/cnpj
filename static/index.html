@@ -89,6 +89,88 @@
 
           <section class="panel">
             <div class="panel-head">
+              <h2>Governanca do agente</h2>
+              <button id="refreshAgentGovernanceBtn" class="button">Atualizar governanca</button>
+            </div>
+            <div id="agentGovernanceSummary" class="metric-grid compact-metrics"></div>
+            <div class="governance-grid">
+              <section>
+                <h3>Nova versao staging</h3>
+                <div class="form-grid one">
+                  <label>
+                    Nome
+                    <input id="agentConfigName" class="input" placeholder="SDR conservador" />
+                  </label>
+                  <label>
+                    Modelo
+                    <input id="agentConfigModel" class="input" value="gpt-5-mini" />
+                  </label>
+                  <label>
+                    Prompt
+                    <textarea id="agentConfigPrompt" class="textarea small-textarea" placeholder="Regras de tom, contexto e limites do agente"></textarea>
+                  </label>
+                  <label>
+                    Rules JSON
+                    <textarea id="agentConfigRules" class="textarea small-textarea">{"requires_human_approval":true,"hard_guards":["suppression_check","icp_required","compliance_footer"]}</textarea>
+                  </label>
+                  <button id="createAgentConfigBtn" class="button primary">Criar staging</button>
+                </div>
+              </section>
+              <section>
+                <h3>Simulacao e custo</h3>
+                <div class="form-grid one">
+                  <label>
+                    Config para simulacao
+                    <select id="agentSimulationConfig" class="input"></select>
+                  </label>
+                  <label>
+                    Lead ID
+                    <input id="agentSimulationLeadId" class="input" type="number" min="1" placeholder="Opcional" />
+                  </label>
+                  <label>
+                    Cenario
+                    <input id="agentSimulationScenario" class="input" value="first_contact" />
+                  </label>
+                  <button id="createAgentSimulationBtn" class="button">Simular local</button>
+                </div>
+                <div class="form-grid one governance-cost-form">
+                  <label>
+                    Operacao
+                    <input id="agentCostOperation" class="input" value="classify_reply" />
+                  </label>
+                  <label>
+                    Tokens prompt / resposta
+                    <div class="inline-inputs">
+                      <input id="agentPromptTokens" class="input" type="number" min="0" value="500" />
+                      <input id="agentCompletionTokens" class="input" type="number" min="0" value="120" />
+                    </div>
+                  </label>
+                  <label>
+                    Custo estimado
+                    <input id="agentEstimatedCost" class="input" type="number" min="0" step="0.000001" value="0.012" />
+                  </label>
+                  <button id="recordAgentCostBtn" class="button">Registrar custo</button>
+                </div>
+              </section>
+            </div>
+            <div class="content-grid governance-tables">
+              <section>
+                <h3>Versoes</h3>
+                <div id="agentVersionsTable" class="table-wrap"></div>
+              </section>
+              <section>
+                <h3>Simulacoes recentes</h3>
+                <div id="agentSimulationsTable" class="table-wrap"></div>
+              </section>
+              <section>
+                <h3>Custos recentes</h3>
+                <div id="agentCostsTable" class="table-wrap"></div>
+              </section>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
               <h2>Decisao da inbox</h2>
               <button id="refreshCommandBtn" class="button">Atualizar</button>
             </div>

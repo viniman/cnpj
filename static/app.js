@@ -16,6 +16,7 @@ const state = {
   commandCenter: null,
   leadTimeline: null,
   okrs: null,
+  agentGovernance: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -88,6 +89,7 @@ function setView(view) {
   if (view === "command") {
     loadCommandCenter();
     loadOkrs();
+    loadAgentGovernance();
   }
   if (view === "companies") {
     loadLists();
@@ -221,6 +223,141 @@ function renderOkrs(data) {
     <div>${objectiveMarkup}</div>
     <div class="table-wrap">${kpiMarkup}</div>
   `;
+}
+
+async function loadAgentGovernance() {
+  const data = await api("/api/agent-governance");
+  state.agentGovernance = data;
+  renderAgentGovernance(data);
+}
+
+function configOptionLabel(config) {
+  return `v${config.version_number} - ${config.name} (${config.status})`;
+}
+
+function renderAgentGovernance(data) {
+  const active = data?.active_config || {};
+  const versions = data?.versions || [];
+  const simulations = data?.simulations || [];
+  const costs = data?.costs || [];
+  const costSummary = data?.cost_summary || {};
+  $("#agentGovernanceSummary").innerHTML = [
+    metric("Versao ativa", active.version_number ? `v${active.version_number}` : "-"),
+    metric("Status", active.status || "-"),
+    metric("Modelo", active.model_name || "-"),
+    metric("Chamadas IA", costSummary.total_calls || 0),
+    metric("Custo estimado", Number(costSummary.estimated_cost || 0).toFixed(4)),
+  ].join("");
+
+  $("#agentSimulationConfig").innerHTML = versions
+    .map((config) => `<option value="${escapeHtml(config.id)}">${escapeHtml(configOptionLabel(config))}</option>`)
+    .join("");
+
+  $("#agentVersionsTable").innerHTML = versions.length
+    ? table(
+        ["Versao", "Nome", "Status", "Modelo", "Criada", ""],
+        versions.map((config) => [
+          `v${config.version_number}`,
+          escapeHtml(config.name),
+          badge(config.status, config.status === "active" ? "green" : config.status === "staging" ? "amber" : "purple"),
+          escapeHtml(config.model_name),
+          escapeHtml(config.created_at || "-"),
+          config.status === "active"
+            ? ""
+            : `<button class="row-action" data-agent-activate="${escapeHtml(config.id)}">Ativar</button>`,
+        ]),
+      )
+    : `<div class="empty-state">Nenhuma versao registrada.</div>`;
+  $$("[data-agent-activate]").forEach((button) => {
+    button.addEventListener("click", () => activateAgentConfig(button.dataset.agentActivate));
+  });
+
+  $("#agentSimulationsTable").innerHTML = simulations.length
+    ? table(
+        ["Data", "Config", "Lead", "Cenario", "Decisao"],
+        simulations.map((item) => [
+          escapeHtml(item.created_at || "-"),
+          escapeHtml(`v${item.version_number} - ${item.config_name}`),
+          escapeHtml(item.lead_email || item.lead_id || "-"),
+          escapeHtml(item.scenario || "-"),
+          badge(item.result?.decision || item.status, item.result?.decision === "eligible_for_autonomy" ? "green" : "amber"),
+        ]),
+      )
+    : `<div class="empty-state">Nenhuma simulacao registrada.</div>`;
+
+  $("#agentCostsTable").innerHTML = costs.length
+    ? table(
+        ["Data", "Operacao", "Modelo", "Tokens", "Custo", "Lead"],
+        costs.map((item) => [
+          escapeHtml(item.created_at || "-"),
+          escapeHtml(item.operation || "-"),
+          escapeHtml(item.model_name || "-"),
+          badge(item.total_tokens || 0, "purple"),
+          escapeHtml(Number(item.estimated_cost || 0).toFixed(6)),
+          escapeHtml(item.lead_email || item.lead_id || "-"),
+        ]),
+      )
+    : `<div class="empty-state">Nenhum custo registrado.</div>`;
+}
+
+async function createAgentConfigFromForm() {
+  let rules;
+  try {
+    rules = JSON.parse($("#agentConfigRules").value || "{}");
+  } catch (err) {
+    return showStatus("Rules JSON invalido.", "warn");
+  }
+  await api("/api/agent-governance/configs", {
+    method: "POST",
+    body: JSON.stringify({
+      name: $("#agentConfigName").value.trim(),
+      model_name: $("#agentConfigModel").value.trim(),
+      prompt_text: $("#agentConfigPrompt").value.trim(),
+      rules,
+    }),
+  });
+  showStatus("Versao staging criada.");
+  await loadAgentGovernance();
+}
+
+async function activateAgentConfig(configId) {
+  await api(`/api/agent-governance/configs/${configId}/activate`, {
+    method: "POST",
+    body: "{}",
+  });
+  showStatus(`Configuracao ${configId} ativada.`);
+  await loadAgentGovernance();
+}
+
+async function createAgentSimulationFromForm() {
+  const payload = {
+    config_version_id: Number($("#agentSimulationConfig").value || 0),
+    lead_id: Number($("#agentSimulationLeadId").value || 0) || undefined,
+    scenario: $("#agentSimulationScenario").value.trim() || "first_contact",
+  };
+  await api("/api/agent-governance/simulations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  showStatus("Simulacao local registrada.");
+  await loadAgentGovernance();
+}
+
+async function recordAgentCostFromForm() {
+  const payload = {
+    config_version_id: Number($("#agentSimulationConfig").value || 0),
+    lead_id: Number($("#agentSimulationLeadId").value || 0) || undefined,
+    operation: $("#agentCostOperation").value.trim(),
+    prompt_tokens: Number($("#agentPromptTokens").value || 0),
+    completion_tokens: Number($("#agentCompletionTokens").value || 0),
+    estimated_cost: Number($("#agentEstimatedCost").value || 0),
+  };
+  await api("/api/agent-governance/costs", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  showStatus("Custo estimado registrado.");
+  await loadAgentGovernance();
 }
 
 function commandTypeTone(type) {
@@ -1853,6 +1990,10 @@ function wireEvents() {
   $("#refreshAgentActionsBtn").addEventListener("click", loadAgentActions);
   $("#refreshCommandBtn").addEventListener("click", loadCommandCenter);
   $("#refreshOkrsBtn").addEventListener("click", loadOkrs);
+  $("#refreshAgentGovernanceBtn").addEventListener("click", loadAgentGovernance);
+  $("#createAgentConfigBtn").addEventListener("click", createAgentConfigFromForm);
+  $("#createAgentSimulationBtn").addEventListener("click", createAgentSimulationFromForm);
+  $("#recordAgentCostBtn").addEventListener("click", recordAgentCostFromForm);
   $("#loadLeadTimelineBtn").addEventListener("click", () => loadLeadTimeline());
   $("#createIcpBtn").addEventListener("click", createIcpRuleFromForm);
   $("#refreshIcpBtn").addEventListener("click", loadIcpWorkspace);
