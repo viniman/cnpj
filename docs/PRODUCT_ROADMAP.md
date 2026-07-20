@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 21 implementada localmente em `feature/21-icp-context-foundation`.
+Status: fase 22 iniciada localmente em `feature/22-reply-meeting-context-foundation`.
 
 Fases:
 
@@ -128,6 +128,7 @@ Fases:
 15. Templates de e-mail por workspace ativo.
 16. Sequencias, jornadas e aprovacoes por workspace ativo.
 17. ICP e fila SDR por workspace ativo.
+18. Respostas, handoffs e reunioes por workspace ativo.
 
 ## Camada 6 - SaaS monetizavel
 

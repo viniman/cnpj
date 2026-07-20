@@ -1453,3 +1453,24 @@ Resultado esperado nesta etapa:
 Ran 68 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 22 de respostas e reunioes por workspace
+
+Branch: `feature/22-reply-meeting-context-foundation`
+
+Estado inicial:
+
+- Fase 21 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 68 tests`, `OK`.
+
+Meta da fase:
+
+- Migrar respostas, handoffs e reunioes para o workspace ativo.
+- Bloquear lead, send, handoff ou meeting de outro workspace no backend.
+- Preservar opt-out/supressao como trilho duro global por e-mail.
+
+Documento principal:
+
+- `docs/REPLY_MEETING_CONTEXT_SPEC.md`
