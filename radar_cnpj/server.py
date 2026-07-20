@@ -26,6 +26,8 @@ from .services import (
     create_playbook,
     create_playbook_version,
     create_sequence,
+    create_workspace,
+    create_workspace_snapshot,
     command_center_action,
     command_center,
     dashboard,
@@ -76,6 +78,7 @@ from .services import (
     update_meeting_status,
     update_notification_status,
     validate_emails,
+    workspace_comparison,
 )
 from .official_sources import catalog, download_files, import_brasilapi_cnpj, list_snapshot_files, sync_official_snapshot
 
@@ -171,6 +174,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(playbook_library(conn))
                 elif parsed.path == "/api/notifications":
                     self.send_json(list_notifications(conn, params))
+                elif parsed.path == "/api/workspaces/comparison":
+                    self.send_json(workspace_comparison(conn))
                 elif parsed.path == "/api/okrs":
                     self.send_json(okr_dashboard(conn))
                 elif parsed.path == "/api/companies":
@@ -384,6 +389,10 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, update_notification_status(conn, int(parts[2]), "read"))
                 elif len(parts) == 4 and parts[1] == "notifications" and parts[3] == "dismiss":
                     self.send_json_commit(conn, update_notification_status(conn, int(parts[2]), "dismissed"))
+                elif parsed.path == "/api/workspaces":
+                    self.send_json_commit(conn, create_workspace(conn, data), 201)
+                elif len(parts) == 4 and parts[1] == "workspaces" and parts[3] == "snapshot":
+                    self.send_json_commit(conn, create_workspace_snapshot(conn, int(parts[2])), 201)
                 elif len(parts) == 4 and parts[1] == "icp-rules" and parts[3] == "prioritize":
                     self.send_json_commit(
                         conn,

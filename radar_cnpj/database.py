@@ -772,6 +772,15 @@ def init_db():
                 FOREIGN KEY (org_id) REFERENCES organizations(id)
             );
 
+            CREATE TABLE IF NOT EXISTS workspace_metric_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                snapshot_label TEXT NOT NULL,
+                metrics_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -887,6 +896,7 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_playbook_applications_active ON workspace_playbook_applications(org_id, status);
             CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(org_id, status);
             CREATE INDEX IF NOT EXISTS idx_notifications_source ON notifications(org_id, notification_type, source_type, source_id);
+            CREATE INDEX IF NOT EXISTS idx_workspace_snapshots_created ON workspace_metric_snapshots(org_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);

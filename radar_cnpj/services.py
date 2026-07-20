@@ -4896,14 +4896,18 @@ def normalize_playbook_content(content):
     return content
 
 
-def ensure_company_profile(conn):
+def ensure_company_profile_for_org(conn, org_id, defaults=None):
+    org_id = int(org_id)
+    defaults = defaults or {}
     row = conn.execute(
         "SELECT * FROM company_profiles WHERE org_id = ?",
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()
     if row:
         return dict_row(row)
-    org = conn.execute("SELECT * FROM organizations WHERE id = ?", (ORG_ID,)).fetchone()
+    org = conn.execute("SELECT * FROM organizations WHERE id = ?", (org_id,)).fetchone()
+    if not org:
+        raise ValueError("Workspace nao encontrado")
     timestamp = now_iso()
     cursor = conn.execute(
         """
@@ -4914,24 +4918,28 @@ def ensure_company_profile(conn):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
-            org["name"] if org else "Workspace interno",
-            "outbound_b2b",
-            "direto, B2B, consultivo",
-            "",
-            "Time comercial",
-            "#2458d3",
+            org_id,
+            defaults.get("display_name") or org["name"],
+            defaults.get("vertical") or "outbound_b2b",
+            defaults.get("default_tone") or "direto, B2B, consultivo",
+            defaults.get("sending_domain") or "",
+            defaults.get("sender_name") or "Time comercial",
+            defaults.get("brand_color") or "#2458d3",
             timestamp,
             timestamp,
         ),
     )
     row = conn.execute(
         "SELECT * FROM company_profiles WHERE org_id = ?",
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()
     if cursor.rowcount:
-        audit(conn, "create_default_company_profile", "company_profile", row["id"], {"org_id": ORG_ID})
+        audit(conn, "create_default_company_profile", "company_profile", row["id"], {"org_id": org_id})
     return dict_row(row)
+
+
+def ensure_company_profile(conn):
+    return ensure_company_profile_for_org(conn, ORG_ID)
 
 
 def parse_playbook_version_row(row):
@@ -5267,6 +5275,196 @@ def playbook_library(conn):
         "company_profile": ensure_company_profile(conn),
         "active_application": active_playbook_application(conn),
         "playbooks": list_playbooks(conn),
+    }
+
+
+def create_workspace(conn, payload):
+    payload = payload or {}
+    name = (payload.get("name") or "").strip()
+    if not name:
+        raise ValueError("Nome do workspace e obrigatorio")
+    timestamp = now_iso()
+    cursor = conn.execute(
+        "INSERT INTO organizations (name, created_at) VALUES (?, ?)",
+        (name, timestamp),
+    )
+    org_id = cursor.lastrowid
+    ensure_company_profile_for_org(
+        conn,
+        org_id,
+        {
+            "display_name": payload.get("display_name") or name,
+            "vertical": payload.get("vertical") or "",
+            "default_tone": payload.get("default_tone") or "",
+            "sending_domain": payload.get("sending_domain") or "",
+            "sender_name": payload.get("sender_name") or "Time comercial",
+            "brand_color": payload.get("brand_color") or "#2458d3",
+        },
+    )
+    audit(conn, "create_workspace", "organization", org_id, {"name": name})
+    return workspace_detail(conn, org_id)
+
+
+def workspace_metric_count(conn, sql, values):
+    row = conn.execute(sql, values).fetchone()
+    return int(row["total"] or 0)
+
+
+def workspace_metrics(conn, org_id):
+    org_id = int(org_id)
+    cost = conn.execute(
+        """
+        SELECT COUNT(*) AS calls,
+               COALESCE(SUM(total_tokens), 0) AS total_tokens,
+               COALESCE(SUM(estimated_cost), 0) AS estimated_cost
+        FROM agent_cost_log
+        WHERE org_id = ?
+        """,
+        (org_id,),
+    ).fetchone()
+    active_playbook = conn.execute(
+        """
+        SELECT pb.name AS playbook_name, ver.version_number
+        FROM workspace_playbook_applications app
+        JOIN playbooks pb ON pb.id = app.playbook_id
+        JOIN playbook_versions ver ON ver.id = app.version_id
+        WHERE app.org_id = ? AND app.status = 'active'
+        ORDER BY app.id DESC
+        LIMIT 1
+        """,
+        (org_id,),
+    ).fetchone()
+    return {
+        "companies": workspace_metric_count(
+            conn,
+            """
+            SELECT COUNT(DISTINCT lc.company_id) AS total
+            FROM list_companies lc
+            JOIN lists l ON l.id = lc.list_id
+            WHERE l.org_id = ?
+            """,
+            (org_id,),
+        ),
+        "companies_with_email": workspace_metric_count(
+            conn,
+            """
+            SELECT COUNT(DISTINCT lc.company_id) AS total
+            FROM list_companies lc
+            JOIN lists l ON l.id = lc.list_id
+            JOIN companies c ON c.id = lc.company_id
+            WHERE l.org_id = ? AND c.email != ''
+            """,
+            (org_id,),
+        ),
+        "active_leads": workspace_metric_count(
+            conn,
+            """
+            SELECT COUNT(*) AS total
+            FROM leads
+            WHERE org_id = ? AND status NOT IN ('disqualified', 'opt_out', 'blocked')
+            """,
+            (org_id,),
+        ),
+        "replies": workspace_metric_count(conn, "SELECT COUNT(*) AS total FROM reply_classifications WHERE org_id = ?", (org_id,)),
+        "pending_handoffs": workspace_metric_count(
+            conn,
+            "SELECT COUNT(*) AS total FROM handoffs WHERE org_id = ? AND status = 'pending'",
+            (org_id,),
+        ),
+        "open_meetings": workspace_metric_count(
+            conn,
+            "SELECT COUNT(*) AS total FROM meetings WHERE org_id = ? AND status IN ('proposed', 'scheduled')",
+            (org_id,),
+        ),
+        "completed_meetings": workspace_metric_count(
+            conn,
+            "SELECT COUNT(*) AS total FROM meetings WHERE org_id = ? AND status = 'completed'",
+            (org_id,),
+        ),
+        "pending_notifications": workspace_metric_count(
+            conn,
+            "SELECT COUNT(*) AS total FROM notifications WHERE org_id = ? AND status IN ('pending', 'sent')",
+            (org_id,),
+        ),
+        "agent_calls": int(cost["calls"] or 0),
+        "agent_tokens": int(cost["total_tokens"] or 0),
+        "agent_cost": round(float(cost["estimated_cost"] or 0), 6),
+        "active_playbook": active_playbook["playbook_name"] if active_playbook else "",
+        "active_playbook_version": active_playbook["version_number"] if active_playbook else "",
+    }
+
+
+def workspace_detail(conn, org_id):
+    org_id = int(org_id)
+    org = conn.execute("SELECT * FROM organizations WHERE id = ?", (org_id,)).fetchone()
+    if not org:
+        raise ValueError("Workspace nao encontrado")
+    profile = ensure_company_profile_for_org(conn, org_id)
+    return {
+        "id": org["id"],
+        "name": org["name"],
+        "created_at": org["created_at"],
+        "profile": profile,
+        "metrics": workspace_metrics(conn, org_id),
+    }
+
+
+def parse_workspace_snapshot_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["metrics"] = json.loads(data.pop("metrics_json") or "{}")
+    return data
+
+
+def list_workspace_snapshots(conn, limit=20):
+    rows = conn.execute(
+        """
+        SELECT snap.*, org.name AS workspace_name, profile.display_name
+        FROM workspace_metric_snapshots snap
+        JOIN organizations org ON org.id = snap.org_id
+        LEFT JOIN company_profiles profile ON profile.org_id = snap.org_id
+        ORDER BY snap.id DESC
+        LIMIT ?
+        """,
+        (min(int(limit), 100),),
+    ).fetchall()
+    return [parse_workspace_snapshot_row(row) for row in rows]
+
+
+def create_workspace_snapshot(conn, org_id):
+    workspace = workspace_detail(conn, org_id)
+    timestamp = now_iso()
+    label = "%s %s" % (workspace["profile"]["display_name"], timestamp)
+    cursor = conn.execute(
+        """
+        INSERT INTO workspace_metric_snapshots (
+            org_id, snapshot_label, metrics_json, created_at
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (int(org_id), label, json.dumps(workspace["metrics"], ensure_ascii=True), timestamp),
+    )
+    audit(conn, "create_workspace_snapshot", "workspace_metric_snapshot", cursor.lastrowid, {"org_id": int(org_id)})
+    return parse_workspace_snapshot_row(
+        conn.execute(
+            """
+            SELECT snap.*, org.name AS workspace_name, profile.display_name
+            FROM workspace_metric_snapshots snap
+            JOIN organizations org ON org.id = snap.org_id
+            LEFT JOIN company_profiles profile ON profile.org_id = snap.org_id
+            WHERE snap.id = ?
+            """,
+            (cursor.lastrowid,),
+        ).fetchone()
+    )
+
+
+def workspace_comparison(conn):
+    rows = conn.execute("SELECT id FROM organizations ORDER BY id ASC").fetchall()
+    return {
+        "workspaces": [workspace_detail(conn, row["id"]) for row in rows],
+        "snapshots": list_workspace_snapshots(conn, 20),
     }
 
 
