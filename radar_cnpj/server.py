@@ -78,6 +78,8 @@ from .services import (
     update_meeting_status,
     update_notification_status,
     validate_emails,
+    set_current_workspace,
+    workspace_context,
     workspace_comparison,
 )
 from .official_sources import catalog, download_files, import_brasilapi_cnpj, list_snapshot_files, sync_official_snapshot
@@ -174,6 +176,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(playbook_library(conn))
                 elif parsed.path == "/api/notifications":
                     self.send_json(list_notifications(conn, params))
+                elif parsed.path == "/api/workspace-context":
+                    self.send_json(workspace_context(conn))
                 elif parsed.path == "/api/workspaces/comparison":
                     self.send_json(workspace_comparison(conn))
                 elif parsed.path == "/api/okrs":
@@ -389,6 +393,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, update_notification_status(conn, int(parts[2]), "read"))
                 elif len(parts) == 4 and parts[1] == "notifications" and parts[3] == "dismiss":
                     self.send_json_commit(conn, update_notification_status(conn, int(parts[2]), "dismissed"))
+                elif parsed.path == "/api/workspace-context":
+                    self.send_json_commit(conn, set_current_workspace(conn, int(data.get("org_id") or 0)))
                 elif parsed.path == "/api/workspaces":
                     self.send_json_commit(conn, create_workspace(conn, data), 201)
                 elif len(parts) == 4 and parts[1] == "workspaces" and parts[3] == "snapshot":

@@ -781,6 +781,13 @@ def init_db():
                 FOREIGN KEY (org_id) REFERENCES organizations(id)
             );
 
+            CREATE TABLE IF NOT EXISTS workspace_context (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                current_org_id INTEGER NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (current_org_id) REFERENCES organizations(id)
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
