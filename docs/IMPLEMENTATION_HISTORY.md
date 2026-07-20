@@ -344,3 +344,26 @@ journey_status_after_approval=waiting
 prepared_next=True
 agent_actions_total=5
 ```
+
+## 2026-07-20 - Inicio da fase 06 de ICP e priorizacao SDR
+
+Branch: `feature/06-icp-prioritization-foundation`
+
+Estado inicial:
+
+- Fase 05 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 28 tests`, `OK`.
+
+Meta da fase:
+
+- Criar regras ICP estruturadas em banco.
+- Priorizar empresas/leads elegiveis a partir de lista ou base.
+- Bloquear suprimidos, e-mails fracos e contatos fora do ICP no backend.
+- Registrar decisoes e motivos em `agent_actions`.
+- Expor API e UI local para fila SDR.
+
+Documento principal:
+
+- `docs/ICP_PRIORITIZATION_SPEC.md`

@@ -169,3 +169,29 @@ Consequencias:
 - `agent_actions` registra o que foi sugerido, aprovado, rejeitado ou
   executado, com motivo.
 
+## ADR-008 - ICP estruturado limita o agente SDR
+
+Data: 2026-07-20
+
+Decisao:
+
+- O ICP do agente SDR deve ser uma regra estruturada em `icp_rules`.
+- A fila SDR deve ser criada apenas por uma funcao de backend que aplica esses
+  filtros antes de calcular prioridade.
+- O agente pode sugerir ordem e motivo dentro do conjunto elegivel, mas nao
+  pode incluir leads fora do ICP configurado.
+
+Racional:
+
+- O prompt do agente exige que ICP nao seja decidido pelo modelo.
+- Sem trilho duro de ICP, uma automacao de outbound poderia mirar segmentos
+  amplos demais e danificar reputacao/compliance.
+- Regra estruturada permite auditoria, reuso em playbooks e futura governanca
+  multi-empresa.
+
+Consequencias:
+
+- `lead_priority_queue` guarda as sugestoes e explicacoes da priorizacao.
+- Toda execucao de priorizacao registra `agent_actions`.
+- Envio real futuro deve aceitar apenas leads que passaram por ICP, higiene,
+  supressao e throttle no backend.
