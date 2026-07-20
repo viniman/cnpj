@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 10 iniciada em `feature/10-command-center-action-inbox`.
+Status: fase 11 iniciada em `feature/11-lead-replay-timeline`.
 
 Fases:
 
@@ -116,8 +116,9 @@ Fases:
 3. Feed de atividade e explicacao "por que".
 4. Kanban CRM e caixa unica de aprovacoes.
 5. Inbox acionavel no Command Center.
-6. OKRs/KPIs ligados a metricas reais.
-7. Governanca de agente, versionamento e custo de IA.
+6. Replay/auditoria por lead.
+7. OKRs/KPIs ligados a metricas reais.
+8. Governanca de agente, versionamento e custo de IA.
 
 ## Camada 6 - SaaS monetizavel
 

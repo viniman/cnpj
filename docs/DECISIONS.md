@@ -301,3 +301,31 @@ Consequencias:
   texto livre.
 - Criacao de reuniao por handoff segue na aba `Respostas` por enquanto, porque
   exige dados de agenda.
+
+## ADR-013 - Replay de lead e uma composicao auditavel de leitura
+
+Data: 2026-07-20
+
+Decisao:
+
+- A timeline/replay por lead deve ser montada por leitura das tabelas de
+  origem existentes.
+- Nenhuma tabela paralela de timeline sera criada nesta fase.
+- Cada item do replay preserva `source_table`, `source_id`, `kind`,
+  `origin_label`, `occurred_at` e metadados suficientes para auditoria.
+
+Racional:
+
+- O Command Center precisa explicar o que aconteceu sem virar uma segunda fonte
+  de verdade.
+- As tabelas atuais ja contem eventos de jornada, aprovacao, envio, resposta,
+  handoff, reuniao, conversao e acao do agente.
+- Preservar ponte para a origem permite investigar qualquer decisao meses
+  depois, atendendo ao requisito de transparencia radical.
+
+Consequencias:
+
+- A UI pode exibir replay por lead sem alterar regras operacionais.
+- Evolucoes futuras podem adicionar filtros/exportacao mantendo o contrato.
+- Se uma tabela de origem mudar, a composicao da timeline deve ser atualizada
+  junto com testes de cobertura.

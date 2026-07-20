@@ -726,3 +726,30 @@ final_inbox_items=5
 kanban_columns=7
 activity_items=36
 ```
+
+## 2026-07-20 - Inicio da fase 11 de replay por lead
+
+Branch: `feature/11-lead-replay-timeline`
+
+Estado inicial:
+
+- Fase 10 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 41 tests`, `OK`.
+
+Meta da fase:
+
+- Criar replay/auditoria por lead a partir das tabelas de origem.
+- Permitir reconstruir jornada, aprovacoes, envios, respostas, handoffs,
+  reunioes, conversoes e acoes do agente em ordem cronologica.
+- Expor API e UI local no Command Center.
+- Preservar origem, motivo e metadados de cada item.
+
+Documento principal:
+
+- `docs/LEAD_REPLAY_TIMELINE_SPEC.md`
+
+Commits:
+
+- `pending docs: define lead replay timeline phase`
