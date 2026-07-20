@@ -695,6 +695,80 @@
                 <p class="muted">Resolver handoff apenas fecha a tarefa; nao envia resposta automatica.</p>
               </div>
             </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Registrar reuniao</h2>
+                <button id="refreshMeetingsBtn" class="button">Atualizar reunioes</button>
+              </div>
+              <div class="form-grid">
+                <label>
+                  ID do handoff
+                  <input id="meetingHandoffId" class="input" type="number" min="1" placeholder="Handoff pendente" />
+                </label>
+                <label>
+                  ID do lead
+                  <input id="meetingLeadId" class="input" type="number" min="1" placeholder="Manual sem handoff" />
+                </label>
+                <label>
+                  Data e hora
+                  <input id="meetingScheduledAt" class="input" type="datetime-local" />
+                </label>
+                <label>
+                  Duracao
+                  <input id="meetingDuration" class="input" type="number" min="5" max="240" value="30" />
+                </label>
+                <label>
+                  Link
+                  <input id="meetingUrl" class="input" placeholder="https://meet..." />
+                </label>
+                <label>
+                  Responsavel
+                  <input id="meetingOwner" class="input" placeholder="Operador interno" />
+                </label>
+              </div>
+              <div class="form-grid one">
+                <label>
+                  Nota
+                  <textarea id="meetingNotes" class="textarea" placeholder="Contexto, horario combinado ou proxima acao."></textarea>
+                </label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <button id="createMeetingFromHandoffBtn" class="button primary">Criar por handoff</button>
+                <button id="createMeetingManualBtn" class="button">Criar por lead</button>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Status da reuniao</h2>
+              </div>
+              <div class="form-grid">
+                <label>
+                  ID da reuniao
+                  <input id="meetingStatusId" class="input" type="number" min="1" placeholder="1" />
+                </label>
+                <label>
+                  Novo status
+                  <select id="meetingStatus" class="input">
+                    <option value="scheduled">scheduled</option>
+                    <option value="proposed">proposed</option>
+                    <option value="completed">completed</option>
+                    <option value="cancelled">cancelled</option>
+                    <option value="no_show">no_show</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-grid one">
+                <label>
+                  Nota de resultado
+                  <input id="meetingStatusNote" class="input" placeholder="Reuniao feita / remarcada / cancelada" />
+                </label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <button id="updateMeetingStatusBtn" class="button primary">Atualizar status</button>
+              </div>
+            </section>
           </div>
 
           <section class="panel">
@@ -702,6 +776,13 @@
               <h2>Handoffs pendentes</h2>
             </div>
             <div id="handoffsTable" class="table-wrap"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Reunioes recentes</h2>
+            </div>
+            <div id="meetingsTable" class="table-wrap"></div>
           </section>
 
           <section class="panel">

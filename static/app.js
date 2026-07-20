@@ -12,6 +12,7 @@ const state = {
   priorityQueue: [],
   replies: [],
   handoffs: [],
+  meetings: [],
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -1207,7 +1208,7 @@ async function decidePriorityItem(itemId, decision) {
 }
 
 async function loadReplyWorkspace() {
-  await Promise.all([loadReplies(), loadHandoffs()]);
+  await Promise.all([loadReplies(), loadHandoffs(), loadMeetings()]);
 }
 
 async function classifyReplyFromForm() {
@@ -1226,7 +1227,7 @@ async function classifyReplyFromForm() {
   });
   const reply = result.reply || {};
   showStatus(`Resposta classificada como ${reply.classification}.`);
-  await Promise.all([loadReplies(), loadHandoffs(), loadAgentActions()]);
+  await Promise.all([loadReplies(), loadHandoffs(), loadMeetings(), loadAgentActions()]);
 }
 
 async function loadReplies() {
@@ -1290,16 +1291,26 @@ function renderHandoffs(items) {
         escapeHtml(item.reason),
         badge(context.classification || "-", replyTone(context.classification)),
         previewHtml(context.body_preview || "-"),
-        `<button class="row-action" data-handoff-resolve="${item.id}">Resolver</button> <button class="row-action" data-handoff-dismiss="${item.id}">Dispensar</button>`,
+        `<button class="row-action" data-handoff-meeting="${item.id}" data-handoff-lead="${item.lead_id || ""}">Reuniao</button> <button class="row-action" data-handoff-resolve="${item.id}">Resolver</button> <button class="row-action" data-handoff-dismiss="${item.id}">Dispensar</button>`,
       ];
     }),
   );
+  $$("[data-handoff-meeting]").forEach((button) => {
+    button.addEventListener("click", () => fillMeetingFromHandoff(button.dataset.handoffMeeting, button.dataset.handoffLead));
+  });
   $$("[data-handoff-resolve]").forEach((button) => {
     button.addEventListener("click", () => decideHandoff(button.dataset.handoffResolve, "resolve"));
   });
   $$("[data-handoff-dismiss]").forEach((button) => {
     button.addEventListener("click", () => decideHandoff(button.dataset.handoffDismiss, "dismiss"));
   });
+}
+
+function fillMeetingFromHandoff(handoffId, leadId) {
+  $("#meetingHandoffId").value = handoffId || "";
+  $("#meetingLeadId").value = leadId || "";
+  $("#meetingNotes").focus();
+  showStatus(`Handoff ${handoffId} pronto para registrar reuniao.`);
 }
 
 async function decideHandoff(handoffId, decision) {
@@ -1310,6 +1321,106 @@ async function decideHandoff(handoffId, decision) {
   });
   showStatus(decision === "resolve" ? "Handoff resolvido." : "Handoff dispensado.");
   await Promise.all([loadHandoffs(), loadAgentActions()]);
+}
+
+function meetingPayloadFromForm() {
+  return {
+    lead_id: Number($("#meetingLeadId").value || 0) || undefined,
+    scheduled_at: $("#meetingScheduledAt").value.trim(),
+    duration_minutes: Number($("#meetingDuration").value || 30),
+    meeting_url: $("#meetingUrl").value.trim(),
+    owner_name: $("#meetingOwner").value.trim(),
+    notes: $("#meetingNotes").value.trim(),
+  };
+}
+
+async function createMeetingFromHandoffForm() {
+  const handoffId = Number($("#meetingHandoffId").value || 0);
+  if (!handoffId) return showStatus("Informe o ID do handoff.", "warn");
+  const meeting = await api(`/api/handoffs/${handoffId}/meeting`, {
+    method: "POST",
+    body: JSON.stringify(meetingPayloadFromForm()),
+  });
+  $("#meetingStatusId").value = meeting.id;
+  showStatus(`Reuniao ${meeting.id} registrada e handoff resolvido.`);
+  await Promise.all([loadHandoffs(), loadMeetings(), loadAgentActions()]);
+}
+
+async function createMeetingManualForm() {
+  const payload = meetingPayloadFromForm();
+  if (!payload.lead_id) return showStatus("Informe o ID do lead.", "warn");
+  const meeting = await api("/api/meetings", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  $("#meetingStatusId").value = meeting.id;
+  showStatus(`Reuniao ${meeting.id} registrada.`);
+  await Promise.all([loadMeetings(), loadAgentActions()]);
+}
+
+async function loadMeetings() {
+  const data = await api("/api/meetings?limit=200");
+  state.meetings = data.items || [];
+  renderMeetings(state.meetings);
+}
+
+function meetingTone(status) {
+  if (status === "completed") return "green";
+  if (status === "cancelled" || status === "no_show") return "red";
+  if (status === "scheduled") return "amber";
+  return "purple";
+}
+
+function renderMeetings(items) {
+  const container = $("#meetingsTable");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhuma reuniao registrada ainda.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["ID", "Status", "Quando", "Empresa", "Email", "Origem", "Link", "Nota", ""],
+    items.map((item) => [
+      item.id,
+      badge(item.status, meetingTone(item.status)),
+      escapeHtml(fmt(item.scheduled_at)),
+      escapeHtml(item.trade_name || item.legal_name || "-"),
+      escapeHtml(item.attendee_email || item.lead_email || "-"),
+      escapeHtml(item.source || "-"),
+      item.meeting_url ? `<a href="${escapeHtml(item.meeting_url)}" target="_blank" rel="noreferrer">Abrir</a>` : "-",
+      previewHtml(item.outcome_note || item.notes || "-"),
+      `<button class="row-action" data-meeting-fill="${item.id}" data-meeting-status="${item.status}">Status</button> <button class="row-action" data-meeting-complete="${item.id}">Concluir</button> <button class="row-action" data-meeting-cancel="${item.id}">Cancelar</button>`,
+    ]),
+  );
+  $$("[data-meeting-fill]").forEach((button) => {
+    button.addEventListener("click", () => {
+      $("#meetingStatusId").value = button.dataset.meetingFill;
+      $("#meetingStatus").value = button.dataset.meetingStatus || "scheduled";
+      $("#meetingStatusNote").focus();
+    });
+  });
+  $$("[data-meeting-complete]").forEach((button) => {
+    button.addEventListener("click", () => updateMeetingStatus(button.dataset.meetingComplete, "completed"));
+  });
+  $$("[data-meeting-cancel]").forEach((button) => {
+    button.addEventListener("click", () => updateMeetingStatus(button.dataset.meetingCancel, "cancelled"));
+  });
+}
+
+async function updateMeetingStatus(meetingId, status) {
+  const note = $("#meetingStatusNote").value.trim();
+  await api(`/api/meetings/${meetingId}/status`, {
+    method: "POST",
+    body: JSON.stringify({ status, note }),
+  });
+  showStatus(`Reuniao ${meetingId} atualizada para ${status}.`);
+  await Promise.all([loadMeetings(), loadAgentActions()]);
+}
+
+async function updateMeetingStatusFromForm() {
+  const meetingId = Number($("#meetingStatusId").value || 0);
+  if (!meetingId) return showStatus("Informe o ID da reuniao.", "warn");
+  await updateMeetingStatus(meetingId, $("#meetingStatus").value);
 }
 
 async function seed() {
@@ -1430,6 +1541,10 @@ function wireEvents() {
   $("#classifyReplyBtn").addEventListener("click", classifyReplyFromForm);
   $("#refreshRepliesBtn").addEventListener("click", loadReplyWorkspace);
   $("#refreshHandoffsBtn").addEventListener("click", loadHandoffs);
+  $("#refreshMeetingsBtn").addEventListener("click", loadMeetings);
+  $("#createMeetingFromHandoffBtn").addEventListener("click", createMeetingFromHandoffForm);
+  $("#createMeetingManualBtn").addEventListener("click", createMeetingManualForm);
+  $("#updateMeetingStatusBtn").addEventListener("click", updateMeetingStatusFromForm);
   $("#seedBtn").addEventListener("click", seed);
   $("#seedBtnImport").addEventListener("click", seed);
   $("#validateEmailsBtn").addEventListener("click", validateFreeEmails);
