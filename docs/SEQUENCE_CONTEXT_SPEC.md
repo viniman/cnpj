@@ -51,3 +51,16 @@ deve carregar nem acionar aprovacoes/jornadas de outra empresa interna.
 - Aprovacao, rejeicao e listagem de aprovacoes respeitam workspace ativo.
 - Logs de `agent_actions` de sequencia ficam no workspace ativo.
 - Testes automatizados provam isolamento entre dois workspaces.
+
+## Implementado nesta fase
+
+- `create_sequence`, `list_sequences` e `get_sequence` usam workspace ativo.
+- Passos resolvem templates pelo workspace ativo.
+- `enroll_sequence_from_list` valida lista e sequencia no workspace ativo.
+- `lead_journey` nasce no workspace ativo.
+- `create_step_approval`, `list_approvals`, `approve_sequence_step` e
+  `reject_sequence_step` usam workspace ativo.
+- `prepare_next_journey_step` recusa jornada fora do workspace ativo.
+- `log_agent_action` e `list_agent_actions` usam workspace ativo.
+- Campanha auxiliar de sequencia nasce no workspace ativo.
+- Teste de isolamento multi-workspace em `tests/test_sequences.py`.

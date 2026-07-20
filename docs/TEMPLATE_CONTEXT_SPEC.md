@@ -26,7 +26,7 @@ de outro workspace por acidente.
 
 ## Fora do escopo desta fase
 
-- Migrar sequencias/cadencias.
+- Migrar ICP/priorizacao e respostas/handoffs/reunioes.
 - Criar marketplace de templates compartilhados.
 - Clonagem explicita de templates entre workspaces.
 - Edicao visual avancada de e-mail.
@@ -60,3 +60,4 @@ efeito colateral de lista global.
 - `render_email_template` audita no workspace ativo e preserva rodape de
   compliance.
 - Teste de isolamento multi-workspace em `tests/test_email_templates.py`.
+- Sequencias passaram a consumir templates no workspace ativo na Fase 20.

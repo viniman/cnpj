@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 20 iniciada em `feature/20-sequence-context-foundation`.
+Status: fase 20 implementada localmente em `feature/20-sequence-context-foundation`.
 
 Fases:
 

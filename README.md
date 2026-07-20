@@ -778,6 +778,8 @@ python -m unittest discover -s tests
   campanhas, simulacoes, eventos e funil sao filtrados por contexto.
 - Templates de e-mail tambem respeitam o workspace ativo: criacao, listagem,
   versoes e renderizacao nao atravessam workspaces.
+- Sequencias, jornadas, aprovacoes humanas e acoes de cadencia tambem usam o
+  workspace ativo; IDs de outro workspace sao recusados pelo backend.
 
 ## Proximas fases sugeridas
 

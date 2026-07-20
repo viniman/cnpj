@@ -1374,4 +1374,31 @@ Documento principal:
 
 Commits:
 
-- `pending docs: define sequence context phase`
+- `e2803a7 docs: define sequence context phase`
+- `311ff92 feat: scope sequences to active workspace`
+
+Implementado:
+
+- Sequencias criadas, listadas e detalhadas no workspace ativo.
+- Passos de sequencia resolvendo templates do workspace ativo.
+- Inscricao validando lista/sequencia no workspace ativo.
+- Jornadas e aprovacoes criadas no workspace ativo.
+- Aprovar, rejeitar e preparar proximo passo bloqueiam IDs fora do contexto.
+- `agent_actions` de cadencia criadas e listadas por workspace ativo.
+- Campanha auxiliar de sequencia criada no workspace ativo.
+- Teste de isolamento multi-workspace em `tests/test_sequences.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_sequences
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 67 tests
+OK
+```
