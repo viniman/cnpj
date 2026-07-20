@@ -801,3 +801,29 @@ conversions=2
 first_kind=lead
 kinds=agent_action,approval,approval_decision,conversion,event,handoff,handoff_decision,journey,lead,lead_status,meeting,meeting_status,reply,send
 ```
+
+## 2026-07-20 - Inicio da fase 12 de OKRs e KPIs
+
+Branch: `feature/12-okr-kpi-foundation`
+
+Estado inicial:
+
+- Fase 11 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 43 tests`, `OK`.
+
+Meta da fase:
+
+- Criar catalogo de KPIs com formulas explicitas.
+- Criar objetivos e key results ligados a `kpi_key`.
+- Calcular progresso a partir das tabelas reais do funil.
+- Expor API e painel local no Command Center.
+
+Documento principal:
+
+- `docs/OKR_KPI_SPEC.md`
+
+Commits:
+
+- `pending docs: define okr kpi phase`

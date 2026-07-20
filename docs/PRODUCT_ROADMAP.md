@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 11 iniciada em `feature/11-lead-replay-timeline`.
+Status: fase 12 iniciada em `feature/12-okr-kpi-foundation`.
 
 Fases:
 

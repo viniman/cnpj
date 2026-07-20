@@ -329,3 +329,26 @@ Consequencias:
 - Evolucoes futuras podem adicionar filtros/exportacao mantendo o contrato.
 - Se uma tabela de origem mudar, a composicao da timeline deve ser atualizada
   junto com testes de cobertura.
+
+## ADR-014 - Key Results apontam para KPIs calculados
+
+Data: 2026-07-20
+
+Decisao:
+
+- `key_results` armazenam meta, titulo e `kpi_key`.
+- O valor atual do KR nao e salvo como verdade; ele e calculado por
+  `kpi_definitions` no momento da leitura.
+- Cada KPI declara formula textual e tabelas de origem.
+
+Racional:
+
+- O prompt de governanca exige KPIs rastreaveis ate dados reais.
+- Salvar snapshots como verdade primaria criaria divergencia com o funil.
+- Formula explicita permite ao operador entender o numero sem abrir o banco.
+
+Consequencias:
+
+- Mudancas de formula devem ser versionadas em fase futura.
+- A UI sempre deve mostrar a formula ou origem do KPI junto do progresso.
+- Criacao de KR precisa validar se o `kpi_key` existe no catalogo conhecido.
