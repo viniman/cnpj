@@ -1,0 +1,11 @@
+services:
+  radar-cnpj:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      RADAR_CNPJ_HOST: 0.0.0.0
+      RADAR_CNPJ_PORT: 8000
+

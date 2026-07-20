@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Radar CNPJ Interno</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">RC</div>
+          <div>
+            <strong>Radar CNPJ</strong>
+            <span>Inteligencia interna</span>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-view="dashboard">Dashboard</button>
+          <button class="nav-item" data-view="companies">Empresas</button>
+          <button class="nav-item" data-view="lists">Listas</button>
+          <button class="nav-item" data-view="import">Importacao</button>
+          <button class="nav-item" data-view="hygiene">Higiene</button>
+          <button class="nav-item" data-view="audit">Auditoria</button>
+        </nav>
+        <div class="compliance-box">
+          <strong>Uso responsavel</strong>
+          <span>Exportacoes exigem finalidade declarada e gravam origem, base legal e auditoria.</span>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">localhost / uso interno</p>
+            <h1 id="pageTitle">Dashboard</h1>
+          </div>
+          <div class="top-actions">
+            <input id="quickSearch" class="input compact" placeholder="Buscar CNPJ, nome, cidade ou email" />
+            <button id="quickSearchBtn" class="button primary">Buscar</button>
+          </div>
+        </header>
+
+        <section id="status" class="status hidden"></section>
+
+        <section id="dashboard" class="view active">
+          <div class="metric-grid" id="metrics"></div>
+          <div class="content-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Top UFs</h2>
+              </div>
+              <div id="topStates" class="bar-list"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Top CNAEs</h2>
+              </div>
+              <div id="topCnaes" class="bar-list"></div>
+            </section>
+            <section class="panel wide">
+              <div class="panel-head">
+                <h2>Ultimas importacoes</h2>
+                <button id="seedBtn" class="button">Carregar amostra</button>
+              </div>
+              <div id="imports" class="table-wrap"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="companies" class="view">
+          <div class="filter-grid">
+            <input id="filterQuery" class="input" placeholder="Razao social, CNPJ, socio, email" />
+            <input id="filterState" class="input" placeholder="UF" maxlength="2" />
+            <input id="filterCity" class="input" placeholder="Cidade" />
+            <input id="filterCnae" class="input" placeholder="CNAE" />
+            <select id="filterStatus" class="input">
+              <option value="">Situacao</option>
+              <option value="Ativa">Ativa</option>
+              <option value="Baixada">Baixada</option>
+              <option value="Inapta">Inapta</option>
+            </select>
+            <select id="filterSize" class="input">
+              <option value="">Porte</option>
+              <option value="ME">ME</option>
+              <option value="EPP">EPP</option>
+              <option value="DEMAIS">DEMAIS</option>
+              <option value="MEDIO">MEDIO</option>
+              <option value="GRANDE">GRANDE</option>
+            </select>
+            <label class="check-row"><input type="checkbox" id="filterHasEmail" /> Com email</label>
+            <button id="searchBtn" class="button primary">Filtrar</button>
+          </div>
+
+          <div class="toolbar">
+            <div id="resultCount" class="muted">0 empresas</div>
+            <div class="toolbar-actions">
+              <select id="targetList" class="input compact"></select>
+              <button id="addToListBtn" class="button">Adicionar selecionadas</button>
+            </div>
+          </div>
+
+          <div class="split">
+            <div class="panel table-panel">
+              <div id="companiesTable" class="table-wrap"></div>
+            </div>
+            <aside class="detail-panel" id="companyDetail">
+              <div class="empty-state">Selecione uma empresa para ver socios, origem e score.</div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="lists" class="view">
+          <div class="toolbar">
+            <div class="create-row">
+              <input id="listName" class="input" placeholder="Nome da lista" />
+              <input id="listDescription" class="input" placeholder="Descricao opcional" />
+              <button id="createListBtn" class="button primary">Criar lista</button>
+            </div>
+          </div>
+          <div class="split">
+            <section class="panel side-list">
+              <div class="panel-head">
+                <h2>Listas</h2>
+              </div>
+              <div id="listsIndex" class="list-index"></div>
+            </section>
+            <section class="panel list-detail" id="listDetail">
+              <div class="empty-state">Crie ou selecione uma lista.</div>
+            </section>
+          </div>
+        </section>
+
+        <section id="import" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Fonte oficial automatica</h2>
+              <button id="discoverOfficialBtn" class="button">Descobrir base</button>
+            </div>
+            <div class="form-grid">
+              <label>
+                Snapshot
+                <input id="officialSnapshot" class="input" placeholder="2026-06" />
+              </label>
+              <label>
+                Chunk
+                <input id="officialChunk" class="input" type="number" min="0" max="9" value="1" />
+              </label>
+              <label>
+                Limite de importacao
+                <input id="officialLimit" class="input" type="number" min="1" value="1000" />
+              </label>
+              <label>
+                Modo
+                <select id="officialMode" class="input">
+                  <option value="domains">Baixar dominios</option>
+                  <option value="chunk">Baixar e importar chunk</option>
+                  <option value="full">Baixar base completa</option>
+                </select>
+              </label>
+            </div>
+            <div class="toolbar">
+              <div class="toolbar-actions">
+                <button id="syncOfficialBtn" class="button primary">Sincronizar oficial</button>
+                <button id="downloadDomainsBtn" class="button">Baixar dominios</button>
+              </div>
+              <div id="officialSummary" class="muted">Aguardando descoberta da fonte oficial.</div>
+            </div>
+            <div id="officialFiles" class="table-wrap"></div>
+          </section>
+
+          <section class="panel api-panel">
+            <div class="panel-head">
+              <h2>Consulta por API</h2>
+            </div>
+            <div class="toolbar api-toolbar">
+              <input id="brasilApiCnpj" class="input compact" placeholder="CNPJ" />
+              <button id="brasilApiBtn" class="button primary">Consultar e salvar</button>
+            </div>
+            <div id="brasilApiResult" class="table-wrap"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Importar dados</h2>
+            </div>
+            <div class="form-grid">
+              <label>
+                Caminho local do CSV simplificado ou diretorio Receita
+                <input id="importPath" class="input" placeholder="D:\\dados\\cnpj\\amostra.csv" />
+              </label>
+              <label>
+                Nome da fonte
+                <input id="importSource" class="input" value="Receita Federal - Dados Abertos CNPJ" />
+              </label>
+              <label>
+                URL ou referencia de origem
+                <input id="importUrl" class="input" placeholder="https://dados.gov.br/..." />
+              </label>
+              <label>
+                Base legal / justificativa
+                <input id="importBasis" class="input" value="Legitimo interesse B2B para prospeccao responsavel" />
+              </label>
+              <label>
+                Limite de linhas no MVP
+                <input id="importLimit" class="input" type="number" min="1" value="1000" />
+              </label>
+            </div>
+            <div class="toolbar">
+              <button id="importBtn" class="button primary">Importar</button>
+              <button id="seedBtnImport" class="button">Carregar amostra interna</button>
+            </div>
+            <p class="muted">Para a base nacional completa, use este MVP para validar filtros e listas. A carga massiva deve migrar para Postgres COPY e tabelas de staging.</p>
+          </section>
+        </section>
+
+        <section id="hygiene" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Validacao de emails</h2>
+            </div>
+            <div class="form-grid two">
+              <label>
+                Emails avulsos
+                <textarea id="emailInput" class="textarea" placeholder="contato@empresa.com.br&#10;vendas@cliente.com.br"></textarea>
+              </label>
+              <label>
+                Supressao manual
+                <input id="suppressionEmail" class="input" placeholder="email@dominio.com" />
+                <input id="suppressionReason" class="input" placeholder="Motivo" />
+                <button id="suppressionBtn" class="button">Adicionar supressao</button>
+              </label>
+            </div>
+            <div class="toolbar">
+              <button id="validateEmailsBtn" class="button primary">Validar emails</button>
+            </div>
+            <div id="emailResults" class="table-wrap"></div>
+          </section>
+        </section>
+
+        <section id="audit" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Eventos de auditoria</h2>
+              <button id="refreshAuditBtn" class="button">Atualizar</button>
+            </div>
+            <div id="auditTable" class="table-wrap"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+    <script src="/app.js"></script>
+  </body>
+</html>
