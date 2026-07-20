@@ -261,3 +261,26 @@ versions=2
 footer_injected=true
 body_has_cta=true
 ```
+
+## 2026-07-20 - Inicio da fase 05 de sequencias semi-supervisionadas
+
+Branch: `feature/05-sequence-supervision-foundation`
+
+Estado inicial:
+
+- Fase 04 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 24 tests`, `OK`.
+
+Meta da fase:
+
+- Criar sequencias com passos baseados em templates versionados.
+- Inscrever leads de listas em jornadas.
+- Criar fila de aprovacao humana por passo.
+- Executar apenas passo aprovado, em modo simulado.
+- Registrar decisoes e execucoes em `agent_actions`.
+
+Documento principal:
+
+- `docs/SEQUENCE_SUPERVISION_SPEC.md`

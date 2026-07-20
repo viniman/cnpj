@@ -144,3 +144,28 @@ Consequencias:
 - Campanhas futuras devem referenciar `template_version_id` para preservar a
   copy usada no momento do experimento.
 
+## ADR-007 - Cadencias comecam semi-supervisionadas
+
+Data: 2026-07-20
+
+Decisao:
+
+- Sequencias de outbound nascem com aprovacao humana obrigatoria para cada
+  passo executavel.
+- O sistema pode montar o contexto e renderizar a copy, mas a execucao do passo
+  depende da fila `approval_queue`.
+- A execucao aprovada continua usando provider `simulated`.
+
+Racional:
+
+- O prompt do agente SDR recomenda nao pular a fase semi-supervisionada.
+- Cadencias podem causar dano reputacional se avancarem sem revisao.
+- A fila de aprovacao ja prepara o Command Center e a governanca futura.
+
+Consequencias:
+
+- `lead_journey` registra o estado operacional por lead/sequencia.
+- `approval_queue` vira o ponto unico para decisoes humanas iniciais.
+- `agent_actions` registra o que foi sugerido, aprovado, rejeitado ou
+  executado, com motivo.
+

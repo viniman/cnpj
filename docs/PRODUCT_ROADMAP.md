@@ -89,13 +89,16 @@ Meta:
 - Agente escolhe, sugere e acompanha, mas os trilhos duros ficam em codigo.
 - Comecar com aprovacao humana antes de envio autonomo.
 
+Status: fase 05 iniciada em `feature/05-sequence-supervision-foundation`.
+
 Fases:
 
-1. `icp_rules`, `sequences`, `sequence_steps`, `lead_journey`.
-2. Priorizacao de leads elegiveis sem envio automatico.
+1. `sequences`, `sequence_steps`, `lead_journey`, `approval_queue`.
+2. Inscricao de listas em sequencias com aprovacao humana por passo.
 3. Log `agent_actions` com motivo, ferramenta e resultado.
-4. Classificacao de respostas e handoff humano.
-5. Autonomia gradual somente apos testes e confianca.
+4. `icp_rules` estruturado e priorizacao de leads elegiveis.
+5. Classificacao de respostas e handoff humano.
+6. Autonomia gradual somente apos testes e confianca.
 
 ## Camada 5 - Command Center multi-empresa
 
