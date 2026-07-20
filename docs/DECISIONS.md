@@ -592,3 +592,33 @@ Consequencias:
 - Playbooks futuros poderao preencher ICPs, mas a aplicacao devera ser
   explicita e auditavel.
 - Respostas, handoffs e reunioes ainda mantem migracoes dedicadas futuras.
+
+## ADR-024 - Respostas, handoffs e reunioes seguem o workspace ativo
+
+Data: 2026-07-20
+
+Decisao:
+
+- Classificacoes de resposta, handoffs e reunioes devem usar
+  `current_org_id(conn)`.
+- Acoes por `lead_id`, `send_id`, `handoff_id` ou `meeting_id` devem validar
+  que o registro pertence ao workspace ativo.
+- Opt-out e supressao seguem globais por e-mail enquanto o schema mantiver
+  unicidade global de e-mail.
+
+Racional:
+
+- Resposta e reuniao sao parte do funil comercial de uma empresa interna
+  especifica; atravessar workspace confundiria follow-up, agenda e compliance.
+- Handoff e onde o humano toma decisao de valor alto, entao a fronteira de
+  contexto precisa estar no backend.
+- Supressao global prioriza seguranca de contato e evita reabordar alguem que
+  pediu remocao em qualquer fluxo local.
+
+Consequencias:
+
+- Ao trocar workspace, respostas, handoffs e reunioes de outro contexto deixam
+  de aparecer.
+- Reunioes continuam registros locais auditaveis, sem calendario real.
+- Replay e Command Center completo ainda podem exigir fases proprias para
+  remover todos os usos remanescentes de `ORG_ID`.

@@ -1453,3 +1453,56 @@ Resultado esperado nesta etapa:
 Ran 68 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 22 de respostas e reunioes por workspace
+
+Branch: `feature/22-reply-meeting-context-foundation`
+
+Estado inicial:
+
+- Fase 21 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 68 tests`, `OK`.
+
+Meta da fase:
+
+- Migrar respostas, handoffs e reunioes para o workspace ativo.
+- Bloquear lead, send, handoff ou meeting de outro workspace no backend.
+- Preservar opt-out/supressao como trilho duro global por e-mail.
+
+Documento principal:
+
+- `docs/REPLY_MEETING_CONTEXT_SPEC.md`
+
+Commits:
+
+- `de2ef54 docs: define reply meeting context phase`
+- `80a8f2b feat: scope replies and meetings to active workspace`
+
+Implementado:
+
+- Respostas validando lead/envio contra o workspace ativo.
+- Handoffs criados, listados e decididos no workspace ativo.
+- Reunioes criadas por lead ou handoff apenas no workspace ativo.
+- Atualizacao de status de reuniao bloqueando item de outro workspace.
+- `agent_actions`, auditoria e registros principais da fase usando o contexto
+  ativo.
+- Testes multi-workspace em `tests/test_reply_handoffs.py` e
+  `tests/test_meetings.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_reply_handoffs tests.test_meetings
+python -m unittest tests.test_command_center
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 70 tests
+OK
+```

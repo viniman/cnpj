@@ -136,6 +136,8 @@ Tabelas principais:
   `current_org_id(conn)` e bloqueiam IDs fora do contexto ativo.
 - ICP e fila SDR leem `current_org_id(conn)` para regras, listas, sugestoes,
   auditoria e decisoes humanas.
+- Respostas, handoffs e reunioes leem `current_org_id(conn)` para classificar,
+  listar, decidir, criar agenda e atualizar status.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo
   vinculo com listas do workspace ativo.
 - Supressao e opt-out sao consultados globalmente pelo modulo de higiene,
