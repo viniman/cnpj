@@ -43,6 +43,9 @@ testar listas, campanhas e funil sem enviar e-mail real.
   - simulacao de campanha
   - registro manual de evento
   - tabelas de campanhas e leads
+- Fix operacional:
+  - commits de escrita no SQLite acontecem antes da resposta HTTP
+  - chamadas encadeadas rapidas nao leem estado anterior ao commit
 
 ## Checklist de aceite
 
@@ -55,6 +58,8 @@ testar listas, campanhas e funil sem enviar e-mail real.
   complaints e bloqueios.
 - [x] Bounce/complaint simulado adiciona supressao.
 - [x] Testes automatizados cobrem os guardrails centrais.
+- [x] Smoke test HTTP encadeado cria lista, leads, campanha e simulacao sem
+  leitura desatualizada.
 
 ## Como testar localmente
 

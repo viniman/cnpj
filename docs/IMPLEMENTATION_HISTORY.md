@@ -148,6 +148,7 @@ Commits:
 - `87801e3 docs: define email experiment phase`
 - `2a3ccce feat: add simulated email experiment backend`
 - `af8097c feat: add email experiment workspace UI`
+- `656eb0c fix: commit API writes before responding`
 
 Implementado:
 
@@ -164,6 +165,8 @@ Implementado:
 - Endpoints `/api/experiments/*`.
 - Aba `Experimentos` no frontend local.
 - Testes cobrindo guardrails, simulacao e supressao por bounce.
+- Correcao do servidor para commitar escritas antes de responder HTTP,
+  evitando leitura desatualizada em chamadas encadeadas rapidas.
 
 Como verificar:
 
@@ -176,4 +179,17 @@ Resultado esperado nesta etapa:
 ```text
 Ran 19 tests
 OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=true
+companies_added=3
+leads_total=3
+leads_eligible=1
+leads_blocked=2
+campaign_mode=simulated
+simulated_sent=1
+simulated_blocked=2
 ```
