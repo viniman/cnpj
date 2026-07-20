@@ -52,3 +52,15 @@ risco de compartilhar bloqueio entre workspaces internos.
 - Atualizacao de status de reuniao recusa item de outro workspace.
 - Conversoes e `agent_actions` desta fase ficam no workspace ativo.
 - Testes automatizados provam isolamento entre workspace interno e secundario.
+
+## Implementado nesta fase
+
+- `reply_target` valida `send_id` por lead e campanha do workspace ativo.
+- `record_inbound_reply` grava resposta, opt-out, handoff, auditoria e logs no
+  workspace ativo.
+- `list_reply_classifications`, `get_reply_classification`, `list_handoffs`,
+  `get_handoff` e `decide_handoff` usam o workspace ativo.
+- `create_meeting`, `create_meeting_from_handoff`, `list_meetings`,
+  `get_meeting` e `update_meeting_status` usam o workspace ativo.
+- Testes em `tests/test_reply_handoffs.py` e `tests/test_meetings.py` cobrem
+  isolamento entre workspace interno e workspace secundario.

@@ -1474,3 +1474,35 @@ Meta da fase:
 Documento principal:
 
 - `docs/REPLY_MEETING_CONTEXT_SPEC.md`
+
+Commits:
+
+- `de2ef54 docs: define reply meeting context phase`
+- `80a8f2b feat: scope replies and meetings to active workspace`
+
+Implementado:
+
+- Respostas validando lead/envio contra o workspace ativo.
+- Handoffs criados, listados e decididos no workspace ativo.
+- Reunioes criadas por lead ou handoff apenas no workspace ativo.
+- Atualizacao de status de reuniao bloqueando item de outro workspace.
+- `agent_actions`, auditoria e registros principais da fase usando o contexto
+  ativo.
+- Testes multi-workspace em `tests/test_reply_handoffs.py` e
+  `tests/test_meetings.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_reply_handoffs tests.test_meetings
+python -m unittest tests.test_command_center
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 70 tests
+OK
+```

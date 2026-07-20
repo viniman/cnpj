@@ -782,6 +782,8 @@ python -m unittest discover -s tests
   workspace ativo; IDs de outro workspace sao recusados pelo backend.
 - ICP estruturado e fila SDR tambem usam o workspace ativo; regras, listas e
   sugestoes de outro workspace sao recusadas pelo backend.
+- Respostas, handoffs e reunioes tambem usam o workspace ativo; leads, envios,
+  handoffs e reunioes de outro workspace sao recusados pelo backend.
 
 ## Proximas fases sugeridas
 

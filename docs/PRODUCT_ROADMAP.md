@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 22 iniciada localmente em `feature/22-reply-meeting-context-foundation`.
+Status: fase 22 implementada localmente em `feature/22-reply-meeting-context-foundation`.
 
 Fases:
 
