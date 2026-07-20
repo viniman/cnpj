@@ -1402,3 +1402,54 @@ Resultado esperado nesta etapa:
 Ran 67 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 21 de ICP por workspace
+
+Branch: `feature/21-icp-context-foundation`
+
+Estado inicial:
+
+- Fase 20 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 67 tests`, `OK`.
+
+Meta da fase:
+
+- Migrar regras ICP e fila de priorizacao SDR para o workspace ativo.
+- Bloquear regra, lista ou sugestao de outro workspace no backend.
+- Garantir que logs de priorizacao e decisao humana fiquem no contexto ativo.
+
+Documento principal:
+
+- `docs/ICP_CONTEXT_SPEC.md`
+
+Commits:
+
+- `3565f1b docs: define icp context phase`
+- `8ea15fc feat: scope icp prioritization to active workspace`
+
+Implementado:
+
+- Regras ICP criadas, listadas e detalhadas a partir do workspace ativo.
+- Priorizacao recusando regra ou lista de outro workspace.
+- Candidatos de lista e leads auxiliares validados pelo workspace ativo.
+- Itens de `lead_priority_queue` gravados, listados e decididos por workspace.
+- Auditoria e `agent_actions` de priorizacao/decisao gravados no contexto
+  ativo.
+- Teste multi-workspace em `tests/test_icp_prioritization.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_icp_prioritization
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 68 tests
+OK
+```
