@@ -162,6 +162,31 @@ h3 {
   flex-wrap: wrap;
 }
 
+.workspace-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.workspace-label {
+  max-width: 180px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-select {
+  width: 220px;
+}
+
 .input,
 .textarea {
   border: 1px solid var(--line);
@@ -856,6 +881,7 @@ tr:hover td {
   }
 
   .top-actions,
+  .workspace-switcher,
   .compact,
   .filter-grid,
   .metric-grid,
@@ -866,6 +892,12 @@ tr:hover td {
   }
 
   .input.compact {
+    width: 100%;
+  }
+
+  .workspace-label,
+  .workspace-select {
+    max-width: none;
     width: 100%;
   }
 }

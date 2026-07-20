@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 16 implementada localmente em `feature/16-workspace-comparison-foundation`.
+Status: fase 17 implementada localmente em `feature/17-workspace-context-foundation`.
 
 Fases:
 
@@ -123,6 +123,7 @@ Fases:
 10. Notificacoes proativas para lead quente, campanha pausada e OKR em risco.
 11. Comparacao multi-workspace no dashboard executivo.
 12. Troca de contexto operacional por workspace.
+13. Migracao gradual dos modulos restantes para `current_org_id`.
 
 ## Camada 6 - SaaS monetizavel
 

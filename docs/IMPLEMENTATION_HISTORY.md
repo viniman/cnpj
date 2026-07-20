@@ -1174,3 +1174,72 @@ snapshot_workspace=Smoke Workspace 20260720021357
 snapshots_after=1
 workspaces_after=2
 ```
+
+## 2026-07-20 - Inicio da fase 17 de contexto operacional por workspace
+
+Branch: `feature/17-workspace-context-foundation`
+
+Estado inicial:
+
+- Fase 16 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 60 tests`, `OK`.
+
+Meta da fase:
+
+- Persistir workspace ativo local.
+- Expor API para ler/trocar contexto.
+- Migrar dashboard, listas e notificacoes para o workspace ativo.
+- Adicionar seletor de workspace na UI.
+
+Documento principal:
+
+- `docs/WORKSPACE_CONTEXT_SPEC.md`
+
+Commits:
+
+- `f2bffcf docs: define workspace context phase`
+- `5122ff0 feat: add workspace context backend`
+- `3c5566d feat: add workspace switcher UI`
+
+Implementado:
+
+- Tabela `workspace_context` com singleton local.
+- Helpers de contexto ativo no backend.
+- Endpoint `GET /api/workspace-context`.
+- Endpoint `POST /api/workspace-context`.
+- Dashboard migrado para listas/empresas do workspace ativo.
+- Listas criadas, listadas, detalhadas, exportadas e editadas com escopo ativo.
+- Notificacoes listadas, geradas, lidas e dispensadas com escopo ativo.
+- OKRs/KPIs migrados para o workspace ativo.
+- Seletor de workspace na topbar da UI.
+- Recarregamento da visao aberta apos troca de workspace.
+- Testes dedicados em `tests/test_workspace_context.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_workspace_context
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 64 tests
+OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+workspace_before=1
+workspace_switch_to=2
+dashboard_workspace=2
+dashboard_lists=0
+dashboard_companies=0
+workspace_restored=1
+```

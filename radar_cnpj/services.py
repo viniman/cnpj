@@ -48,6 +48,56 @@ def dict_row(row):
     return dict(row) if row is not None else None
 
 
+def ensure_workspace_context(conn):
+    row = conn.execute("SELECT * FROM workspace_context WHERE id = 1").fetchone()
+    if row:
+        return dict_row(row)
+    org = conn.execute("SELECT id FROM organizations ORDER BY id ASC LIMIT 1").fetchone()
+    org_id = org["id"] if org else ORG_ID
+    timestamp = now_iso()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO workspace_context (id, current_org_id, updated_at)
+        VALUES (?, ?, ?)
+        """,
+        (1, org_id, timestamp),
+    )
+    return {"id": 1, "current_org_id": org_id, "updated_at": timestamp}
+
+
+def current_org_id(conn):
+    return int(ensure_workspace_context(conn)["current_org_id"])
+
+
+def set_current_workspace(conn, org_id):
+    org_id = int(org_id)
+    org = conn.execute("SELECT id FROM organizations WHERE id = ?", (org_id,)).fetchone()
+    if not org:
+        raise ValueError("Workspace nao encontrado")
+    ensure_company_profile_for_org(conn, org_id)
+    timestamp = now_iso()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO workspace_context (id, current_org_id, updated_at)
+        VALUES (?, ?, ?)
+        """,
+        (1, org_id, timestamp),
+    )
+    audit(conn, "set_workspace_context", "organization", org_id, {"current_org_id": org_id}, org_id=org_id)
+    return workspace_context(conn)
+
+
+def workspace_context(conn):
+    context = ensure_workspace_context(conn)
+    active = workspace_detail(conn, context["current_org_id"])
+    workspace_rows = conn.execute("SELECT id FROM organizations ORDER BY id ASC").fetchall()
+    return {
+        "active_workspace": active,
+        "workspaces": [workspace_detail(conn, row["id"]) for row in workspace_rows],
+        "updated_at": context["updated_at"],
+    }
+
+
 def only_digits(value):
     return "".join(ch for ch in str(value or "") if ch.isdigit())
 
@@ -80,14 +130,15 @@ def is_valid_cnpj(value):
     return digits[-2:] == d1 + d2
 
 
-def audit(conn, action, entity_type, entity_id=None, metadata=None):
+def audit(conn, action, entity_type, entity_id=None, metadata=None, org_id=None):
+    audit_org_id = int(org_id or current_org_id(conn))
     conn.execute(
         """
         INSERT INTO audit_logs (org_id, user_id, action, entity_type, entity_id, metadata, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            audit_org_id,
             USER_ID,
             action,
             entity_type,
@@ -644,35 +695,69 @@ def enrich_company(conn, company_id, url="", html="", source_url="", ttl_days=30
 
 
 def dashboard(conn):
+    org_id = current_org_id(conn)
     totals = conn.execute(
         """
+        WITH scoped AS (
+            SELECT DISTINCT c.*
+            FROM list_companies lc
+            JOIN lists l ON l.id = lc.list_id
+            JOIN companies c ON c.id = lc.company_id
+            WHERE l.org_id = ?
+        )
         SELECT
             COUNT(*) AS companies,
             SUM(CASE WHEN lower(status) LIKE '%ativa%' THEN 1 ELSE 0 END) AS active,
             SUM(CASE WHEN email IS NOT NULL AND email != '' THEN 1 ELSE 0 END) AS with_email,
             SUM(CASE WHEN phone IS NOT NULL AND phone != '' THEN 1 ELSE 0 END) AS with_phone,
             ROUND(AVG(opportunity_score), 1) AS avg_score
-        FROM companies
-        """
+        FROM scoped
+        """,
+        (org_id,),
     ).fetchone()
-    lists = conn.execute("SELECT COUNT(*) AS total FROM lists WHERE org_id = ?", (ORG_ID,)).fetchone()["total"]
+    if not totals["companies"]:
+        totals = conn.execute(
+            """
+            SELECT
+                0 AS companies,
+                0 AS active,
+                0 AS with_email,
+                0 AS with_phone,
+                0 AS avg_score
+            """
+        ).fetchone()
+    lists = conn.execute("SELECT COUNT(*) AS total FROM lists WHERE org_id = ?", (org_id,)).fetchone()["total"]
     top_states = conn.execute(
-        "SELECT state, COUNT(*) AS total FROM companies WHERE state != '' GROUP BY state ORDER BY total DESC LIMIT 8"
+        """
+        SELECT c.state, COUNT(DISTINCT c.id) AS total
+        FROM list_companies lc
+        JOIN lists l ON l.id = lc.list_id
+        JOIN companies c ON c.id = lc.company_id
+        WHERE l.org_id = ? AND c.state != ''
+        GROUP BY c.state
+        ORDER BY total DESC
+        LIMIT 8
+        """,
+        (org_id,),
     ).fetchall()
     top_cnaes = conn.execute(
         """
-        SELECT main_cnae_code AS code, main_cnae_description AS description, COUNT(*) AS total
-        FROM companies
-        WHERE main_cnae_code != ''
-        GROUP BY main_cnae_code, main_cnae_description
+        SELECT c.main_cnae_code AS code, c.main_cnae_description AS description, COUNT(DISTINCT c.id) AS total
+        FROM list_companies lc
+        JOIN lists l ON l.id = lc.list_id
+        JOIN companies c ON c.id = lc.company_id
+        WHERE l.org_id = ? AND c.main_cnae_code != ''
+        GROUP BY c.main_cnae_code, c.main_cnae_description
         ORDER BY total DESC
         LIMIT 8
-        """
+        """,
+        (org_id,),
     ).fetchall()
     imports = conn.execute(
         "SELECT * FROM import_jobs ORDER BY id DESC LIMIT 5"
     ).fetchall()
     return {
+        "active_workspace": workspace_detail(conn, org_id),
         "totals": dict_row(totals),
         "lists": lists,
         "top_states": [dict_row(row) for row in top_states],
@@ -682,20 +767,22 @@ def dashboard(conn):
 
 
 def create_list(conn, name, description=""):
+    org_id = current_org_id(conn)
     timestamp = now_iso()
     cursor = conn.execute(
         """
         INSERT INTO lists (org_id, name, description, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?)
         """,
-        (ORG_ID, name, description, timestamp, timestamp),
+        (org_id, name, description, timestamp, timestamp),
     )
     list_id = cursor.lastrowid
-    audit(conn, "create_list", "list", list_id, {"name": name})
+    audit(conn, "create_list", "list", list_id, {"name": name}, org_id=org_id)
     return get_list(conn, list_id)
 
 
 def list_lists(conn):
+    org_id = current_org_id(conn)
     rows = conn.execute(
         """
         SELECT l.*, COUNT(lc.company_id) AS company_count,
@@ -708,13 +795,14 @@ def list_lists(conn):
         GROUP BY l.id
         ORDER BY l.updated_at DESC
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     return [dict_row(row) for row in rows]
 
 
 def get_list(conn, list_id):
-    base = conn.execute("SELECT * FROM lists WHERE id = ? AND org_id = ?", (list_id, ORG_ID)).fetchone()
+    org_id = current_org_id(conn)
+    base = conn.execute("SELECT * FROM lists WHERE id = ? AND org_id = ?", (list_id, org_id)).fetchone()
     if not base:
         return None
     companies = conn.execute(
@@ -748,6 +836,9 @@ def get_list(conn, list_id):
 
 
 def add_companies_to_list(conn, list_id, company_ids):
+    org_id = current_org_id(conn)
+    if not conn.execute("SELECT id FROM lists WHERE id = ? AND org_id = ?", (int(list_id), org_id)).fetchone():
+        raise ValueError("Lista nao encontrada")
     timestamp = now_iso()
     added = 0
     for company_id in company_ids:
@@ -760,14 +851,17 @@ def add_companies_to_list(conn, list_id, company_ids):
         )
         added += cursor.rowcount
     conn.execute("UPDATE lists SET updated_at = ? WHERE id = ?", (timestamp, list_id))
-    audit(conn, "add_companies_to_list", "list", list_id, {"company_ids": company_ids, "added": added})
+    audit(conn, "add_companies_to_list", "list", list_id, {"company_ids": company_ids, "added": added}, org_id=org_id)
     return {"added": added, "list": get_list(conn, list_id)}
 
 
 def remove_company_from_list(conn, list_id, company_id):
+    org_id = current_org_id(conn)
+    if not conn.execute("SELECT id FROM lists WHERE id = ? AND org_id = ?", (int(list_id), org_id)).fetchone():
+        raise ValueError("Lista nao encontrada")
     conn.execute("DELETE FROM list_companies WHERE list_id = ? AND company_id = ?", (list_id, company_id))
     conn.execute("UPDATE lists SET updated_at = ? WHERE id = ?", (now_iso(), list_id))
-    audit(conn, "remove_company_from_list", "list", list_id, {"company_id": company_id})
+    audit(conn, "remove_company_from_list", "list", list_id, {"company_id": company_id}, org_id=org_id)
     return {"ok": True}
 
 
@@ -795,9 +889,12 @@ EXPORT_HEADERS = [
 
 
 def export_list(conn, list_id, file_format, purpose):
+    org_id = current_org_id(conn)
     purpose = (purpose or "").strip()
     if len(purpose) < 8:
         raise ValueError("Informe uma finalidade de exportacao com pelo menos 8 caracteres")
+    if not conn.execute("SELECT id FROM lists WHERE id = ? AND org_id = ?", (int(list_id), org_id)).fetchone():
+        raise ValueError("Lista nao encontrada")
     rows = conn.execute(
         """
         SELECT %s
@@ -814,9 +911,9 @@ def export_list(conn, list_id, file_format, purpose):
         INSERT INTO export_jobs (org_id, user_id, list_id, file_format, declared_purpose, row_count, columns_json, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (ORG_ID, USER_ID, list_id, file_format, purpose, len(rows), json.dumps(EXPORT_HEADERS), now_iso()),
+        (org_id, USER_ID, list_id, file_format, purpose, len(rows), json.dumps(EXPORT_HEADERS), now_iso()),
     )
-    audit(conn, "export_list", "list", list_id, {"format": file_format, "rows": len(rows), "purpose": purpose})
+    audit(conn, "export_list", "list", list_id, {"format": file_format, "rows": len(rows), "purpose": purpose}, org_id=org_id)
     if file_format == "xlsx":
         return rows_to_xlsx_bytes(EXPORT_HEADERS, rows, sheet_name="Radar CNPJ"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     return rows_to_csv_bytes(EXPORT_HEADERS, rows), "text/csv; charset=utf-8"
@@ -4240,6 +4337,7 @@ DEFAULT_KPIS = [
 
 
 def ensure_default_kpis(conn):
+    org_id = current_org_id(conn)
     timestamp = now_iso()
     for kpi in DEFAULT_KPIS:
         conn.execute(
@@ -4259,7 +4357,7 @@ def ensure_default_kpis(conn):
                 updated_at = excluded.updated_at
             """,
             (
-                ORG_ID,
+                org_id,
                 kpi["kpi_key"],
                 kpi["name"],
                 kpi["description"],
@@ -4274,6 +4372,7 @@ def ensure_default_kpis(conn):
 
 
 def kpi_value(conn, kpi_key):
+    org_id = current_org_id(conn)
     queries = {
         "active_leads": (
             """
@@ -4281,31 +4380,42 @@ def kpi_value(conn, kpi_key):
             FROM leads
             WHERE org_id = ? AND status NOT IN ('disqualified', 'opt_out', 'blocked')
             """,
-            (ORG_ID,),
+            (org_id,),
         ),
         "simulated_sends": (
-            "SELECT COUNT(*) AS value FROM sends WHERE status = 'sent'",
-            (),
+            """
+            SELECT COUNT(*) AS value
+            FROM sends s
+            JOIN campaigns c ON c.id = s.campaign_id
+            WHERE c.org_id = ? AND s.status = 'sent'
+            """,
+            (org_id,),
         ),
         "replies_received": (
             "SELECT COUNT(*) AS value FROM reply_classifications WHERE org_id = ?",
-            (ORG_ID,),
+            (org_id,),
         ),
         "pending_handoffs": (
             "SELECT COUNT(*) AS value FROM handoffs WHERE org_id = ? AND status = 'pending'",
-            (ORG_ID,),
+            (org_id,),
         ),
         "open_meetings": (
             "SELECT COUNT(*) AS value FROM meetings WHERE org_id = ? AND status IN ('proposed', 'scheduled')",
-            (ORG_ID,),
+            (org_id,),
         ),
         "meetings_completed": (
             "SELECT COUNT(*) AS value FROM meetings WHERE org_id = ? AND status = 'completed'",
-            (ORG_ID,),
+            (org_id,),
         ),
         "conversions_registered": (
-            "SELECT COUNT(*) AS value FROM conversions",
-            (),
+            """
+            SELECT COUNT(*) AS value
+            FROM conversions cv
+            LEFT JOIN leads l ON l.id = cv.lead_id
+            LEFT JOIN campaigns c ON c.id = cv.campaign_id
+            WHERE l.org_id = ? OR c.org_id = ?
+            """,
+            (org_id, org_id),
         ),
     }
     if kpi_key not in queries:
@@ -4323,6 +4433,7 @@ def parse_kpi_row(conn, row):
 
 def list_kpis(conn):
     ensure_default_kpis(conn)
+    org_id = current_org_id(conn)
     rows = conn.execute(
         """
         SELECT *
@@ -4330,7 +4441,7 @@ def list_kpis(conn):
         WHERE org_id = ?
         ORDER BY id ASC
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     return [parse_kpi_row(conn, row) for row in rows]
 
@@ -4389,6 +4500,7 @@ def default_objective(kpi_by_key):
 
 
 def list_objectives(conn, kpis):
+    org_id = current_org_id(conn)
     kpi_by_key = {item["kpi_key"]: item for item in kpis}
     objectives = conn.execute(
         """
@@ -4397,7 +4509,7 @@ def list_objectives(conn, kpis):
         WHERE org_id = ?
         ORDER BY id DESC
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     if not objectives:
         return [default_objective(kpi_by_key)]
@@ -4429,6 +4541,7 @@ def okr_dashboard(conn):
 
 def create_okr(conn, payload):
     ensure_default_kpis(conn)
+    org_id = current_org_id(conn)
     payload = payload or {}
     title = (payload.get("title") or "").strip()
     if not title:
@@ -4456,7 +4569,7 @@ def create_okr(conn, payload):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             title,
             payload.get("description") or "",
             payload.get("status") or "active",
@@ -4477,7 +4590,7 @@ def create_okr(conn, payload):
             """,
             (objective_id, kr_title, kpi_key, target_value, timestamp, timestamp),
         )
-    audit(conn, "create_okr", "objective", objective_id, {"key_results": len(key_results)})
+    audit(conn, "create_okr", "objective", objective_id, {"key_results": len(key_results)}, org_id=org_id)
     return next(item for item in list_objectives(conn, list_kpis(conn)) if item["id"] == objective_id)
 
 
@@ -4934,7 +5047,7 @@ def ensure_company_profile_for_org(conn, org_id, defaults=None):
         (org_id,),
     ).fetchone()
     if cursor.rowcount:
-        audit(conn, "create_default_company_profile", "company_profile", row["id"], {"org_id": org_id})
+        audit(conn, "create_default_company_profile", "company_profile", row["id"], {"org_id": org_id}, org_id=org_id)
     return dict_row(row)
 
 
@@ -5301,7 +5414,7 @@ def create_workspace(conn, payload):
             "brand_color": payload.get("brand_color") or "#2458d3",
         },
     )
-    audit(conn, "create_workspace", "organization", org_id, {"name": name})
+    audit(conn, "create_workspace", "organization", org_id, {"name": name}, org_id=org_id)
     return workspace_detail(conn, org_id)
 
 
@@ -5481,6 +5594,7 @@ def parse_notification_row(row):
 
 
 def notification_exists(conn, notification_type, source_type, source_id):
+    org_id = current_org_id(conn)
     row = conn.execute(
         """
         SELECT id
@@ -5492,12 +5606,13 @@ def notification_exists(conn, notification_type, source_type, source_id):
           AND status != 'dismissed'
         LIMIT 1
         """,
-        (ORG_ID, notification_type, source_type, str(source_id)),
+        (org_id, notification_type, source_type, str(source_id)),
     ).fetchone()
     return row is not None
 
 
 def create_notification(conn, notification_type, severity, title, body, source_type, source_id, metadata=None, channel="local"):
+    org_id = current_org_id(conn)
     if notification_exists(conn, notification_type, source_type, source_id):
         return None
     timestamp = now_iso()
@@ -5510,7 +5625,7 @@ def create_notification(conn, notification_type, severity, title, body, source_t
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             notification_type,
             severity,
             channel,
@@ -5530,6 +5645,7 @@ def create_notification(conn, notification_type, severity, title, body, source_t
         "notification",
         cursor.lastrowid,
         {"type": notification_type, "source_type": source_type, "source_id": str(source_id)},
+        org_id=org_id,
     )
     return parse_notification_row(
         conn.execute("SELECT * FROM notifications WHERE id = ?", (cursor.lastrowid,)).fetchone()
@@ -5537,6 +5653,7 @@ def create_notification(conn, notification_type, severity, title, body, source_t
 
 
 def notification_summary(conn):
+    org_id = current_org_id(conn)
     rows = conn.execute(
         """
         SELECT status, COUNT(*) AS total
@@ -5544,7 +5661,7 @@ def notification_summary(conn):
         WHERE org_id = ?
         GROUP BY status
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     summary = {"pending": 0, "sent": 0, "read": 0, "dismissed": 0, "total": 0}
     for row in rows:
@@ -5559,18 +5676,19 @@ def notification_summary(conn):
         WHERE org_id = ? AND status IN ('pending', 'sent')
         GROUP BY severity
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     summary["pending_by_severity"] = {row["severity"]: int(row["total"] or 0) for row in severity_rows}
     return summary
 
 
 def list_notifications(conn, params=None):
+    org_id = current_org_id(conn)
     params = params or {}
     status = (params.get("status") or "").strip()
     limit = min(int(params.get("limit", 100) or 100), 500)
     where = ["org_id = ?"]
-    values = [ORG_ID]
+    values = [org_id]
     if status:
         if status not in NOTIFICATION_STATUSES:
             raise ValueError("Status de notificacao invalido")
@@ -5611,6 +5729,7 @@ def handoff_should_notify(row):
 
 
 def generate_handoff_notifications(conn):
+    org_id = current_org_id(conn)
     rows = conn.execute(
         """
         SELECT h.*, l.email, c.legal_name, c.trade_name
@@ -5620,7 +5739,7 @@ def generate_handoff_notifications(conn):
         WHERE h.org_id = ? AND h.status = 'pending'
         ORDER BY h.id ASC
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     created = []
     for row in rows:
@@ -5649,6 +5768,7 @@ def generate_handoff_notifications(conn):
 
 
 def generate_campaign_pause_notifications(conn):
+    org_id = current_org_id(conn)
     rows = conn.execute(
         """
         SELECT p.*, c.name AS campaign_name, c.status AS campaign_status
@@ -5657,7 +5777,7 @@ def generate_campaign_pause_notifications(conn):
         WHERE c.org_id = ? OR c.id IS NULL
         ORDER BY p.id ASC
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     created = []
     for row in rows:
@@ -5753,11 +5873,12 @@ def generate_notifications(conn):
 
 
 def update_notification_status(conn, notification_id, status):
+    org_id = current_org_id(conn)
     if status not in ("read", "dismissed"):
         raise ValueError("Status de notificacao invalido")
     row = conn.execute(
         "SELECT * FROM notifications WHERE id = ? AND org_id = ?",
-        (int(notification_id), ORG_ID),
+        (int(notification_id), org_id),
     ).fetchone()
     if not row:
         raise ValueError("Notificacao nao encontrada")
@@ -5767,7 +5888,7 @@ def update_notification_status(conn, notification_id, status):
         "UPDATE notifications SET status = ?, updated_at = ?, %s = ? WHERE id = ?" % field,
         (status, timestamp, timestamp, int(notification_id)),
     )
-    audit(conn, "update_notification_status", "notification", int(notification_id), {"status": status})
+    audit(conn, "update_notification_status", "notification", int(notification_id), {"status": status}, org_id=org_id)
     return parse_notification_row(
         conn.execute("SELECT * FROM notifications WHERE id = ?", (int(notification_id),)).fetchone()
     )

@@ -19,6 +19,7 @@ const state = {
   agentGovernance: null,
   playbooks: null,
   notifications: null,
+  workspaceContext: null,
   workspaceComparison: null,
 };
 
@@ -88,27 +89,33 @@ function setView(view) {
     audit: "Auditoria",
   };
   $("#pageTitle").textContent = titles[view] || "Radar CNPJ";
-  if (view === "dashboard") loadDashboard();
+  loadViewData(view).catch((err) => showStatus(err.message, "warn"));
+}
+
+async function loadViewData(view = state.view) {
+  if (view === "dashboard") await loadDashboard();
   if (view === "command") {
-    loadCommandCenter();
-    loadNotifications();
-    loadWorkspaceComparison();
-    loadOkrs();
-    loadPlaybooks();
-    loadAgentGovernance();
+    await Promise.all([
+      loadCommandCenter(),
+      loadNotifications(),
+      loadWorkspaceComparison(),
+      loadOkrs(),
+      loadPlaybooks(),
+      loadAgentGovernance(),
+    ]);
   }
   if (view === "companies") {
-    loadLists();
-    loadCompanies();
+    await loadLists();
+    await loadCompanies();
   }
-  if (view === "lists") loadLists(true);
-  if (view === "import") loadOfficialCatalog();
-  if (view === "experiments") loadExperiments();
-  if (view === "templates") loadTemplates();
-  if (view === "sequences") loadSequenceWorkspace();
-  if (view === "icp") loadIcpWorkspace();
-  if (view === "replies") loadReplyWorkspace();
-  if (view === "audit") loadAudit();
+  if (view === "lists") await loadLists(true);
+  if (view === "import") await loadOfficialCatalog();
+  if (view === "experiments") await loadExperiments();
+  if (view === "templates") await loadTemplates();
+  if (view === "sequences") await loadSequenceWorkspace();
+  if (view === "icp") await loadIcpWorkspace();
+  if (view === "replies") await loadReplyWorkspace();
+  if (view === "audit") await loadAudit();
 }
 
 function metric(label, value, tone = "") {
@@ -117,6 +124,7 @@ function metric(label, value, tone = "") {
 
 async function loadDashboard() {
   const data = await api("/api/dashboard");
+  if (data.active_workspace) renderWorkspaceContext({ ...(state.workspaceContext || {}), active_workspace: data.active_workspace });
   const totals = data.totals || {};
   $("#metrics").innerHTML = [
     metric("Empresas", totals.companies || 0),
@@ -128,6 +136,47 @@ async function loadDashboard() {
   renderBars("#topStates", data.top_states || [], "state");
   renderBars("#topCnaes", data.top_cnaes || [], "code", "description");
   renderImports(data.imports || []);
+}
+
+function workspaceName(workspace) {
+  return workspace?.profile?.display_name || workspace?.name || "-";
+}
+
+async function loadWorkspaceContext() {
+  const data = await api("/api/workspace-context");
+  state.workspaceContext = data;
+  renderWorkspaceContext(data);
+  return data;
+}
+
+function renderWorkspaceContext(data) {
+  const select = $("#workspaceContextSelect");
+  const label = $("#activeWorkspaceLabel");
+  if (!select || !label) return;
+  const active = data?.active_workspace || {};
+  const workspaces = data?.workspaces || state.workspaceContext?.workspaces || [];
+  label.textContent = workspaceName(active);
+  select.innerHTML = workspaces.length
+    ? workspaces
+        .map((workspace) => `<option value="${escapeHtml(workspace.id)}">${escapeHtml(workspaceName(workspace))}</option>`)
+        .join("")
+    : `<option value="">Nenhum workspace</option>`;
+  if (active.id) select.value = String(active.id);
+}
+
+async function setWorkspaceContextFromForm() {
+  const orgId = Number($("#workspaceContextSelect").value || 0);
+  if (!orgId) return showStatus("Selecione um workspace.", "warn");
+  const data = await api("/api/workspace-context", {
+    method: "POST",
+    body: JSON.stringify({ org_id: orgId }),
+  });
+  state.workspaceContext = data;
+  state.currentListId = null;
+  state.selectedCompanies.clear();
+  renderWorkspaceContext(data);
+  showStatus(`Workspace ativo: ${workspaceName(data.active_workspace)}.`);
+  await loadViewData(state.view);
 }
 
 function renderBars(selector, items, key, subtitleKey) {
@@ -378,6 +427,7 @@ async function createWorkspaceFromForm() {
     }),
   });
   showStatus("Workspace criado para comparacao executiva.");
+  await loadWorkspaceContext();
   await loadWorkspaceComparison();
 }
 
@@ -2270,6 +2320,10 @@ function wireEvents() {
   $("#quickSearch").addEventListener("keydown", (event) => {
     if (event.key === "Enter") $("#quickSearchBtn").click();
   });
+  $("#setWorkspaceContextBtn").addEventListener("click", setWorkspaceContextFromForm);
+  $("#workspaceContextSelect").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") $("#setWorkspaceContextBtn").click();
+  });
   $("#addToListBtn").addEventListener("click", addSelectedToList);
   $("#createListBtn").addEventListener("click", createListFromForm);
   $("#importBtn").addEventListener("click", importFromForm);
@@ -2344,6 +2398,7 @@ function wireEvents() {
 
 async function start() {
   wireEvents();
+  await loadWorkspaceContext();
   await loadDashboard();
   await loadLists();
   await loadCompanies();

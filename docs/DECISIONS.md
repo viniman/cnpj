@@ -458,3 +458,29 @@ Consequencias:
 - A UI deve deixar claro que a comparacao e executiva, nao troca de contexto
   operacional.
 - Fases futuras devem remover gradualmente o `ORG_ID` fixo dos servicos.
+
+## ADR-019 - Workspace ativo local migra dominios aos poucos
+
+Data: 2026-07-20
+
+Decisao:
+
+- Persistir o workspace ativo local em `workspace_context`.
+- Criar helper `current_org_id(conn)`.
+- Migrar dominios de uso frequente por fase, em vez de trocar todos os
+  servicos de uma vez.
+- Documentar quais superficies ja respeitam o workspace ativo.
+
+Racional:
+
+- O MVP acumulou muitos servicos com `ORG_ID` fixo.
+- Uma migracao ampla demais aumentaria risco de regressao no importador,
+  campanhas, agente e auditoria.
+- Contexto operacional visivel ja cria valor e permite validar o desenho de
+  multi-tenancy antes de uma refatoracao completa.
+
+Consequencias:
+
+- Durante a transicao, algumas telas continuam operando no workspace interno.
+- Testes de cada fase devem provar quais superficies foram migradas.
+- A UI deve recarregar dados contextuais ao trocar workspace.
