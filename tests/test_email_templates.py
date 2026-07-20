@@ -7,8 +7,11 @@ from radar_cnpj.email_templates import render_template
 from radar_cnpj.services import (
     create_email_template,
     create_email_template_version,
+    create_workspace,
     get_email_template,
+    list_email_templates,
     render_email_template,
+    set_current_workspace,
     upsert_company,
 )
 
@@ -142,6 +145,56 @@ class EmailTemplatePersistenceTest(unittest.TestCase):
             saved = get_email_template(conn, template["id"])
             self.assertEqual(saved["active_version"]["version_number"], 1)
             self.assertEqual(saved["purpose"], "follow_up")
+        finally:
+            conn.close()
+
+    def test_templates_follow_active_workspace(self):
+        conn = connect()
+        try:
+            internal = create_email_template(
+                conn,
+                {
+                    "name": "Template interno",
+                    "purpose": "first_contact",
+                    "subject": "Ola {{nome_empresa}}",
+                    "body": "Mensagem interna para {{nome_empresa}}.",
+                },
+            )
+            workspace = create_workspace(conn, {"name": "Nine Templates"})
+            set_current_workspace(conn, workspace["id"])
+
+            self.assertEqual(list_email_templates(conn)["items"], [])
+            self.assertIsNone(get_email_template(conn, internal["id"]))
+            with self.assertRaises(ValueError):
+                create_email_template_version(conn, internal["id"], {"body": "Nova versao indevida"})
+            with self.assertRaises(ValueError):
+                render_email_template(conn, {"template_id": internal["id"], "context": {"nome_empresa": "Nine"}})
+            with self.assertRaises(ValueError):
+                render_email_template(
+                    conn,
+                    {
+                        "template_version_id": internal["active_version"]["id"],
+                        "context": {"nome_empresa": "Nine"},
+                    },
+                )
+
+            scoped = create_email_template(
+                conn,
+                {
+                    "name": "Template Nine",
+                    "purpose": "follow_up",
+                    "subject": "Nine para {{nome_empresa}}",
+                    "body": "Copy do workspace Nine.",
+                },
+            )
+            self.assertEqual(scoped["org_id"], workspace["id"])
+            self.assertEqual([item["id"] for item in list_email_templates(conn)["items"]], [scoped["id"]])
+            rendered = render_email_template(conn, {"template_id": scoped["id"], "context": {"nome_empresa": "Acme"}})
+            self.assertIn("Voce recebeu este contato", rendered["body"])
+
+            set_current_workspace(conn, 1)
+            self.assertEqual([item["id"] for item in list_email_templates(conn)["items"]], [internal["id"]])
+            self.assertIsNone(get_email_template(conn, scoped["id"]))
         finally:
             conn.close()
 
