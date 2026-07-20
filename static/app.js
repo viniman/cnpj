@@ -10,6 +10,8 @@ const state = {
   sequences: [],
   icpRules: [],
   priorityQueue: [],
+  replies: [],
+  handoffs: [],
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -72,6 +74,7 @@ function setView(view) {
     templates: "Templates",
     sequences: "Sequencias",
     icp: "ICP SDR",
+    replies: "Respostas",
     hygiene: "Higiene de emails",
     audit: "Auditoria",
   };
@@ -87,6 +90,7 @@ function setView(view) {
   if (view === "templates") loadTemplates();
   if (view === "sequences") loadSequenceWorkspace();
   if (view === "icp") loadIcpWorkspace();
+  if (view === "replies") loadReplyWorkspace();
   if (view === "audit") loadAudit();
 }
 
@@ -1202,6 +1206,112 @@ async function decidePriorityItem(itemId, decision) {
   await Promise.all([loadPriorityQueue(), loadAgentActions()]);
 }
 
+async function loadReplyWorkspace() {
+  await Promise.all([loadReplies(), loadHandoffs()]);
+}
+
+async function classifyReplyFromForm() {
+  const payload = {
+    send_id: Number($("#replySendId").value || 0) || undefined,
+    lead_id: Number($("#replyLeadId").value || 0) || undefined,
+    email: $("#replyEmail").value.trim(),
+    subject: $("#replySubject").value.trim(),
+    body: $("#replyBody").value.trim(),
+    source: "manual_ui",
+  };
+  if (!payload.subject && !payload.body) return showStatus("Informe assunto ou corpo da resposta.", "warn");
+  const result = await api("/api/replies/classify", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  const reply = result.reply || {};
+  showStatus(`Resposta classificada como ${reply.classification}.`);
+  await Promise.all([loadReplies(), loadHandoffs(), loadAgentActions()]);
+}
+
+async function loadReplies() {
+  const data = await api("/api/replies?limit=200");
+  state.replies = data.items || [];
+  renderReplies(state.replies);
+}
+
+function renderReplies(items) {
+  const container = $("#repliesTable");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhuma resposta classificada ainda.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["ID", "Data", "Empresa", "Email", "Classe", "Confianca", "Assunto", "Motivos", "Corpo"],
+    items.map((item) => [
+      item.id,
+      escapeHtml(item.created_at),
+      escapeHtml(item.trade_name || item.legal_name || "-"),
+      escapeHtml(item.email || item.lead_email || "-"),
+      badge(item.classification, replyTone(item.classification)),
+      badge(Math.round((Number(item.confidence) || 0) * 100), scoreTone(Math.round((Number(item.confidence) || 0) * 100))),
+      escapeHtml(fmt(item.subject)),
+      escapeHtml((item.reasons || []).join("; ") || "-"),
+      previewHtml(item.body_text || "-"),
+    ]),
+  );
+}
+
+function replyTone(classification) {
+  if (classification === "interest_meeting") return "green";
+  if (classification === "opt_out" || classification === "not_interested") return "red";
+  if (classification === "ambiguous") return "amber";
+  return "purple";
+}
+
+async function loadHandoffs() {
+  const data = await api("/api/handoffs?status=pending&limit=200");
+  state.handoffs = data.items || [];
+  renderHandoffs(state.handoffs);
+}
+
+function renderHandoffs(items) {
+  const container = $("#handoffsTable");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhum handoff pendente.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["ID", "Prioridade", "Empresa", "Email", "Motivo", "Classe", "Contexto", ""],
+    items.map((item) => {
+      const context = item.context || {};
+      return [
+        item.id,
+        badge(item.priority, item.priority === "urgent" ? "red" : item.priority === "high" ? "amber" : "purple"),
+        escapeHtml(item.trade_name || item.legal_name || "-"),
+        escapeHtml(item.lead_email || context.email || "-"),
+        escapeHtml(item.reason),
+        badge(context.classification || "-", replyTone(context.classification)),
+        previewHtml(context.body_preview || "-"),
+        `<button class="row-action" data-handoff-resolve="${item.id}">Resolver</button> <button class="row-action" data-handoff-dismiss="${item.id}">Dispensar</button>`,
+      ];
+    }),
+  );
+  $$("[data-handoff-resolve]").forEach((button) => {
+    button.addEventListener("click", () => decideHandoff(button.dataset.handoffResolve, "resolve"));
+  });
+  $$("[data-handoff-dismiss]").forEach((button) => {
+    button.addEventListener("click", () => decideHandoff(button.dataset.handoffDismiss, "dismiss"));
+  });
+}
+
+async function decideHandoff(handoffId, decision) {
+  const note = $("#handoffDecisionNote").value.trim();
+  await api(`/api/handoffs/${handoffId}/${decision}`, {
+    method: "POST",
+    body: JSON.stringify({ note }),
+  });
+  showStatus(decision === "resolve" ? "Handoff resolvido." : "Handoff dispensado.");
+  await Promise.all([loadHandoffs(), loadAgentActions()]);
+}
+
 async function seed() {
   const result = await api("/api/seed", { method: "POST", body: "{}" });
   showStatus(result.message || "Amostra carregada.");
@@ -1317,6 +1427,9 @@ function wireEvents() {
   $("#createIcpBtn").addEventListener("click", createIcpRuleFromForm);
   $("#refreshIcpBtn").addEventListener("click", loadIcpWorkspace);
   $("#refreshPriorityBtn").addEventListener("click", loadPriorityQueue);
+  $("#classifyReplyBtn").addEventListener("click", classifyReplyFromForm);
+  $("#refreshRepliesBtn").addEventListener("click", loadReplyWorkspace);
+  $("#refreshHandoffsBtn").addEventListener("click", loadHandoffs);
   $("#seedBtn").addEventListener("click", seed);
   $("#seedBtnImport").addEventListener("click", seed);
   $("#validateEmailsBtn").addEventListener("click", validateFreeEmails);

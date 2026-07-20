@@ -26,6 +26,7 @@
           <button class="nav-item" data-view="templates">Templates</button>
           <button class="nav-item" data-view="sequences">Sequencias</button>
           <button class="nav-item" data-view="icp">ICP SDR</button>
+          <button class="nav-item" data-view="replies">Respostas</button>
           <button class="nav-item" data-view="hygiene">Higiene</button>
           <button class="nav-item" data-view="audit">Auditoria</button>
         </nav>
@@ -639,6 +640,75 @@
               <h2>Fila SDR priorizada</h2>
             </div>
             <div id="priorityQueueTable" class="table-wrap"></div>
+          </section>
+        </section>
+
+        <section id="replies" class="view">
+          <div class="content-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Classificar resposta</h2>
+                <button id="refreshRepliesBtn" class="button">Atualizar</button>
+              </div>
+              <div class="form-grid">
+                <label>
+                  ID do envio
+                  <input id="replySendId" class="input" type="number" min="1" placeholder="1" />
+                </label>
+                <label>
+                  ID do lead
+                  <input id="replyLeadId" class="input" type="number" min="1" placeholder="Opcional" />
+                </label>
+                <label>
+                  Email
+                  <input id="replyEmail" class="input" placeholder="contato@empresa.com.br" />
+                </label>
+                <label>
+                  Assunto
+                  <input id="replySubject" class="input" placeholder="Re: ideia rapida" />
+                </label>
+              </div>
+              <div class="form-grid one">
+                <label>
+                  Corpo da resposta
+                  <textarea id="replyBody" class="textarea" placeholder="Cole aqui a resposta recebida para classificar."></textarea>
+                </label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <button id="classifyReplyBtn" class="button primary">Classificar resposta</button>
+                <p class="muted">Opt-out vira supressao imediata; casos sensiveis geram handoff.</p>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Decisao de handoff</h2>
+              </div>
+              <div class="form-grid one">
+                <label>
+                  Nota da decisao
+                  <input id="handoffDecisionNote" class="input" placeholder="Resolvido / descartar / criar proxima acao" />
+                </label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <button id="refreshHandoffsBtn" class="button">Atualizar handoffs</button>
+                <p class="muted">Resolver handoff apenas fecha a tarefa; nao envia resposta automatica.</p>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Handoffs pendentes</h2>
+            </div>
+            <div id="handoffsTable" class="table-wrap"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Respostas classificadas</h2>
+            </div>
+            <div id="repliesTable" class="table-wrap"></div>
           </section>
         </section>
 
