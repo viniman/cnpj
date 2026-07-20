@@ -142,3 +142,38 @@ Meta da fase:
 Documento principal:
 
 - `docs/EMAIL_EXPERIMENT_SPEC.md`
+
+Commits:
+
+- `87801e3 docs: define email experiment phase`
+- `2a3ccce feat: add simulated email experiment backend`
+- `af8097c feat: add email experiment workspace UI`
+
+Implementado:
+
+- Tabelas `leads`, `campaigns`, `campaign_variants`, `sends`, `events`,
+  `conversions`, `throttle_config` e `pause_events`.
+- Modulo `radar_cnpj/email_experiments.py` com UTM, funil e regras de
+  elegibilidade.
+- Criacao de leads a partir de listas, com bloqueio por higiene, score e
+  supressao.
+- Criacao de campanhas sempre em `mode = simulated`.
+- Simulacao de envios com provider `simulated`.
+- Registro manual de eventos de funil, incluindo bounce/complaint com
+  supressao automatica.
+- Endpoints `/api/experiments/*`.
+- Aba `Experimentos` no frontend local.
+- Testes cobrindo guardrails, simulacao e supressao por bounce.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 19 tests
+OK
+```

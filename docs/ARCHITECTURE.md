@@ -35,6 +35,7 @@ flowchart LR
 - `radar_cnpj/email_hygiene.py`: classificacao de emails, supressao e opt-out.
 - `radar_cnpj/email_scoring.py`: score comercial de e-mail com explicacoes.
 - `radar_cnpj/company_enrichment.py`: extracao de sinais publicos de site, technology checker e maturidade digital.
+- `radar_cnpj/email_experiments.py`: regras puras de campanhas simuladas, UTM, funil e elegibilidade.
 - `radar_cnpj/scoring.py`: setor, segmento, score explicavel e estimativa simples.
 - `radar_cnpj/exporter.py`: geracao CSV e XLSX sem biblioteca externa.
 - `static/*`: interface operacional.
@@ -50,6 +51,9 @@ Tabelas principais:
 - `email_validations`: historico de higiene de emails.
 - `email_classifications`, `email_score_log`, `known_shared_domains`: scoring avancado de e-mail.
 - `company_enrichment`, `scraping_jobs`, `scraping_cache`: enriquecimento responsavel e cache.
+- `leads`, `campaigns`, `campaign_variants`, `sends`, `events`,
+  `conversions`, `throttle_config`, `pause_events`: CRM de experimento
+  comercial em modo simulado.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -58,6 +62,8 @@ Tabelas principais:
 - Exportacao exige finalidade declarada.
 - Exportacao gera `export_jobs` e `audit_logs`.
 - Emails sao checados contra supressao e opt-out.
+- Leads de campanha sao checados contra higiene, scoring e supressao antes de
+  qualquer envio simulado.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

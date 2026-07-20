@@ -171,6 +171,74 @@ Os dados ficam separados do cadastro oficial em:
 - `scraping_jobs`
 - `scraping_cache`
 
+## Experimentos comerciais simulados
+
+A aba `Experimentos` cria um mini-CRM local para testar qualidade de lista,
+copy e funil antes de qualquer envio real.
+
+Fluxo:
+
+1. Crie uma lista na aba `Listas`.
+2. Va para `Experimentos`.
+3. Selecione a lista e clique em `Criar leads`.
+4. Crie uma campanha simulada.
+5. Clique em `Simular` na campanha.
+6. Registre eventos manuais de funil quando quiser testar clique, resposta,
+   conversao, bounce ou complaint.
+
+Criar leads a partir de lista:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/experiments/leads/from-list" `
+  -Body '{"list_id":1}' `
+  -ContentType "application/json"
+```
+
+Criar campanha simulada:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/experiments/campaigns" `
+  -Body '{"name":"Teste SP","niche":"Software SP","subject":"Ideia rapida","body":"Mensagem direta","cta_url":"https://usevagou.com.br/contato"}' `
+  -ContentType "application/json"
+```
+
+Simular a campanha:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/experiments/campaigns/1/simulate" `
+  -Body '{"list_id":1,"limit":50}' `
+  -ContentType "application/json"
+```
+
+Registrar evento manual:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/experiments/events" `
+  -Body '{"send_id":1,"event_type":"clicked"}' `
+  -ContentType "application/json"
+```
+
+Tabelas principais:
+
+- `leads`
+- `campaigns`
+- `campaign_variants`
+- `sends`
+- `events`
+- `conversions`
+- `throttle_config`
+- `pause_events`
+
+Importante: esta fase nao envia e-mail. O provider e sempre `simulated`.
+
 ## Importar CSV simplificado
 
 Na tela `Importacao`, informe o caminho local de um CSV com algumas destas colunas:
@@ -222,6 +290,13 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/emails/score`
 - `POST /api/enrichment/company`
 - `GET /api/enrichment/company/{company_id}`
+- `POST /api/experiments/leads/from-list`
+- `GET /api/experiments/leads`
+- `POST /api/experiments/campaigns`
+- `GET /api/experiments/campaigns`
+- `GET /api/experiments/campaigns/{id}`
+- `POST /api/experiments/campaigns/{id}/simulate`
+- `POST /api/experiments/events`
 - `POST /api/suppression`
 - `GET /api/audit`
 
@@ -239,6 +314,7 @@ python -m unittest discover -s tests
 - Nao armazene CPF completo de socios.
 - Nao use scraping agressivo em servicos publicos. Priorize os arquivos oficiais baixaveis.
 - Enriquecimento por site e sinal complementar; nao substitui dado oficial da Receita.
+- Campanhas locais sao simuladas e nao chamam provedor externo.
 
 ## Proximas fases sugeridas
 
@@ -249,4 +325,5 @@ python -m unittest discover -s tests
 5. Canal de solicitacao de titular.
 6. Motor de score configuravel por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
-8. Integracao futura com provedores de email somente com opt-out, bounce e limites.
+8. Templates versionados com variaveis e rodape de compliance injetado.
+9. Integracao futura com provedores de email somente com opt-out, bounce e limites.
