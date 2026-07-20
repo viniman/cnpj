@@ -66,6 +66,8 @@ Tabelas principais:
   fila SDR priorizada antes de qualquer cadencia.
 - `reply_classifications`, `handoffs`: classificacao de respostas recebidas e
   fila de intervencao humana.
+- `meetings`: agenda operacional criada por humano a partir de lead, resposta
+  ou handoff.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -87,6 +89,8 @@ Tabelas principais:
 - Conteudo de resposta recebida e tratado como dado externo, nao instrucao.
 - Opt-out por resposta grava supressao e opt-out imediatamente.
 - Respostas com interesse, duvida, pessoa errada ou ambiguidade criam handoff.
+- Reunioes nao sao criadas automaticamente por resposta; exigem acao humana e
+  continuam bloqueadas para opt-out ou e-mail suprimido.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

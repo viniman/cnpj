@@ -450,6 +450,7 @@ Commits:
 - `4b5c861 feat: add reply classification handoff backend`
 - `4716986 feat: add reply handoff workspace UI`
 - `4c5f673 docs: add phase 07 reply handoff notes`
+- `57720b7 docs: record phase 07 smoke verification`
 
 Implementado:
 
@@ -518,3 +519,37 @@ Meta da fase:
 Documento principal:
 
 - `docs/MEETING_SCHEDULING_SPEC.md`
+
+Commits:
+
+- `81a98f0 docs: define meeting scheduling phase`
+- `433a916 feat: add meeting scheduling backend`
+- `ca7a53a feat: add meeting scheduling workspace UI`
+
+Implementado:
+
+- Tabela `meetings`.
+- Criacao de reuniao por `lead_id` ou por `handoff_id`.
+- Bloqueio de reuniao para lead em opt-out ou e-mail suprimido.
+- Resolucao automatica do handoff quando humano cria reuniao por handoff.
+- Atualizacao de lead para `meeting_scheduled`, `qualified` ou
+  `meeting_review` conforme status.
+- Conversoes `meeting_scheduled` e `meeting_completed`.
+- Registros em `agent_actions` para criacao, resolucao de handoff e status.
+- Endpoints `/api/meetings/*` e `/api/handoffs/{id}/meeting`.
+- Controles de reuniao na aba `Respostas`.
+- Testes cobrindo criacao por handoff, bloqueio por opt-out e conclusao.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 37 tests
+OK
+```

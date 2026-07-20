@@ -457,6 +457,54 @@ Tabelas:
 - `reply_classifications`
 - `handoffs`
 
+## Reunioes e agenda operacional
+
+A aba `Respostas` tambem permite transformar um handoff em reuniao registrada.
+Esta fase nao envia convite nem integra calendario; ela cria um registro
+operacional auditavel para o humano conduzir a proxima acao.
+
+Fluxo:
+
+1. Classifique uma resposta de interesse.
+2. Clique em `Reuniao` no handoff pendente.
+3. Informe horario, link, responsavel e nota.
+4. Crie a reuniao por handoff.
+5. Atualize o status para `completed`, `cancelled` ou `no_show`.
+
+Criar reuniao por handoff:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/handoffs/1/meeting" `
+  -Body '{"scheduled_at":"2026-07-21T14:00","meeting_url":"https://meet.example.com/demo","notes":"Horario combinado por resposta"}' `
+  -ContentType "application/json"
+```
+
+Criar reuniao manual por lead:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/meetings" `
+  -Body '{"lead_id":1,"scheduled_at":"2026-07-21T14:00","notes":"Contato feito manualmente"}' `
+  -ContentType "application/json"
+```
+
+Atualizar status:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/meetings/1/status" `
+  -Body '{"status":"completed","note":"Reuniao feita; lead qualificado"}' `
+  -ContentType "application/json"
+```
+
+Tabelas:
+
+- `meetings`
+
 ## Importar CSV simplificado
 
 Na tela `Importacao`, informe o caminho local de um CSV com algumas destas colunas:
@@ -542,6 +590,10 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `GET /api/handoffs`
 - `POST /api/handoffs/{id}/resolve`
 - `POST /api/handoffs/{id}/dismiss`
+- `POST /api/handoffs/{id}/meeting`
+- `GET /api/meetings`
+- `POST /api/meetings`
+- `POST /api/meetings/{id}/status`
 - `POST /api/suppression`
 - `GET /api/audit`
 
@@ -565,6 +617,7 @@ python -m unittest discover -s tests
 - Fila SDR so inclui empresas que passam pelo ICP estruturado no backend.
 - Opt-out detectado em resposta vira supressao imediata.
 - Respostas ambiguas ou quentes viram handoff humano.
+- Reunioes exigem acao humana e respeitam opt-out/supressao.
 
 ## Proximas fases sugeridas
 
@@ -575,5 +628,6 @@ python -m unittest discover -s tests
 5. Canal de solicitacao de titular.
 6. Motor de score configuravel por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
-8. Reunioes, agenda e templates de resposta manual assistida.
-9. Integracao futura com provedores de email somente com opt-out, bounce e limites.
+8. Templates de resposta manual assistida.
+9. Command Center com caixa unica de aprovacoes, handoffs e reunioes.
+10. Integracao futura com provedores de email somente com opt-out, bounce e limites.
