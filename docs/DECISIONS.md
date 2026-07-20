@@ -537,3 +537,29 @@ Consequencias:
   contexto.
 - Campanhas e sequencias futuras devem referenciar templates do mesmo workspace.
 - Playbooks continuam sendo o caminho certo para reuso planejado entre empresas.
+
+## ADR-022 - Sequencias sao maquina de estado por workspace
+
+Data: 2026-07-20
+
+Decisao:
+
+- Sequencias, passos, jornadas, aprovacoes e logs de acao relacionados a
+  cadencia devem usar `current_org_id(conn)`.
+- Toda acao deve validar que os IDs recebidos pertencem ao workspace ativo.
+- Templates de passos devem ser resolvidos pelo mesmo contexto ativo.
+
+Racional:
+
+- Cadencia e o ponto em que o sistema comeca a executar trabalho comercial ao
+  longo do tempo, mesmo que ainda simulado.
+- Misturar jornada/aprovacao de workspaces diferentes gera risco operacional e
+  quebra confianca no Command Center.
+- A Fase 19 ja isolou templates; sequencias precisam acompanhar essa fronteira.
+
+Consequencias:
+
+- Ao trocar workspace, jornadas e aprovacoes de outro contexto desaparecem da
+  aba `Sequencias`.
+- Fluxos de ICP, respostas e handoffs ainda precisam de fases dedicadas.
+- O envio continua simulado e dependente de aprovacao humana.

@@ -9,12 +9,16 @@ from radar_cnpj.services import (
     create_email_template,
     create_list,
     create_sequence,
+    create_workspace,
     enroll_sequence_from_list,
+    get_sequence,
     list_agent_actions,
     list_approvals,
     list_journeys,
+    list_sequences,
     prepare_next_journey_step,
     reject_sequence_step,
+    set_current_workspace,
     upsert_company,
 )
 
@@ -174,6 +178,64 @@ class SequenceSupervisionTest(unittest.TestCase):
             journeys = list_journeys(conn)["items"]
             self.assertEqual(journeys[0]["status"], "rejected")
             self.assertEqual(journeys[0]["block_reason"], "Copy precisa revisao")
+        finally:
+            conn.close()
+
+    def test_sequences_follow_active_workspace(self):
+        conn = connect()
+        try:
+            internal_list_id, internal_template_id, _follow_template_id = self.seed_list_and_templates(conn)
+            internal_sequence = create_sequence(
+                conn,
+                {
+                    "name": "Cadencia interna",
+                    "steps": [{"name": "Primeiro contato", "template_id": internal_template_id}],
+                },
+            )
+            enroll_sequence_from_list(conn, internal_sequence["id"], internal_list_id)
+            internal_approval = list_approvals(conn)["items"][0]
+            internal_journey = list_journeys(conn)["items"][0]
+
+            workspace = create_workspace(conn, {"name": "Nine Sequencias"})
+            set_current_workspace(conn, workspace["id"])
+
+            self.assertEqual(list_sequences(conn)["items"], [])
+            self.assertEqual(list_approvals(conn)["items"], [])
+            self.assertEqual(list_journeys(conn)["items"], [])
+            self.assertEqual(list_agent_actions(conn)["items"], [])
+            self.assertIsNone(get_sequence(conn, internal_sequence["id"]))
+            with self.assertRaises(ValueError):
+                enroll_sequence_from_list(conn, internal_sequence["id"], internal_list_id)
+            with self.assertRaises(ValueError):
+                approve_sequence_step(conn, internal_approval["id"], "Nao deveria aprovar")
+            with self.assertRaises(ValueError):
+                prepare_next_journey_step(conn, internal_journey["id"])
+
+            scoped_list_id, scoped_template_id, _scoped_follow_id = self.seed_list_and_templates(conn)
+            scoped_sequence = create_sequence(
+                conn,
+                {
+                    "name": "Cadencia Nine",
+                    "steps": [{"name": "Primeiro contato", "template_id": scoped_template_id}],
+                },
+            )
+            self.assertEqual(scoped_sequence["org_id"], workspace["id"])
+            result = enroll_sequence_from_list(conn, scoped_sequence["id"], scoped_list_id)
+            self.assertEqual(result["enrolled"], 1)
+            scoped_approval = list_approvals(conn)["items"][0]
+            self.assertEqual(scoped_approval["org_id"], workspace["id"])
+
+            action_orgs = {
+                row["org_id"]
+                for row in conn.execute("SELECT org_id FROM agent_actions WHERE sequence_id = ?", (scoped_sequence["id"],)).fetchall()
+            }
+            self.assertEqual(action_orgs, {workspace["id"]})
+
+            set_current_workspace(conn, 1)
+            self.assertEqual([item["id"] for item in list_sequences(conn)["items"]], [internal_sequence["id"]])
+            self.assertEqual([item["id"] for item in list_approvals(conn)["items"]], [internal_approval["id"]])
+            with self.assertRaises(ValueError):
+                reject_sequence_step(conn, scoped_approval["id"], "Nao deveria rejeitar")
         finally:
             conn.close()
 

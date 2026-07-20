@@ -132,6 +132,8 @@ Tabelas principais:
   leads, campanhas, funil e eventos.
 - Templates de e-mail e suas versoes leem `current_org_id(conn)` para criacao,
   listagem, detalhe, versionamento e renderizacao.
+- Sequencias, jornadas, aprovacoes e `agent_actions` de cadencia leem
+  `current_org_id(conn)` e bloqueiam IDs fora do contexto ativo.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo
   vinculo com listas do workspace ativo.
 - Supressao e opt-out sao consultados globalmente pelo modulo de higiene,

@@ -1349,3 +1349,56 @@ Resultado esperado nesta etapa:
 Ran 66 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 20 de sequencias por workspace
+
+Branch: `feature/20-sequence-context-foundation`
+
+Estado inicial:
+
+- Fase 19 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 66 tests`, `OK`.
+
+Meta da fase:
+
+- Migrar sequencias, passos, jornadas, aprovacoes e logs de acao de cadencia
+  para o workspace ativo.
+- Bloquear operacoes cruzadas entre workspaces.
+- Preservar aprovacao humana antes de envio simulado.
+
+Documento principal:
+
+- `docs/SEQUENCE_CONTEXT_SPEC.md`
+
+Commits:
+
+- `e2803a7 docs: define sequence context phase`
+- `311ff92 feat: scope sequences to active workspace`
+
+Implementado:
+
+- Sequencias criadas, listadas e detalhadas no workspace ativo.
+- Passos de sequencia resolvendo templates do workspace ativo.
+- Inscricao validando lista/sequencia no workspace ativo.
+- Jornadas e aprovacoes criadas no workspace ativo.
+- Aprovar, rejeitar e preparar proximo passo bloqueiam IDs fora do contexto.
+- `agent_actions` de cadencia criadas e listadas por workspace ativo.
+- Campanha auxiliar de sequencia criada no workspace ativo.
+- Teste de isolamento multi-workspace em `tests/test_sequences.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_sequences
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 67 tests
+OK
+```

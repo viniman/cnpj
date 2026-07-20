@@ -1899,9 +1899,10 @@ def sequence_step_dict(row):
 
 
 def get_sequence(conn, sequence_id):
+    org_id = current_org_id(conn)
     sequence = conn.execute(
         "SELECT * FROM sequences WHERE id = ? AND org_id = ?",
-        (sequence_id, ORG_ID),
+        (sequence_id, org_id),
     ).fetchone()
     if not sequence:
         return None
@@ -1924,19 +1925,20 @@ def get_sequence(conn, sequence_id):
         """
         SELECT status, COUNT(*) AS total
         FROM lead_journey
-        WHERE sequence_id = ?
+        WHERE sequence_id = ? AND org_id = ?
         GROUP BY status
         """,
-        (sequence_id,),
+        (sequence_id, org_id),
     ).fetchall()
     data["journey_counts"] = dict((row["status"], row["total"]) for row in counts)
     return data
 
 
 def list_sequences(conn):
+    org_id = current_org_id(conn)
     rows = conn.execute(
         "SELECT id FROM sequences WHERE org_id = ? ORDER BY updated_at DESC, id DESC",
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     return {"items": [get_sequence(conn, row["id"]) for row in rows]}
 
@@ -1953,6 +1955,7 @@ def resolve_template_version(conn, template_id=None, template_version_id=None):
 
 
 def create_sequence(conn, payload):
+    org_id = current_org_id(conn)
     name = (payload.get("name") or "").strip()
     if not name:
         raise ValueError("Nome da sequencia e obrigatorio")
@@ -1965,7 +1968,7 @@ def create_sequence(conn, payload):
         INSERT INTO sequences (org_id, name, description, status, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (ORG_ID, name, payload.get("description") or "", "active", timestamp, timestamp),
+        (org_id, name, payload.get("description") or "", "active", timestamp, timestamp),
     )
     sequence_id = cursor.lastrowid
     for index, step in enumerate(steps, start=1):
@@ -1994,7 +1997,7 @@ def create_sequence(conn, payload):
                 timestamp,
             ),
         )
-    audit(conn, "create_sequence", "sequence", sequence_id, {"name": name, "steps": len(steps)})
+    audit(conn, "create_sequence", "sequence", sequence_id, {"name": name, "steps": len(steps)}, org_id=org_id)
     return get_sequence(conn, sequence_id)
 
 
@@ -2018,14 +2021,15 @@ def next_sequence_step(conn, sequence_id, current_step_number):
     ).fetchone()
 
 
-def log_agent_action(conn, lead_id, sequence_id, action_type, source, reason, payload=None):
+def log_agent_action(conn, lead_id, sequence_id, action_type, source, reason, payload=None, org_id=None):
+    org_id = int(org_id or current_org_id(conn))
     conn.execute(
         """
         INSERT INTO agent_actions (org_id, lead_id, sequence_id, action_type, source, reason, payload_json, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             lead_id,
             sequence_id,
             action_type,
@@ -2038,6 +2042,7 @@ def log_agent_action(conn, lead_id, sequence_id, action_type, source, reason, pa
 
 
 def journey_context(conn, journey_id):
+    org_id = current_org_id(conn)
     row = conn.execute(
         """
         SELECT lj.*, l.email, l.company_id, l.score AS lead_score, c.legal_name, c.trade_name,
@@ -2050,12 +2055,13 @@ def journey_context(conn, journey_id):
         JOIN sequence_steps ss ON ss.id = lj.current_step_id
         WHERE lj.id = ? AND lj.org_id = ?
         """,
-        (journey_id, ORG_ID),
+        (journey_id, org_id),
     ).fetchone()
     return dict_row(row)
 
 
 def create_step_approval(conn, journey_id):
+    org_id = current_org_id(conn)
     context = journey_context(conn, journey_id)
     if not context:
         raise ValueError("Jornada nao encontrada")
@@ -2065,11 +2071,12 @@ def create_step_approval(conn, journey_id):
         FROM approval_queue
         WHERE item_type = 'sequence_step'
           AND item_id = ?
+          AND org_id = ?
           AND status = 'pending'
         ORDER BY id DESC
         LIMIT 1
         """,
-        (journey_id,),
+        (journey_id, org_id),
     ).fetchone()
     if existing:
         return existing["id"]
@@ -2107,7 +2114,7 @@ def create_step_approval(conn, journey_id):
         INSERT INTO approval_queue (org_id, item_type, item_id, status, title, context_json, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (ORG_ID, "sequence_step", journey_id, "pending", title, json.dumps(payload, ensure_ascii=True), timestamp),
+        (org_id, "sequence_step", journey_id, "pending", title, json.dumps(payload, ensure_ascii=True), timestamp),
     )
     log_agent_action(
         conn,
@@ -2117,14 +2124,18 @@ def create_step_approval(conn, journey_id):
         "system",
         "Passo renderizado e enviado para aprovacao humana",
         payload,
+        org_id=org_id,
     )
     return cursor.lastrowid
 
 
 def enroll_sequence_from_list(conn, sequence_id, list_id):
+    org_id = current_org_id(conn)
     sequence = get_sequence(conn, sequence_id)
     if not sequence:
         raise ValueError("Sequencia nao encontrada")
+    if not conn.execute("SELECT id FROM lists WHERE id = ? AND org_id = ?", (int(list_id), org_id)).fetchone():
+        raise ValueError("Lista nao encontrada")
     first_step = first_sequence_step(conn, sequence_id)
     if not first_step:
         raise ValueError("Sequencia sem passos")
@@ -2136,7 +2147,7 @@ def enroll_sequence_from_list(conn, sequence_id, list_id):
         WHERE org_id = ? AND list_id = ? AND status = 'eligible'
         ORDER BY score DESC, id ASC
         """,
-        (ORG_ID, int(list_id)),
+        (org_id, int(list_id)),
     ).fetchall()
     timestamp = now_iso()
     enrolled = 0
@@ -2145,7 +2156,7 @@ def enroll_sequence_from_list(conn, sequence_id, list_id):
     for lead in leads:
         before = conn.execute(
             "SELECT id FROM lead_journey WHERE org_id = ? AND lead_id = ? AND sequence_id = ?",
-            (ORG_ID, lead["id"], sequence_id),
+            (org_id, lead["id"], sequence_id),
         ).fetchone()
         conn.execute(
             """
@@ -2157,7 +2168,7 @@ def enroll_sequence_from_list(conn, sequence_id, list_id):
             ON CONFLICT(org_id, lead_id, sequence_id) DO NOTHING
             """,
             (
-                ORG_ID,
+                org_id,
                 lead["id"],
                 sequence_id,
                 first_step["id"],
@@ -2170,7 +2181,7 @@ def enroll_sequence_from_list(conn, sequence_id, list_id):
         )
         journey = conn.execute(
             "SELECT id FROM lead_journey WHERE org_id = ? AND lead_id = ? AND sequence_id = ?",
-            (ORG_ID, lead["id"], sequence_id),
+            (org_id, lead["id"], sequence_id),
         ).fetchone()
         if before:
             existing += 1
@@ -2183,14 +2194,16 @@ def enroll_sequence_from_list(conn, sequence_id, list_id):
         "sequence",
         sequence_id,
         {"list_id": list_id, "enrolled": enrolled, "existing": existing, "approvals": approvals},
+        org_id=org_id,
     )
     return {"sequence_id": sequence_id, "list_id": list_id, "enrolled": enrolled, "existing": existing, "approvals": approvals}
 
 
 def list_journeys(conn, params=None):
+    org_id = current_org_id(conn)
     params = params or {}
     where = ["lj.org_id = ?"]
-    values = [ORG_ID]
+    values = [org_id]
     if params.get("sequence_id"):
         where.append("lj.sequence_id = ?")
         values.append(int(params.get("sequence_id")))
@@ -2225,6 +2238,7 @@ def parse_approval_row(row):
 
 
 def list_approvals(conn, params=None):
+    org_id = current_org_id(conn)
     params = params or {}
     status = params.get("status") or "pending"
     rows = conn.execute(
@@ -2235,17 +2249,21 @@ def list_approvals(conn, params=None):
         ORDER BY id DESC
         LIMIT ?
         """,
-        (ORG_ID, status, min(int(params.get("limit", 100) or 100), 500)),
+        (org_id, status, min(int(params.get("limit", 100) or 100), 500)),
     ).fetchall()
     return {"items": [parse_approval_row(row) for row in rows]}
 
 
 def ensure_sequence_campaign(conn, sequence_id):
-    sequence = conn.execute("SELECT * FROM sequences WHERE id = ? AND org_id = ?", (sequence_id, ORG_ID)).fetchone()
+    org_id = current_org_id(conn)
+    sequence = conn.execute("SELECT * FROM sequences WHERE id = ? AND org_id = ?", (sequence_id, org_id)).fetchone()
     if not sequence:
         raise ValueError("Sequencia nao encontrada")
     if sequence["campaign_id"]:
-        existing = conn.execute("SELECT id FROM campaigns WHERE id = ?", (sequence["campaign_id"],)).fetchone()
+        existing = conn.execute(
+            "SELECT id FROM campaigns WHERE id = ? AND org_id = ?",
+            (sequence["campaign_id"], org_id),
+        ).fetchone()
         if existing:
             return sequence["campaign_id"]
     timestamp = now_iso()
@@ -2259,7 +2277,7 @@ def ensure_sequence_campaign(conn, sequence_id):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             "Sequencia: %s" % sequence["name"],
             "sequence",
             "running",
@@ -2308,9 +2326,10 @@ def ensure_sequence_variant(conn, campaign_id, step, rendered):
 
 
 def approve_sequence_step(conn, approval_id, note=""):
+    org_id = current_org_id(conn)
     approval = conn.execute(
         "SELECT * FROM approval_queue WHERE id = ? AND org_id = ?",
-        (approval_id, ORG_ID),
+        (approval_id, org_id),
     ).fetchone()
     if not approval:
         raise ValueError("Aprovacao nao encontrada")
@@ -2402,15 +2421,17 @@ def approve_sequence_step(conn, approval_id, note=""):
         "human",
         note or "Aprovacao humana executou passo simulado",
         {"approval_id": approval_id, "send_id": send["id"], "step_id": step["id"], "next_status": status},
+        org_id=org_id,
     )
-    audit(conn, "approve_sequence_step", "approval", approval_id, {"send_id": send["id"], "journey_status": status})
+    audit(conn, "approve_sequence_step", "approval", approval_id, {"send_id": send["id"], "journey_status": status}, org_id=org_id)
     return {"approval": parse_approval_row(conn.execute("SELECT * FROM approval_queue WHERE id = ?", (approval_id,)).fetchone()), "journey": journey_context(conn, journey["id"]), "send_id": send["id"]}
 
 
 def reject_sequence_step(conn, approval_id, note=""):
+    org_id = current_org_id(conn)
     approval = conn.execute(
         "SELECT * FROM approval_queue WHERE id = ? AND org_id = ?",
-        (approval_id, ORG_ID),
+        (approval_id, org_id),
     ).fetchone()
     if not approval:
         raise ValueError("Aprovacao nao encontrada")
@@ -2436,13 +2457,15 @@ def reject_sequence_step(conn, approval_id, note=""):
             "human",
             note or "Passo rejeitado por humano",
             {"approval_id": approval_id, "step_id": context.get("step_id")},
+            org_id=org_id,
         )
-    audit(conn, "reject_sequence_step", "approval", approval_id, {"note": note})
+    audit(conn, "reject_sequence_step", "approval", approval_id, {"note": note}, org_id=org_id)
     return {"approval": parse_approval_row(conn.execute("SELECT * FROM approval_queue WHERE id = ?", (approval_id,)).fetchone())}
 
 
 def prepare_next_journey_step(conn, journey_id):
-    journey = conn.execute("SELECT * FROM lead_journey WHERE id = ? AND org_id = ?", (journey_id, ORG_ID)).fetchone()
+    org_id = current_org_id(conn)
+    journey = conn.execute("SELECT * FROM lead_journey WHERE id = ? AND org_id = ?", (journey_id, org_id)).fetchone()
     if not journey:
         raise ValueError("Jornada nao encontrada")
     if journey["status"] != "waiting":
@@ -2453,11 +2476,12 @@ def prepare_next_journey_step(conn, journey_id):
         ("pending_approval", timestamp, journey_id),
     )
     approval_id = create_step_approval(conn, journey_id)
-    audit(conn, "prepare_next_journey_step", "lead_journey", journey_id, {"approval_id": approval_id})
+    audit(conn, "prepare_next_journey_step", "lead_journey", journey_id, {"approval_id": approval_id}, org_id=org_id)
     return {"journey": journey_context(conn, journey_id), "approval_id": approval_id}
 
 
 def list_agent_actions(conn, params=None):
+    org_id = current_org_id(conn)
     params = params or {}
     rows = conn.execute(
         """
@@ -2469,7 +2493,7 @@ def list_agent_actions(conn, params=None):
         ORDER BY aa.id DESC
         LIMIT ?
         """,
-        (ORG_ID, min(int(params.get("limit", 100) or 100), 500)),
+        (org_id, min(int(params.get("limit", 100) or 100), 500)),
     ).fetchall()
     items = []
     for row in rows:
