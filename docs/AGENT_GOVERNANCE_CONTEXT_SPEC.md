@@ -48,3 +48,13 @@ empresa interna mascare ou inflacione o custo de outra.
 - Custo com configuracao de outro workspace e recusado.
 - Listagens e resumo de custo mostram apenas o workspace ativo.
 - Testes automatizados provam isolamento entre workspace interno e secundario.
+
+## Implementado nesta fase
+
+- Defaults de agente sao criados por workspace ativo.
+- `list_agent_configs`, `active_agent_config` e `activate_agent_config`
+  respeitam o workspace ativo.
+- Simulacoes validam configuracao e lead contra o workspace ativo.
+- Custos validam configuracao, lead, sequencia e acao contra o workspace ativo.
+- Listagens e resumo de custo agregam apenas o workspace ativo.
+- `tests/test_agent_governance.py` cobre isolamento multi-workspace.

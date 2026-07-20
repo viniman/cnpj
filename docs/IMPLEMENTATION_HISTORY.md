@@ -1583,3 +1583,34 @@ Meta da fase:
 Documento principal:
 
 - `docs/AGENT_GOVERNANCE_CONTEXT_SPEC.md`
+
+Commits:
+
+- `fc27dd3 docs: define agent governance context phase`
+- `a246dad feat: scope agent governance to active workspace`
+
+Implementado:
+
+- Configuracao default do agente criada por workspace ativo.
+- Listagem, ativacao e criacao de configuracoes isoladas por workspace.
+- Simulacoes validando configuracao e lead no workspace ativo.
+- Custos validando configuracao, lead, sequencia e acao no workspace ativo.
+- Resumo de custo e listagem de custos filtrados por workspace.
+- Teste multi-workspace em `tests/test_agent_governance.py`.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_agent_governance
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 72 tests
+OK
+```

@@ -140,6 +140,8 @@ Tabelas principais:
   listar, decidir, criar agenda e atualizar status.
 - Command Center e replay por lead leem `current_org_id(conn)` e agregam
   somente dados do workspace ativo.
+- Governanca do agente e custos de IA leem `current_org_id(conn)` para
+  configuracoes, simulacoes, ativacao e contabilidade.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo
   vinculo com listas do workspace ativo.
 - Supressao e opt-out sao consultados globalmente pelo modulo de higiene,
