@@ -352,3 +352,29 @@ Consequencias:
 - Mudancas de formula devem ser versionadas em fase futura.
 - A UI sempre deve mostrar a formula ou origem do KPI junto do progresso.
 - Criacao de KR precisa validar se o `kpi_key` existe no catalogo conhecido.
+
+## ADR-015 - Configuracoes de agente passam por staging antes de ativar
+
+Data: 2026-07-20
+
+Decisao:
+
+- Toda configuracao do agente SDR e versionada em `agent_config_versions`.
+- Novas versoes nascem em `staging`.
+- Somente uma versao pode estar `active` por vez.
+- Custos de IA ficam em `agent_cost_log`, vinculaveis a lead, modelo,
+  operacao e versao de configuracao.
+
+Racional:
+
+- O prompt de governanca exige rollback e explicabilidade do comportamento do
+  agente.
+- Mudancas de prompt/regras sem staging podem alterar decisao comercial sem
+  revisao.
+- Custo por acao precisa ser visivel antes de virar surpresa operacional.
+
+Consequencias:
+
+- A ativacao de uma versao arquiva a versao ativa anterior.
+- Chamadas reais de modelo futuras devem registrar custo nessa tabela.
+- Simulacoes podem ser usadas para revisar comportamento antes de ativar.

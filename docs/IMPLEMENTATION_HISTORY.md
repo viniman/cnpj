@@ -870,3 +870,30 @@ meetings_completed_value=4
 objectives_after=1
 first_saved_objective=1
 ```
+
+## 2026-07-20 - Inicio da fase 13 de governanca do agente
+
+Branch: `feature/13-agent-governance-foundation`
+
+Estado inicial:
+
+- Fase 12 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 46 tests`, `OK`.
+
+Meta da fase:
+
+- Versionar configuracoes do agente SDR.
+- Criar staging e ativacao explicita de versoes.
+- Registrar simulacoes locais sem chamada real de LLM.
+- Registrar custo estimado de IA por operacao/modelo/lead.
+- Expor API e painel no Command Center.
+
+Documento principal:
+
+- `docs/AGENT_GOVERNANCE_SPEC.md`
+
+Commits:
+
+- `pending docs: define agent governance phase`

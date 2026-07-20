@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 12 iniciada em `feature/12-okr-kpi-foundation`.
+Status: fase 13 iniciada em `feature/13-agent-governance-foundation`.
 
 Fases:
 
