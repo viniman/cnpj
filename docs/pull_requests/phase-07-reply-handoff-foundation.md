@@ -48,7 +48,7 @@ resposta vire instrucao do sistema.
 - [x] Handoff pode ser resolvido ou dispensado com nota.
 - [x] Classificacoes e decisoes registram `agent_actions`.
 - [x] Testes automatizados cobrem opt-out, interesse, ambiguidade e handoff.
-- [ ] Smoke test HTTP final executado apos reiniciar servidor.
+- [x] Smoke test HTTP final executado apos reiniciar servidor.
 
 ## Como testar localmente
 
@@ -81,3 +81,17 @@ python -m radar_cnpj.server
 - Nao ha remoto Git configurado, entao este PR esta documentado localmente.
 - Esta fase ainda nao recebe e-mail real via SES.
 - Opt-out e executado automaticamente; demais casos ficam para humano.
+
+## Smoke HTTP
+
+```text
+health=True
+company_email=comercial@prismafin.com.br
+leads_eligible=1
+reply_id=1
+classification=interest_meeting
+handoff_id=1
+handoff_priority=high
+handoff_status_after_resolve=resolved
+agent_actions_total=11
+```

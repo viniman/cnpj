@@ -449,6 +449,7 @@ Commits:
 - `6f99969 docs: define reply handoff phase`
 - `4b5c861 feat: add reply classification handoff backend`
 - `4716986 feat: add reply handoff workspace UI`
+- `4c5f673 docs: add phase 07 reply handoff notes`
 
 Implementado:
 
@@ -476,4 +477,21 @@ Resultado esperado nesta etapa:
 ```text
 Ran 34 tests
 OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+company_id=7
+company_email=comercial@prismafin.com.br
+list_id=10
+companies_added=1
+leads_eligible=1
+reply_id=1
+classification=interest_meeting
+handoff_id=1
+handoff_priority=high
+handoff_status_after_resolve=resolved
+agent_actions_total=11
 ```
