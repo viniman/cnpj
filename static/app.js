@@ -7,6 +7,7 @@ const state = {
   templates: [],
   selectedTemplateId: null,
   lastRenderedTemplate: null,
+  sequences: [],
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -67,6 +68,7 @@ function setView(view) {
     enrichment: "Enriquecimento",
     experiments: "Experimentos",
     templates: "Templates",
+    sequences: "Sequencias",
     hygiene: "Higiene de emails",
     audit: "Auditoria",
   };
@@ -80,6 +82,7 @@ function setView(view) {
   if (view === "import") loadOfficialCatalog();
   if (view === "experiments") loadExperiments();
   if (view === "templates") loadTemplates();
+  if (view === "sequences") loadSequenceWorkspace();
   if (view === "audit") loadAudit();
 }
 
@@ -289,6 +292,8 @@ function renderListSelector() {
   if (select) select.innerHTML = markup;
   const experimentSelect = $("#experimentList");
   if (experimentSelect) experimentSelect.innerHTML = markup;
+  const sequenceSelect = $("#sequenceList");
+  if (sequenceSelect) sequenceSelect.innerHTML = markup;
 }
 
 function renderListsIndex() {
@@ -714,6 +719,23 @@ async function loadTemplates() {
   const data = await api("/api/templates");
   state.templates = data.items || [];
   renderTemplatesTable(state.templates);
+  renderTemplateSelects();
+}
+
+function renderTemplateSelects() {
+  const markup = state.templates.length
+    ? `<option value="">Selecione</option>${state.templates
+        .map((template) => {
+          const version = template.active_version || {};
+          return `<option value="${template.id}">${escapeHtml(template.name)} v${version.version_number || "-"}</option>`;
+        })
+        .join("")}`
+    : `<option value="">Crie um template</option>`;
+  $$("[data-template-select]").forEach((select) => {
+    const current = select.value;
+    select.innerHTML = markup;
+    if (current) select.value = current;
+  });
 }
 
 function renderTemplatesTable(items) {
@@ -834,6 +856,186 @@ function useTemplateInCampaign() {
   showStatus("Template renderizado aplicado ao formulario de campanha simulada.");
 }
 
+async function loadSequenceWorkspace() {
+  await loadLists();
+  await loadTemplates();
+  await Promise.all([loadSequences(), loadApprovals(), loadJourneys(), loadAgentActions()]);
+}
+
+async function createSequenceFromForm() {
+  const firstTemplate = Number($("#sequenceStepTemplate1").value || 0);
+  if (!firstTemplate) return showStatus("Selecione o template do passo 1.", "warn");
+  const steps = [{ name: "Primeiro contato", template_id: firstTemplate, wait_days: 0 }];
+  const secondTemplate = Number($("#sequenceStepTemplate2").value || 0);
+  if (secondTemplate) {
+    steps.push({
+      name: "Follow-up",
+      template_id: secondTemplate,
+      wait_days: Number($("#sequenceStep2Wait").value || 0),
+    });
+  }
+  const payload = {
+    name: $("#sequenceName").value.trim(),
+    description: $("#sequenceDescription").value.trim(),
+    steps,
+  };
+  if (!payload.name) return showStatus("Informe o nome da sequencia.", "warn");
+  await api("/api/sequences", { method: "POST", body: JSON.stringify(payload) });
+  $("#sequenceName").value = "";
+  $("#sequenceDescription").value = "";
+  showStatus("Sequencia criada com passos supervisionados.");
+  await loadSequences();
+}
+
+async function loadSequences() {
+  const data = await api("/api/sequences");
+  state.sequences = data.items || [];
+  renderSequences(state.sequences);
+}
+
+function renderSequences(items) {
+  const container = $("#sequencesTable");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhuma sequencia criada ainda.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["ID", "Sequencia", "Status", "Passos", "Jornadas", ""],
+    items.map((sequence) => {
+      const counts = sequence.journey_counts || {};
+      const summary = Object.entries(counts).map(([key, value]) => `${key}:${value}`).join(" / ") || "-";
+      return [
+        sequence.id,
+        `<span class="truncate" title="${escapeHtml(sequence.name)}">${escapeHtml(sequence.name)}</span>`,
+        badge(sequence.status, sequence.status === "active" ? "green" : "amber"),
+        escapeHtml((sequence.steps || []).map((step) => `${step.step_number}. ${step.name}`).join("; ")),
+        escapeHtml(summary),
+        `<button class="row-action" data-enroll-sequence="${sequence.id}">Inscrever lista</button>`,
+      ];
+    }),
+  );
+  $$("[data-enroll-sequence]").forEach((button) => {
+    button.addEventListener("click", () => enrollSequence(button.dataset.enrollSequence));
+  });
+}
+
+async function enrollSequence(sequenceId) {
+  const listId = Number($("#sequenceList").value || 0);
+  if (!listId) return showStatus("Selecione uma lista para inscrever.", "warn");
+  const result = await api(`/api/sequences/${sequenceId}/enroll`, {
+    method: "POST",
+    body: JSON.stringify({ list_id: listId }),
+  });
+  showStatus(`${result.enrolled} jornadas criadas / ${result.approvals} aprovacoes pendentes.`);
+  await Promise.all([loadSequences(), loadApprovals(), loadJourneys(), loadAgentActions()]);
+}
+
+async function loadApprovals() {
+  const data = await api("/api/approvals");
+  renderApprovals(data.items || []);
+}
+
+function renderApprovals(items) {
+  const container = $("#approvalsTable");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhuma aprovacao pendente.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["ID", "Titulo", "Email", "Assunto", "Corpo", ""],
+    items.map((approval) => {
+      const context = approval.context || {};
+      return [
+        approval.id,
+        `<span class="truncate" title="${escapeHtml(approval.title)}">${escapeHtml(approval.title)}</span>`,
+        escapeHtml(fmt(context.email)),
+        escapeHtml(fmt(context.subject)),
+        previewHtml(context.body || "-"),
+        `<button class="row-action" data-approve="${approval.id}">Aprovar</button> <button class="row-action" data-reject="${approval.id}">Rejeitar</button>`,
+      ];
+    }),
+  );
+  $$("[data-approve]").forEach((button) => {
+    button.addEventListener("click", () => decideApproval(button.dataset.approve, "approve"));
+  });
+  $$("[data-reject]").forEach((button) => {
+    button.addEventListener("click", () => decideApproval(button.dataset.reject, "reject"));
+  });
+}
+
+async function decideApproval(approvalId, decision) {
+  const note = $("#approvalDecisionNote").value.trim();
+  await api(`/api/approvals/${approvalId}/${decision}`, {
+    method: "POST",
+    body: JSON.stringify({ note }),
+  });
+  showStatus(decision === "approve" ? "Passo aprovado e simulado." : "Passo rejeitado.");
+  await Promise.all([loadSequences(), loadApprovals(), loadJourneys(), loadAgentActions()]);
+}
+
+async function loadJourneys() {
+  const data = await api("/api/sequences/journeys");
+  renderJourneys(data.items || []);
+}
+
+function renderJourneys(items) {
+  const container = $("#journeysTable");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhuma jornada criada ainda.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["ID", "Lead", "Sequencia", "Passo", "Status", "Proxima acao", "Bloqueio", ""],
+    items.map((journey) => [
+      journey.id,
+      escapeHtml(journey.trade_name || journey.legal_name || journey.email || "-"),
+      escapeHtml(journey.sequence_name),
+      escapeHtml(`${journey.current_step_number}. ${journey.step_name || "-"}`),
+      badge(journey.status, experimentStatusTone(journey.status)),
+      escapeHtml(fmt(journey.next_action_at)),
+      escapeHtml(fmt(journey.block_reason)),
+      journey.status === "waiting" ? `<button class="row-action" data-prepare-next="${journey.id}">Preparar proximo</button>` : "",
+    ]),
+  );
+  $$("[data-prepare-next]").forEach((button) => {
+    button.addEventListener("click", () => prepareNextJourney(button.dataset.prepareNext));
+  });
+}
+
+async function prepareNextJourney(journeyId) {
+  await api(`/api/sequences/journeys/${journeyId}/prepare-next`, { method: "POST", body: "{}" });
+  showStatus("Proximo passo preparado para aprovacao.");
+  await Promise.all([loadApprovals(), loadJourneys(), loadAgentActions()]);
+}
+
+async function loadAgentActions() {
+  const data = await api("/api/agent-actions");
+  renderAgentActions(data.items || []);
+}
+
+function renderAgentActions(items) {
+  const container = $("#agentActionsTable");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhuma acao registrada ainda.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["Data", "Acao", "Origem", "Lead", "Sequencia", "Motivo"],
+    items.map((action) => [
+      escapeHtml(action.created_at),
+      badge(action.action_type, "purple"),
+      badge(action.source),
+      escapeHtml(fmt(action.email)),
+      escapeHtml(fmt(action.sequence_name)),
+      escapeHtml(action.reason),
+    ]),
+  );
+}
+
 async function seed() {
   const result = await api("/api/seed", { method: "POST", body: "{}" });
   showStatus(result.message || "Amostra carregada.");
@@ -941,6 +1143,11 @@ function wireEvents() {
   $("#createTemplateVersionBtn").addEventListener("click", createTemplateVersionFromForm);
   $("#renderTemplateBtn").addEventListener("click", renderTemplateFromForm);
   $("#useTemplateInCampaignBtn").addEventListener("click", useTemplateInCampaign);
+  $("#createSequenceBtn").addEventListener("click", createSequenceFromForm);
+  $("#refreshSequencesBtn").addEventListener("click", loadSequenceWorkspace);
+  $("#refreshApprovalsBtn").addEventListener("click", loadApprovals);
+  $("#refreshJourneysBtn").addEventListener("click", loadJourneys);
+  $("#refreshAgentActionsBtn").addEventListener("click", loadAgentActions);
   $("#seedBtn").addEventListener("click", seed);
   $("#seedBtnImport").addEventListener("click", seed);
   $("#validateEmailsBtn").addEventListener("click", validateFreeEmails);

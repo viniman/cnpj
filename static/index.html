@@ -24,6 +24,7 @@
           <button class="nav-item" data-view="enrichment">Enriquecimento</button>
           <button class="nav-item" data-view="experiments">Experimentos</button>
           <button class="nav-item" data-view="templates">Templates</button>
+          <button class="nav-item" data-view="sequences">Sequencias</button>
           <button class="nav-item" data-view="hygiene">Higiene</button>
           <button class="nav-item" data-view="audit">Auditoria</button>
         </nav>
@@ -453,6 +454,93 @@
               <button id="refreshTemplatesBtn" class="button">Atualizar</button>
             </div>
             <div id="templatesTable" class="table-wrap"></div>
+          </section>
+        </section>
+
+        <section id="sequences" class="view">
+          <div class="content-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Nova sequencia</h2>
+                <button id="refreshSequencesBtn" class="button">Atualizar</button>
+              </div>
+              <div class="form-grid">
+                <label>
+                  Nome
+                  <input id="sequenceName" class="input" placeholder="Cadencia inicial B2B" />
+                </label>
+                <label>
+                  Lista para inscricao
+                  <select id="sequenceList" class="input"></select>
+                </label>
+                <label>
+                  Template passo 1
+                  <select id="sequenceStepTemplate1" class="input" data-template-select></select>
+                </label>
+                <label>
+                  Template passo 2 opcional
+                  <select id="sequenceStepTemplate2" class="input" data-template-select></select>
+                </label>
+                <label>
+                  Espera passo 2 em dias
+                  <input id="sequenceStep2Wait" class="input" type="number" min="0" value="3" />
+                </label>
+                <label>
+                  Observacao
+                  <input id="sequenceDescription" class="input" placeholder="Objetivo da cadencia" />
+                </label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <button id="createSequenceBtn" class="button primary">Criar sequencia</button>
+                <p class="muted">Cada passo gera aprovacao humana antes de qualquer simulacao.</p>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Decisao de aprovacao</h2>
+              </div>
+              <div class="form-grid one">
+                <label>
+                  Nota da decisao
+                  <input id="approvalDecisionNote" class="input" placeholder="Aprovado para teste / revisar copy" />
+                </label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <button id="refreshApprovalsBtn" class="button">Atualizar aprovacoes</button>
+                <p class="muted">Aprovacoes aprovadas criam envios simulados; rejeicoes nao criam envio.</p>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Sequencias</h2>
+            </div>
+            <div id="sequencesTable" class="table-wrap"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Aprovacoes pendentes</h2>
+            </div>
+            <div id="approvalsTable" class="table-wrap"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Jornadas</h2>
+              <button id="refreshJourneysBtn" class="button">Atualizar jornadas</button>
+            </div>
+            <div id="journeysTable" class="table-wrap"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Acoes registradas</h2>
+              <button id="refreshAgentActionsBtn" class="button">Atualizar logs</button>
+            </div>
+            <div id="agentActionsTable" class="table-wrap"></div>
           </section>
         </section>
 
