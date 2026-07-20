@@ -249,3 +249,15 @@ Resultado esperado nesta etapa:
 Ran 24 tests
 OK
 ```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=true
+template_id=1
+initial_version=1
+active_version=2
+versions=2
+footer_injected=true
+body_has_cta=true
+```

@@ -52,6 +52,8 @@ renderizados no backend, com rodape de compliance obrigatorio.
   no corpo editavel.
 - [x] Testes automatizados cobrem criacao, versionamento, renderizacao e
   rodape.
+- [x] Smoke test HTTP cria template, cria versao 2 e renderiza com rodape
+  injetado.
 
 ## Como testar localmente
 
@@ -85,3 +87,14 @@ python -m radar_cnpj.server
 - Nao ha remoto Git configurado, entao este PR esta documentado localmente.
 - O rodape nao fica salvo no corpo editavel; ele entra apenas na renderizacao.
 - Envio real continua fora do MVP local.
+
+## Smoke HTTP
+
+```text
+health=true
+initial_version=1
+active_version=2
+versions=2
+footer_injected=true
+body_has_cta=true
+```
