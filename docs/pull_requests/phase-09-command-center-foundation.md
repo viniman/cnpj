@@ -37,7 +37,7 @@ modulos existentes.
 - [x] Kanban mostra leads por estado com empresa/e-mail.
 - [x] UI carrega o Command Center em aba propria.
 - [x] Testes automatizados cobrem inbox, kanban e feed.
-- [ ] Smoke test HTTP final executado apos reiniciar servidor.
+- [x] Smoke test HTTP final executado apos reiniciar servidor.
 
 ## Como testar localmente
 
@@ -69,3 +69,21 @@ python -m radar_cnpj.server
 - Nao ha remoto Git configurado, entao este PR esta documentado localmente.
 - Acoes ainda sao executadas nas telas de origem.
 - Esta fase nao cria novas tabelas de governanca.
+
+## Smoke HTTP
+
+```text
+health=True
+company_email=dados@axisanalytics.com.br
+approvals_created=1
+lead_id=21
+handoff_id=4
+meeting_id=2
+metrics_pending_approvals=2
+metrics_pending_handoffs=2
+metrics_open_meetings=1
+inbox_source_types=approval,handoff,meeting
+kanban_columns=7
+kanban_cards=14
+activity_items=22
+```

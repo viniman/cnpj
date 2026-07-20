@@ -604,6 +604,7 @@ Commits:
 - `1a7d6bf docs: define command center phase`
 - `b6733bb feat: add command center aggregator API`
 - `cd81d6d feat: add command center workspace UI`
+- `9895c83 docs: add phase 09 command center notes`
 
 Implementado:
 
@@ -628,4 +629,25 @@ Resultado esperado nesta etapa:
 ```text
 Ran 38 tests
 OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+company_email=dados@axisanalytics.com.br
+list_id=13
+companies_added=1
+sequence_id=3
+approvals_created=1
+lead_id=21
+handoff_id=4
+meeting_id=2
+metrics_pending_approvals=2
+metrics_pending_handoffs=2
+metrics_open_meetings=1
+inbox_source_types=approval,handoff,meeting
+kanban_columns=7
+kanban_cards=14
+activity_items=22
 ```
