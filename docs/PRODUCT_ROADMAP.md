@@ -89,7 +89,7 @@ Meta:
 - Agente escolhe, sugere e acompanha, mas os trilhos duros ficam em codigo.
 - Comecar com aprovacao humana antes de envio autonomo.
 
-Status: fase 07 iniciada em `feature/07-reply-handoff-foundation`.
+Status: fase 08 iniciada em `feature/08-meeting-scheduling-foundation`.
 
 Fases:
 
@@ -98,7 +98,8 @@ Fases:
 3. Log `agent_actions` com motivo, ferramenta e resultado.
 4. `icp_rules` estruturado e priorizacao de leads elegiveis.
 5. Classificacao de respostas e handoff humano.
-6. Autonomia gradual somente apos testes e confianca.
+6. Reunioes e agenda operacional a partir de handoff humano.
+7. Autonomia gradual somente apos testes e confianca.
 
 ## Camada 5 - Command Center multi-empresa
 

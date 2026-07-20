@@ -495,3 +495,26 @@ handoff_priority=high
 handoff_status_after_resolve=resolved
 agent_actions_total=11
 ```
+
+## 2026-07-20 - Inicio da fase 08 de reunioes e agenda
+
+Branch: `feature/08-meeting-scheduling-foundation`
+
+Estado inicial:
+
+- Fase 07 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 34 tests`, `OK`.
+
+Meta da fase:
+
+- Criar registros de reuniao ligados a leads, respostas e handoffs.
+- Permitir que humano transforme handoff em proxima acao comercial concreta.
+- Bloquear reunioes para opt-out ou e-mail suprimido.
+- Atualizar status do lead e funil quando reuniao e criada ou concluida.
+- Expor API e UI local para agenda operacional.
+
+Documento principal:
+
+- `docs/MEETING_SCHEDULING_SPEC.md`

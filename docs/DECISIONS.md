@@ -221,3 +221,28 @@ Consequencias:
 - `reply_classifications` guarda conteudo, categoria, confianca e motivos.
 - `handoffs` vira fila operacional de revisao humana.
 - Cadencias ativas sao paradas quando uma resposta relevante chega.
+
+## ADR-010 - Reunioes exigem decisao humana explicita
+
+Data: 2026-07-20
+
+Decisao:
+
+- Uma resposta de interesse nao cria reuniao automaticamente.
+- O sistema cria primeiro um handoff humano; a reuniao so nasce quando o
+  operador registra agenda, link ou nota operacional.
+- No MVP local, a reuniao e registro interno e auditavel, sem convite real de
+  calendario nem envio automatico.
+
+Racional:
+
+- Agendamento mexe com expectativa comercial e disponibilidade humana.
+- O produto ainda nao tem integracao real com calendario nem canal de resposta.
+- Manter a decisao humana evita que conteudo externo ou classificacao incerta
+  vire compromisso operacional sem revisao.
+
+Consequencias:
+
+- `meetings` se liga a `leads`, `reply_classifications` e `handoffs`.
+- Criar reuniao a partir de handoff resolve a tarefa e atualiza o funil.
+- Opt-out e supressao continuam bloqueando qualquer acao comercial ativa.
