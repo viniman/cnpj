@@ -1199,4 +1199,47 @@ Documento principal:
 
 Commits:
 
-- `pending docs: define workspace context phase`
+- `f2bffcf docs: define workspace context phase`
+- `5122ff0 feat: add workspace context backend`
+- `3c5566d feat: add workspace switcher UI`
+
+Implementado:
+
+- Tabela `workspace_context` com singleton local.
+- Helpers de contexto ativo no backend.
+- Endpoint `GET /api/workspace-context`.
+- Endpoint `POST /api/workspace-context`.
+- Dashboard migrado para listas/empresas do workspace ativo.
+- Listas criadas, listadas, detalhadas, exportadas e editadas com escopo ativo.
+- Notificacoes listadas, geradas, lidas e dispensadas com escopo ativo.
+- OKRs/KPIs migrados para o workspace ativo.
+- Seletor de workspace na topbar da UI.
+- Recarregamento da visao aberta apos troca de workspace.
+- Testes dedicados em `tests/test_workspace_context.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_workspace_context
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 64 tests
+OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+workspace_before=1
+workspace_switch_to=2
+dashboard_workspace=2
+dashboard_lists=0
+dashboard_companies=0
+workspace_restored=1
+```

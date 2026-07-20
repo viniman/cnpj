@@ -49,6 +49,7 @@ flowchart LR
 Tabelas principais:
 
 - `organizations`, `users`: base para multi-tenant futuro.
+- `workspace_context`: workspace operacional ativo no MVP local.
 - `companies`, `partners`, `cnaes`, `company_cnaes`: dados publicos de CNPJ.
 - `lists`, `list_companies`, `tags`, `company_tags`, `saved_filters`: operacao comercial por workspace.
 - `suppression_list`, `opt_outs`, `data_subject_requests`: compliance.
@@ -125,6 +126,10 @@ Tabelas principais:
 - Comparacao executiva calcula metricas por `org_id` nas tabelas que ja suportam
   workspace; empresas sao medidas por listas ate a base bruta ganhar isolamento
   por tenant.
+- Contexto operacional ativo e salvo em `workspace_context`; dashboard, listas,
+  notificacoes e OKRs ja migrados leem `current_org_id(conn)`.
+- Empresas continuam globais nesta fase e entram no escopo operacional pelo
+  vinculo com listas do workspace ativo.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

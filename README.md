@@ -674,6 +674,8 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/notifications/generate`
 - `POST /api/notifications/{id}/mark-read`
 - `POST /api/notifications/{id}/dismiss`
+- `GET /api/workspace-context`
+- `POST /api/workspace-context`
 - `GET /api/workspaces/comparison`
 - `POST /api/workspaces`
 - `POST /api/workspaces/{id}/snapshot`
@@ -769,6 +771,9 @@ python -m unittest discover -s tests
 - Comparacao multi-workspace usa metricas por `org_id` onde ja existe esse
   vinculo; empresas sao contadas pelas listas do workspace ate a futura
   migracao completa da base bruta.
+- A topbar permite trocar o workspace operacional ativo. Nesta fase, dashboard,
+  listas, notificacoes e OKRs ja respeitam esse contexto; os demais dominios
+  seguem em migracao gradual.
 
 ## Proximas fases sugeridas
 

@@ -55,7 +55,8 @@ Resposta:
 ```json
 {
   "active_workspace": {},
-  "workspaces": []
+  "workspaces": [],
+  "updated_at": "2026-07-20T05:26:42Z"
 }
 ```
 
@@ -69,13 +70,40 @@ Payload:
 
 Define o workspace ativo local.
 
+## Implementado nesta fase
+
+- Tabela singleton `workspace_context`.
+- Helpers `ensure_workspace_context`, `current_org_id`,
+  `set_current_workspace` e `workspace_context`.
+- Endpoints:
+  - `GET /api/workspace-context`
+  - `POST /api/workspace-context`
+- Dashboard local agora calcula empresas a partir das listas do workspace
+  ativo e retorna `active_workspace`.
+- Listas criadas, listadas, detalhadas, exportadas e editadas usam o workspace
+  ativo.
+- Notificacoes listadas, geradas, lidas e dispensadas usam o workspace ativo.
+- OKRs/KPIs criados e listados usam o workspace ativo nas metricas migradas.
+- A topbar tem seletor de workspace e recarrega a visao aberta apos troca.
+
+## Limites conhecidos
+
+- A tabela `companies` continua global nesta fase; o dashboard conta empresas
+  por vinculo em listas do workspace.
+- Modulos de campanha, templates, sequencias, ICP, respostas e reunioes ainda
+  mantem migracoes dedicadas para fases futuras.
+- O contexto e local/singleton, adequado para localhost. Produto SaaS exigira
+  contexto por usuario/sessao e RBAC.
+
 ## Criterios de aceite
 
 - Existe workspace ativo default quando a tabela esta vazia.
 - Trocar workspace ativo persiste em `workspace_context`.
 - Dashboard usa o workspace ativo para listas, leads, handoffs,
-  notificacoes e custo de IA.
+  notificacoes e custo de IA onde a metrica ja possui `org_id`; empresas sao
+  medidas por listas.
 - Listas criadas e listadas usam o workspace ativo.
 - Notificacoes listadas e geradas usam o workspace ativo.
+- OKRs e KPIs migrados usam o workspace ativo.
 - UI permite trocar workspace e recarrega dashboard/listas/comando.
 - Testes automatizados cobrem contexto default, troca e superficies migradas.

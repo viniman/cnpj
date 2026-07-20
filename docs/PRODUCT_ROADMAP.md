@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 17 iniciada em `feature/17-workspace-context-foundation`.
+Status: fase 17 implementada localmente em `feature/17-workspace-context-foundation`.
 
 Fases:
 
