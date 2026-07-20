@@ -107,6 +107,8 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
+Status: fase 09 iniciada em `feature/09-command-center-foundation`.
+
 Fases:
 
 1. Perfil de empresa/workspace completo.

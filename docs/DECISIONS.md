@@ -246,3 +246,29 @@ Consequencias:
 - `meetings` se liga a `leads`, `reply_classifications` e `handoffs`.
 - Criar reuniao a partir de handoff resolve a tarefa e atualiza o funil.
 - Opt-out e supressao continuam bloqueando qualquer acao comercial ativa.
+
+## ADR-011 - Command Center agrega, nao substitui fontes de verdade
+
+Data: 2026-07-20
+
+Decisao:
+
+- O Command Center deve ler dados de `approval_queue`, `handoffs`,
+  `meetings`, `lead_journey`, `leads` e `agent_actions`.
+- Ele nao cria tabelas paralelas para pendencias ou atividades nesta fase.
+- Todo item agregado preserva `source_type`, `source_id` e `origin_label`.
+
+Racional:
+
+- A camada de governanca precisa dar transparencia sem criar divergencia de
+  estado.
+- As acoes ja possuem endpoints e regras proprias em seus modulos de origem.
+- Preservar origem prepara auditoria futura e multi-tenancy sem reescrever a
+  semantica dos dados.
+
+Consequencias:
+
+- `GET /api/command-center` e uma composicao de leitura.
+- A UI mostra as acoes, mas decisoes especificas continuam nas telas/rotas de
+  origem ate a fase de caixa de entrada acionavel completa.
+- Qualquer evolucao futura deve manter rastreabilidade ate o dado bruto.

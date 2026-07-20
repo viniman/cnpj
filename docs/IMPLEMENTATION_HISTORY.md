@@ -575,3 +575,26 @@ meeting_status_after_update=completed
 meetings_listed=1
 agent_actions_total=18
 ```
+
+## 2026-07-20 - Inicio da fase 09 de Command Center
+
+Branch: `feature/09-command-center-foundation`
+
+Estado inicial:
+
+- Fase 08 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 37 tests`, `OK`.
+
+Meta da fase:
+
+- Criar uma API agregadora de Command Center.
+- Unificar pendencias humanas de aprovacoes, handoffs e reunioes.
+- Mostrar feed de atividade com origem e motivo.
+- Expor Kanban CRM a partir dos estados de leads e jornadas.
+- Adicionar aba `Comando` no frontend local.
+
+Documento principal:
+
+- `docs/COMMAND_CENTER_SPEC.md`
