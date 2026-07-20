@@ -1561,3 +1561,25 @@ Resultado esperado nesta etapa:
 Ran 71 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 24 de governanca do agente por workspace
+
+Branch: `feature/24-agent-governance-context-foundation`
+
+Estado inicial:
+
+- Fase 23 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 71 tests`, `OK` usando `TEMP/TMP` em `D:`
+  porque o drive `C:` esta sem espaco livre no ambiente local.
+
+Meta da fase:
+
+- Migrar configuracoes, simulacoes e custos do agente para o workspace ativo.
+- Garantir default proprio por workspace.
+- Bloquear configuracao, lead ou custo de outro workspace.
+
+Documento principal:
+
+- `docs/AGENT_GOVERNANCE_CONTEXT_SPEC.md`

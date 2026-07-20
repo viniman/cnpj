@@ -648,3 +648,32 @@ Consequencias:
 - Replay de lead fora do workspace ativo retorna vazio.
 - A aba `Comando` passa a refletir o contexto operacional selecionado.
 - Auditoria global e governanca/playbooks seguem com fases dedicadas futuras.
+
+## ADR-026 - Governanca do agente e custo seguem o workspace ativo
+
+Data: 2026-07-20
+
+Decisao:
+
+- Configuracoes do agente, simulacoes e custos devem usar
+  `current_org_id(conn)`.
+- Cada workspace recebe seu proprio default ativo ao abrir governanca pela
+  primeira vez.
+- Simulacoes e custos validam `config_version_id` e `lead_id` contra o
+  workspace ativo.
+
+Racional:
+
+- Prompt, regras e status de ativacao podem mudar por empresa interna; uma
+  configuracao ativa global confundiria comportamento e auditoria.
+- Custo de IA precisa ser atribuivel por workspace para evitar surpresa
+  operacional.
+- A simulacao de staging so e confiavel se usar leads e regras do mesmo
+  contexto.
+
+Consequencias:
+
+- Ao trocar workspace, versoes, simulacoes e custos de outro contexto deixam de
+  aparecer.
+- Defaults podem ter `version_number = 1` em cada workspace.
+- Playbooks continuam com fase dedicada para aplicar configuracoes de agente.
