@@ -9,9 +9,11 @@ from radar_cnpj.services import (
     agent_governance,
     create_agent_config,
     create_agent_simulation,
+    create_workspace,
     create_leads_from_list,
     create_list,
     record_agent_cost,
+    set_current_workspace,
     upsert_company,
 )
 
@@ -52,7 +54,10 @@ class AgentGovernanceTest(unittest.TestCase):
         lead_list = create_list(conn, "Lista Governanca", "Teste")
         add_companies_to_list(conn, lead_list["id"], [company_id])
         create_leads_from_list(conn, lead_list["id"], "teste governanca")
-        return conn.execute("SELECT * FROM leads WHERE company_id = ?", (company_id,)).fetchone()["id"]
+        return conn.execute(
+            "SELECT * FROM leads WHERE company_id = ? AND list_id = ? ORDER BY id DESC LIMIT 1",
+            (company_id, lead_list["id"]),
+        ).fetchone()["id"]
 
     def test_governance_creates_default_active_config(self):
         conn = connect()
@@ -137,6 +142,87 @@ class AgentGovernanceTest(unittest.TestCase):
             self.assertEqual(summary["total_tokens"], 620)
             self.assertEqual(summary["estimated_cost"], 0.012)
             self.assertEqual(summary["by_model"][0]["model_name"], "gpt-5-mini")
+        finally:
+            conn.close()
+
+    def test_agent_governance_follows_active_workspace(self):
+        conn = connect()
+        try:
+            internal_lead_id = self.seed_lead(conn)
+            internal_config = agent_governance(conn)["active_config"]
+            create_agent_simulation(conn, {"config_version_id": internal_config["id"], "lead_id": internal_lead_id})
+            record_agent_cost(
+                conn,
+                {
+                    "config_version_id": internal_config["id"],
+                    "lead_id": internal_lead_id,
+                    "operation": "internal_call",
+                    "prompt_tokens": 100,
+                    "completion_tokens": 20,
+                    "estimated_cost": 0.003,
+                },
+            )
+
+            workspace = create_workspace(conn, {"name": "Nine Governanca"})
+            set_current_workspace(conn, workspace["id"])
+
+            scoped_default = agent_governance(conn)
+            self.assertEqual(scoped_default["active_config"]["version_number"], 1)
+            self.assertNotEqual(scoped_default["active_config"]["id"], internal_config["id"])
+            self.assertEqual(scoped_default["simulations"], [])
+            self.assertEqual(scoped_default["cost_summary"]["total_calls"], 0)
+            with self.assertRaises(ValueError):
+                activate_agent_config(conn, internal_config["id"])
+            with self.assertRaises(ValueError):
+                create_agent_simulation(conn, {"config_version_id": internal_config["id"], "lead_id": internal_lead_id})
+            with self.assertRaises(ValueError):
+                record_agent_cost(
+                    conn,
+                    {
+                        "config_version_id": internal_config["id"],
+                        "operation": "cross_workspace_call",
+                    },
+                )
+
+            scoped_lead_id = self.seed_lead(conn)
+            scoped_config = create_agent_config(
+                conn,
+                {
+                    "name": "SDR Nine",
+                    "model_name": "gpt-5-mini",
+                    "prompt_text": "Simular no workspace Nine.",
+                    "rules": {"requires_human_approval": False},
+                },
+            )
+            scoped_simulation = create_agent_simulation(
+                conn,
+                {"config_version_id": scoped_config["id"], "lead_id": scoped_lead_id},
+            )
+            scoped_cost = record_agent_cost(
+                conn,
+                {
+                    "config_version_id": scoped_config["id"],
+                    "lead_id": scoped_lead_id,
+                    "operation": "scoped_call",
+                    "prompt_tokens": 300,
+                    "completion_tokens": 50,
+                    "estimated_cost": 0.008,
+                },
+            )
+            self.assertEqual(scoped_config["org_id"], workspace["id"])
+            self.assertEqual(scoped_simulation["org_id"], workspace["id"])
+            self.assertEqual(scoped_cost["org_id"], workspace["id"])
+            self.assertEqual(agent_governance(conn)["cost_summary"]["total_calls"], 1)
+
+            set_current_workspace(conn, 1)
+            restored = agent_governance(conn)
+            self.assertEqual(restored["active_config"]["id"], internal_config["id"])
+            self.assertEqual(len(restored["simulations"]), 1)
+            self.assertEqual(restored["cost_summary"]["total_calls"], 1)
+            with self.assertRaises(ValueError):
+                create_agent_simulation(conn, {"config_version_id": scoped_config["id"], "lead_id": scoped_lead_id})
+            with self.assertRaises(ValueError):
+                record_agent_cost(conn, {"config_version_id": scoped_config["id"], "operation": "cross_back"})
         finally:
             conn.close()
 
