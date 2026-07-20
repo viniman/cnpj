@@ -110,7 +110,10 @@ async function loadViewData(view = state.view) {
   }
   if (view === "lists") await loadLists(true);
   if (view === "import") await loadOfficialCatalog();
-  if (view === "experiments") await loadExperiments();
+  if (view === "experiments") {
+    await loadLists();
+    await loadExperiments();
+  }
   if (view === "templates") await loadTemplates();
   if (view === "sequences") await loadSequenceWorkspace();
   if (view === "icp") await loadIcpWorkspace();

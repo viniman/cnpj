@@ -922,17 +922,18 @@ def export_list(conn, list_id, file_format, purpose):
 def suppression_sets(conn):
     suppressions = {
         normalize_email(row["email"])
-        for row in conn.execute("SELECT email FROM suppression_list WHERE org_id = ?", (ORG_ID,)).fetchall()
+        for row in conn.execute("SELECT email FROM suppression_list").fetchall()
     }
     opt_outs = {
         normalize_email(row["email"])
-        for row in conn.execute("SELECT email FROM opt_outs WHERE org_id = ?", (ORG_ID,)).fetchall()
+        for row in conn.execute("SELECT email FROM opt_outs").fetchall()
     }
     return suppressions, opt_outs
 
 
 def known_shared_domain_set(conn):
-    rows = conn.execute("SELECT domain FROM known_shared_domains WHERE org_id = ?", (ORG_ID,)).fetchall()
+    org_id = current_org_id(conn)
+    rows = conn.execute("SELECT domain FROM known_shared_domains WHERE org_id = ?", (org_id,)).fetchall()
     return {normalize_domain(row["domain"]) for row in rows}
 
 
@@ -975,6 +976,7 @@ def company_partner_names(conn, company_id):
 
 
 def upsert_known_shared_domain(conn, domain, inferred_type, reason):
+    org_id = current_org_id(conn)
     domain = normalize_domain(domain)
     if not domain:
         return
@@ -988,7 +990,7 @@ def upsert_known_shared_domain(conn, domain, inferred_type, reason):
             reason = excluded.reason,
             last_seen_at = excluded.last_seen_at
         """,
-        (ORG_ID, domain, inferred_type, reason, timestamp, timestamp),
+        (org_id, domain, inferred_type, reason, timestamp, timestamp),
     )
 
 
@@ -1172,6 +1174,7 @@ def validate_emails(conn, emails=None, list_id=None):
 
 
 def add_suppression(conn, email, reason, source="manual"):
+    org_id = current_org_id(conn)
     email = normalize_email(email)
     conn.execute(
         """
@@ -1179,9 +1182,9 @@ def add_suppression(conn, email, reason, source="manual"):
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(email) DO UPDATE SET reason = excluded.reason
         """,
-        (ORG_ID, email, reason, source, now_iso()),
+        (org_id, email, reason, source, now_iso()),
     )
-    audit(conn, "add_suppression", "suppression", email, {"reason": reason, "source": source})
+    audit(conn, "add_suppression", "suppression", email, {"reason": reason, "source": source}, org_id=org_id)
     return {"email": email, "reason": reason, "source": source}
 
 
@@ -1215,7 +1218,9 @@ def assess_lead_eligibility(conn, email, company_id=None):
 
 
 def create_leads_from_list(conn, list_id, source="lista qualificada"):
-    base = conn.execute("SELECT id FROM lists WHERE id = ? AND org_id = ?", (list_id, ORG_ID)).fetchone()
+    org_id = current_org_id(conn)
+    list_id = int(list_id)
+    base = conn.execute("SELECT id FROM lists WHERE id = ? AND org_id = ?", (list_id, org_id)).fetchone()
     if not base:
         raise ValueError("Lista nao encontrada")
     rows = conn.execute(
@@ -1241,7 +1246,7 @@ def create_leads_from_list(conn, list_id, source="lista qualificada"):
             SELECT id FROM leads
             WHERE org_id = ? AND company_id = ? AND list_id = ? AND email = ?
             """,
-            (ORG_ID, row["company_id"], list_id, email),
+            (org_id, row["company_id"], list_id, email),
         ).fetchone()
         eligibility = assess_lead_eligibility(conn, email, row["company_id"])
         email_score = eligibility["email_score"].get("score") or 0
@@ -1267,7 +1272,7 @@ def create_leads_from_list(conn, list_id, source="lista qualificada"):
                 updated_at = excluded.updated_at
             """,
             (
-                ORG_ID,
+                org_id,
                 row["company_id"],
                 list_id,
                 email,
@@ -1290,6 +1295,7 @@ def create_leads_from_list(conn, list_id, source="lista qualificada"):
         "list",
         list_id,
         {"created": created, "updated": updated, "eligible": eligible_count, "blocked": blocked},
+        org_id=org_id,
     )
     return {
         "list_id": list_id,
@@ -1302,10 +1308,11 @@ def create_leads_from_list(conn, list_id, source="lista qualificada"):
 
 
 def list_experiment_leads(conn, params=None):
+    org_id = current_org_id(conn)
     params = params or {}
     limit = min(int(params.get("limit", 100) or 100), 500)
     where = ["l.org_id = ?"]
-    values = [ORG_ID]
+    values = [org_id]
     for key, column in [("list_id", "l.list_id"), ("status", "l.status")]:
         value = params.get(key)
         if value:
@@ -1329,6 +1336,7 @@ def list_experiment_leads(conn, params=None):
 
 
 def create_campaign(conn, payload):
+    org_id = current_org_id(conn)
     name = (payload.get("name") or "").strip()
     subject = (payload.get("subject") or "").strip()
     body = (payload.get("body") or "").strip()
@@ -1349,7 +1357,7 @@ def create_campaign(conn, payload):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             name,
             payload.get("niche") or "",
             "draft",
@@ -1373,22 +1381,32 @@ def create_campaign(conn, payload):
         """,
         (campaign_id, "A", subject, body, payload.get("cta_url") or "", "variant-a", 1, timestamp),
     )
-    audit(conn, "create_campaign", "campaign", campaign_id, {"name": name, "mode": CAMPAIGN_MODE})
+    audit(conn, "create_campaign", "campaign", campaign_id, {"name": name, "mode": CAMPAIGN_MODE}, org_id=org_id)
     return get_campaign(conn, campaign_id)
 
 
-def campaign_funnel(conn, campaign_id):
+def campaign_funnel(conn, campaign_id, org_id=None):
+    org_id = int(org_id or current_org_id(conn))
     funnel = empty_funnel()
-    planned = conn.execute("SELECT COUNT(*) AS total FROM sends WHERE campaign_id = ?", (campaign_id,)).fetchone()
+    planned = conn.execute(
+        """
+        SELECT COUNT(*) AS total
+        FROM sends s
+        JOIN campaigns c ON c.id = s.campaign_id
+        WHERE s.campaign_id = ? AND c.org_id = ?
+        """,
+        (campaign_id, org_id),
+    ).fetchone()
     funnel["planned"] = int(planned["total"] or 0)
     rows = conn.execute(
         """
-        SELECT event_type, COUNT(*) AS total
-        FROM events
-        WHERE campaign_id = ?
-        GROUP BY event_type
+        SELECT e.event_type, COUNT(*) AS total
+        FROM events e
+        JOIN campaigns c ON c.id = e.campaign_id
+        WHERE e.campaign_id = ? AND c.org_id = ?
+        GROUP BY e.event_type
         """,
-        (campaign_id,),
+        (campaign_id, org_id),
     ).fetchall()
     for row in rows:
         funnel[row["event_type"]] = int(row["total"] or 0)
@@ -1396,7 +1414,8 @@ def campaign_funnel(conn, campaign_id):
 
 
 def get_campaign(conn, campaign_id):
-    campaign = conn.execute("SELECT * FROM campaigns WHERE id = ? AND org_id = ?", (campaign_id, ORG_ID)).fetchone()
+    org_id = current_org_id(conn)
+    campaign = conn.execute("SELECT * FROM campaigns WHERE id = ? AND org_id = ?", (campaign_id, org_id)).fetchone()
     if not campaign:
         return None
     data = dict_row(campaign)
@@ -1407,14 +1426,15 @@ def get_campaign(conn, campaign_id):
             (campaign_id,),
         ).fetchall()
     ]
-    data["funnel"] = campaign_funnel(conn, campaign_id)
+    data["funnel"] = campaign_funnel(conn, campaign_id, org_id=org_id)
     return data
 
 
 def list_campaigns(conn):
+    org_id = current_org_id(conn)
     rows = conn.execute(
         "SELECT * FROM campaigns WHERE org_id = ? ORDER BY id DESC",
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     return {"items": [get_campaign(conn, row["id"]) for row in rows]}
 
@@ -1436,7 +1456,8 @@ def active_campaign_variant(conn, campaign_id):
 
 
 def simulate_campaign(conn, campaign_id, list_id=None, limit=50):
-    campaign = conn.execute("SELECT * FROM campaigns WHERE id = ? AND org_id = ?", (campaign_id, ORG_ID)).fetchone()
+    org_id = current_org_id(conn)
+    campaign = conn.execute("SELECT * FROM campaigns WHERE id = ? AND org_id = ?", (campaign_id, org_id)).fetchone()
     if not campaign:
         raise ValueError("Campanha nao encontrada")
     if campaign["mode"] != CAMPAIGN_MODE:
@@ -1446,7 +1467,7 @@ def simulate_campaign(conn, campaign_id, list_id=None, limit=50):
     variant = active_campaign_variant(conn, campaign_id)
     limit = min(int(limit or 50), int(campaign["daily_limit"] or 50), 500)
     where = ["l.org_id = ?"]
-    values = [ORG_ID]
+    values = [org_id]
     if list_id:
         where.append("l.list_id = ?")
         values.append(int(list_id))
@@ -1538,6 +1559,7 @@ def simulate_campaign(conn, campaign_id, list_id=None, limit=50):
         "campaign",
         campaign_id,
         {"list_id": list_id, "sent": sent, "blocked": blocked, "attempted": len(rows)},
+        org_id=org_id,
     )
     result = get_campaign(conn, campaign_id)
     result["simulation"] = {"attempted": len(rows), "sent": sent, "blocked": blocked}
@@ -1562,18 +1584,20 @@ def urllib_parse_qsl(query):
 
 
 def record_campaign_event(conn, payload):
+    org_id = current_org_id(conn)
     send_id = int(payload.get("send_id") or 0)
     event_type = (payload.get("event_type") or "").strip()
     if event_type not in EVENT_STATUS:
         raise ValueError("Tipo de evento invalido")
     row = conn.execute(
         """
-        SELECT s.*, l.company_id
+        SELECT s.*, l.company_id, l.org_id AS lead_org_id, c.org_id AS campaign_org_id
         FROM sends s
         JOIN leads l ON l.id = s.lead_id
-        WHERE s.id = ?
+        JOIN campaigns c ON c.id = s.campaign_id
+        WHERE s.id = ? AND l.org_id = ? AND c.org_id = ?
         """,
-        (send_id,),
+        (send_id, org_id, org_id),
     ).fetchone()
     if not row:
         raise ValueError("Envio nao encontrado")
@@ -1624,7 +1648,7 @@ def record_campaign_event(conn, payload):
             "UPDATE leads SET status = ?, block_reason = ?, updated_at = ? WHERE id = ?",
             ("blocked", "Evento %s gerou supressao" % event_type, timestamp, row["lead_id"]),
         )
-    audit(conn, "record_campaign_event", "send", send_id, {"event_type": event_type})
+    audit(conn, "record_campaign_event", "send", send_id, {"event_type": event_type}, org_id=org_id)
     return get_campaign(conn, row["campaign_id"])
 
 

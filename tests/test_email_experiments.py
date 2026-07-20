@@ -9,8 +9,12 @@ from radar_cnpj.services import (
     create_campaign,
     create_leads_from_list,
     create_list,
+    create_workspace,
+    get_campaign,
+    list_campaigns,
     list_experiment_leads,
     record_campaign_event,
+    set_current_workspace,
     simulate_campaign,
     upsert_company,
 )
@@ -137,6 +141,66 @@ class EmailExperimentTest(unittest.TestCase):
                 (send["email"],),
             ).fetchone()
             self.assertEqual(suppression["reason"], "bounce")
+        finally:
+            conn.close()
+
+    def test_experiment_records_follow_active_workspace(self):
+        conn = connect()
+        try:
+            internal_list_id = self.seed_list(conn)
+            create_leads_from_list(conn, internal_list_id)
+            internal_campaign = create_campaign(
+                conn,
+                {
+                    "name": "Campanha interna",
+                    "niche": "Software",
+                    "subject": "Teste interno",
+                    "body": "Mensagem interna",
+                    "cta_url": "https://usevagou.com.br/contato",
+                },
+            )
+
+            workspace = create_workspace(conn, {"name": "Nine Experimentos"})
+            set_current_workspace(conn, workspace["id"])
+
+            self.assertEqual(list_experiment_leads(conn)["items"], [])
+            self.assertEqual(list_campaigns(conn)["items"], [])
+            self.assertIsNone(get_campaign(conn, internal_campaign["id"]))
+            with self.assertRaises(ValueError):
+                simulate_campaign(conn, internal_campaign["id"], list_id=internal_list_id, limit=1)
+
+            scoped_list_id = self.seed_list(conn)
+            create_leads_from_list(conn, scoped_list_id)
+            lead_orgs = {
+                row["org_id"]
+                for row in conn.execute("SELECT org_id FROM leads WHERE list_id = ?", (scoped_list_id,)).fetchall()
+            }
+            self.assertEqual(lead_orgs, {workspace["id"]})
+
+            scoped_campaign = create_campaign(
+                conn,
+                {
+                    "name": "Campanha Nine",
+                    "niche": "Software",
+                    "subject": "Teste Nine",
+                    "body": "Mensagem Nine",
+                    "cta_url": "https://usevagou.com.br/contato",
+                },
+            )
+            result = simulate_campaign(conn, scoped_campaign["id"], list_id=scoped_list_id, limit=1)
+            self.assertEqual(result["simulation"]["attempted"], 1)
+            send = conn.execute(
+                "SELECT id FROM sends WHERE campaign_id = ? ORDER BY id DESC LIMIT 1",
+                (scoped_campaign["id"],),
+            ).fetchone()
+
+            set_current_workspace(conn, 1)
+            with self.assertRaises(ValueError):
+                record_campaign_event(conn, {"send_id": send["id"], "event_type": "replied"})
+
+            set_current_workspace(conn, workspace["id"])
+            event_result = record_campaign_event(conn, {"send_id": send["id"], "event_type": "replied"})
+            self.assertEqual(event_result["funnel"]["replied"], 1)
         finally:
             conn.close()
 
