@@ -32,3 +32,39 @@ Motivo do baseline:
 4. Rodar testes antes de encerrar a etapa.
 5. Atualizar este historico com o que mudou e como verificar.
 
+## 2026-07-19 - Roadmap integrado e scoring avancado de e-mail
+
+Branch: `feature/01-product-roadmap-and-email-scoring`
+
+Commits:
+
+- `709e14d docs: define roadmap and email scoring plan`
+- `b0ac29d feat: add advanced email scoring`
+
+Implementado:
+
+- Roadmap das novas camadas: growth/scoring, enriquecimento, envio
+  responsavel, agente SDR, command center e SaaS.
+- ADRs iniciais sobre MVP local, prioridade do scoring antes de envio e
+  restricoes para envio real.
+- Especificacao do scoring avancado de e-mail.
+- Modulo `radar_cnpj/email_scoring.py` com algoritmo puro e versionado.
+- Tabelas `email_classifications`, `known_shared_domains` e `email_score_log`.
+- Servico para pontuar e-mails avulsos, por empresa ou por lista.
+- Endpoint `POST /api/emails/score`.
+- UI de Higiene com botao `Pontuar emails`.
+- Testes cobrindo decisor, descartavel, match com socio e contato
+  compartilhado entre CNPJs.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 11 tests
+OK
+```

@@ -86,6 +86,45 @@ Invoke-RestMethod `
 
 A consulta salva a empresa localmente, incluindo socios quando retornados pela API.
 
+## Scoring avancado de e-mail
+
+O modulo de higiene agora tem uma camada extra de score comercial.
+
+Ela considera:
+
+- Prefixo do e-mail (`contato@`, `comercial@`, `ceo@`, `contabil@` etc.).
+- Dominio pessoal, corporativo ou descartavel.
+- Match entre o local-part do e-mail e nomes de socios/administradores.
+- Mesmo e-mail usado em varios CNPJs.
+- Mesmo dominio usado em varios CNPJs.
+- Lista de supressao e opt-out.
+
+Endpoint:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/emails/score" `
+  -Body '{"emails":["ceo@empresa.com.br","contato@empresa.com.br"]}' `
+  -ContentType "application/json"
+```
+
+Tambem funciona por lista:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/emails/score" `
+  -Body '{"list_id":1}' `
+  -ContentType "application/json"
+```
+
+Os resultados ficam persistidos em:
+
+- `email_classifications`
+- `email_score_log`
+- `known_shared_domains`
+
 ## Importar CSV simplificado
 
 Na tela `Importacao`, informe o caminho local de um CSV com algumas destas colunas:
@@ -134,6 +173,7 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/lists/{id}/companies`
 - `GET /api/lists/{id}/export?format=csv&purpose=...`
 - `POST /api/emails/validate`
+- `POST /api/emails/score`
 - `POST /api/suppression`
 - `GET /api/audit`
 
