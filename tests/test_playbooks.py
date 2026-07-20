@@ -43,6 +43,14 @@ class PlaybookLibraryTest(unittest.TestCase):
             self.assertEqual(data["playbooks"][0]["name"], "Outbound B2B Servicos Locais")
             self.assertEqual(data["playbooks"][0]["active_version"]["version_number"], 1)
             self.assertIsNone(data["active_application"])
+
+            second = playbook_library(conn)
+            self.assertEqual(len(second["playbooks"]), 1)
+            created = create_playbook(
+                conn,
+                {"name": "Depois do default", "description": "Idempotencia", "content": self.sample_content("RJ")},
+            )
+            self.assertEqual(created["active_version"]["version_number"], 1)
         finally:
             conn.close()
 

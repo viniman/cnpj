@@ -4907,7 +4907,7 @@ def ensure_company_profile(conn):
     timestamp = now_iso()
     cursor = conn.execute(
         """
-        INSERT INTO company_profiles (
+        INSERT OR IGNORE INTO company_profiles (
             org_id, display_name, vertical, default_tone, sending_domain,
             sender_name, brand_color, created_at, updated_at
         )
@@ -4925,8 +4925,13 @@ def ensure_company_profile(conn):
             timestamp,
         ),
     )
-    audit(conn, "create_default_company_profile", "company_profile", cursor.lastrowid, {"org_id": ORG_ID})
-    return dict_row(conn.execute("SELECT * FROM company_profiles WHERE id = ?", (cursor.lastrowid,)).fetchone())
+    row = conn.execute(
+        "SELECT * FROM company_profiles WHERE org_id = ?",
+        (ORG_ID,),
+    ).fetchone()
+    if cursor.rowcount:
+        audit(conn, "create_default_company_profile", "company_profile", row["id"], {"org_id": ORG_ID})
+    return dict_row(row)
 
 
 def parse_playbook_version_row(row):
@@ -4985,7 +4990,7 @@ def ensure_default_playbooks(conn):
     for item in DEFAULT_PLAYBOOKS:
         cursor = conn.execute(
             """
-            INSERT INTO playbooks (
+            INSERT OR IGNORE INTO playbooks (
                 org_id, name, description, status, source, created_at, updated_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -5000,16 +5005,26 @@ def ensure_default_playbooks(conn):
                 timestamp,
             ),
         )
+        playbook = conn.execute(
+            "SELECT * FROM playbooks WHERE org_id = ? AND name = ?",
+            (ORG_ID, item["name"]),
+        ).fetchone()
+        version = conn.execute(
+            "SELECT id FROM playbook_versions WHERE playbook_id = ? LIMIT 1",
+            (playbook["id"],),
+        ).fetchone()
+        if version:
+            continue
         conn.execute(
             """
-            INSERT INTO playbook_versions (
+            INSERT OR IGNORE INTO playbook_versions (
                 playbook_id, version_number, status, description, content_json,
                 created_at, activated_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                cursor.lastrowid,
+                playbook["id"],
                 1,
                 "active",
                 "Versao default para comecar operacao local.",
@@ -5018,7 +5033,8 @@ def ensure_default_playbooks(conn):
                 timestamp,
             ),
         )
-        audit(conn, "create_default_playbook", "playbook", cursor.lastrowid, {"name": item["name"]})
+        if cursor.rowcount:
+            audit(conn, "create_default_playbook", "playbook", playbook["id"], {"name": item["name"]})
 
 
 def next_playbook_version(conn, playbook_id):
