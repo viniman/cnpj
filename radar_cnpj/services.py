@@ -4481,6 +4481,374 @@ def create_okr(conn, payload):
     return next(item for item in list_objectives(conn, list_kpis(conn)) if item["id"] == objective_id)
 
 
+DEFAULT_AGENT_RULES = {
+    "requires_human_approval": True,
+    "allowed_actions": ["prioritize_lead", "draft_copy", "classify_reply", "escalate_handoff"],
+    "hard_guards": ["suppression_check", "icp_required", "compliance_footer"],
+}
+
+
+def parse_agent_config_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["rules"] = json.loads(data.pop("rules_json") or "{}")
+    return data
+
+
+def ensure_default_agent_config(conn):
+    active = conn.execute(
+        "SELECT id FROM agent_config_versions WHERE org_id = ? AND status = 'active' LIMIT 1",
+        (ORG_ID,),
+    ).fetchone()
+    if active:
+        return active["id"]
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO agent_config_versions (
+            org_id, version_number, name, status, model_name, prompt_text,
+            rules_json, created_at, activated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            ORG_ID,
+            1,
+            "SDR semi-supervisionado padrao",
+            "active",
+            "local-simulated-agent",
+            "Priorize leads no ICP, explique a decisao e nunca contorne supressao.",
+            json.dumps(DEFAULT_AGENT_RULES, ensure_ascii=True),
+            timestamp,
+            timestamp,
+        ),
+    )
+    audit(conn, "create_default_agent_config", "agent_config_version", cursor.lastrowid, {"version_number": 1})
+    return cursor.lastrowid
+
+
+def list_agent_configs(conn):
+    ensure_default_agent_config(conn)
+    rows = conn.execute(
+        """
+        SELECT *
+        FROM agent_config_versions
+        WHERE org_id = ?
+        ORDER BY version_number DESC
+        """,
+        (ORG_ID,),
+    ).fetchall()
+    return [parse_agent_config_row(row) for row in rows]
+
+
+def active_agent_config(conn):
+    ensure_default_agent_config(conn)
+    row = conn.execute(
+        """
+        SELECT *
+        FROM agent_config_versions
+        WHERE org_id = ? AND status = 'active'
+        ORDER BY version_number DESC
+        LIMIT 1
+        """,
+        (ORG_ID,),
+    ).fetchone()
+    return parse_agent_config_row(row)
+
+
+def next_agent_config_version(conn):
+    row = conn.execute(
+        "SELECT MAX(version_number) AS version_number FROM agent_config_versions WHERE org_id = ?",
+        (ORG_ID,),
+    ).fetchone()
+    return int(row["version_number"] or 0) + 1
+
+
+def create_agent_config(conn, payload):
+    ensure_default_agent_config(conn)
+    payload = payload or {}
+    name = (payload.get("name") or "").strip()
+    model_name = (payload.get("model_name") or "").strip()
+    prompt_text = (payload.get("prompt_text") or "").strip()
+    if not name:
+        raise ValueError("Nome da configuracao e obrigatorio")
+    if not model_name:
+        raise ValueError("Modelo da configuracao e obrigatorio")
+    if not prompt_text:
+        raise ValueError("Prompt da configuracao e obrigatorio")
+    rules = payload.get("rules") or {}
+    if not isinstance(rules, dict):
+        raise ValueError("Rules deve ser um objeto")
+    timestamp = now_iso()
+    version_number = next_agent_config_version(conn)
+    cursor = conn.execute(
+        """
+        INSERT INTO agent_config_versions (
+            org_id, version_number, name, status, model_name, prompt_text,
+            rules_json, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            ORG_ID,
+            version_number,
+            name,
+            "staging",
+            model_name,
+            prompt_text,
+            json.dumps(rules, ensure_ascii=True),
+            timestamp,
+        ),
+    )
+    config = parse_agent_config_row(
+        conn.execute("SELECT * FROM agent_config_versions WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    )
+    audit(conn, "create_agent_config", "agent_config_version", config["id"], {"version_number": version_number})
+    return config
+
+
+def activate_agent_config(conn, config_id):
+    ensure_default_agent_config(conn)
+    config = conn.execute(
+        "SELECT * FROM agent_config_versions WHERE id = ? AND org_id = ?",
+        (int(config_id), ORG_ID),
+    ).fetchone()
+    if not config:
+        raise ValueError("Configuracao do agente nao encontrada")
+    timestamp = now_iso()
+    conn.execute(
+        """
+        UPDATE agent_config_versions
+        SET status = 'archived', archived_at = ?
+        WHERE org_id = ? AND status = 'active' AND id != ?
+        """,
+        (timestamp, ORG_ID, int(config_id)),
+    )
+    conn.execute(
+        """
+        UPDATE agent_config_versions
+        SET status = 'active', activated_at = ?, archived_at = NULL
+        WHERE id = ? AND org_id = ?
+        """,
+        (timestamp, int(config_id), ORG_ID),
+    )
+    audit(conn, "activate_agent_config", "agent_config_version", int(config_id), {"activated_at": timestamp})
+    return parse_agent_config_row(
+        conn.execute("SELECT * FROM agent_config_versions WHERE id = ?", (int(config_id),)).fetchone()
+    )
+
+
+def parse_agent_simulation_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["result"] = json.loads(data.pop("result_json") or "{}")
+    return data
+
+
+def list_agent_simulations(conn, limit=20):
+    rows = conn.execute(
+        """
+        SELECT sim.*, cfg.version_number, cfg.name AS config_name,
+               l.email AS lead_email, c.legal_name, c.trade_name
+        FROM agent_simulations sim
+        JOIN agent_config_versions cfg ON cfg.id = sim.config_version_id
+        LEFT JOIN leads l ON l.id = sim.lead_id
+        LEFT JOIN companies c ON c.id = l.company_id
+        WHERE sim.org_id = ?
+        ORDER BY sim.id DESC
+        LIMIT ?
+        """,
+        (ORG_ID, min(int(limit), 100)),
+    ).fetchall()
+    return [parse_agent_simulation_row(row) for row in rows]
+
+
+def create_agent_simulation(conn, payload):
+    ensure_default_agent_config(conn)
+    payload = payload or {}
+    config_id = int(payload.get("config_version_id") or active_agent_config(conn)["id"])
+    config = conn.execute(
+        "SELECT * FROM agent_config_versions WHERE id = ? AND org_id = ?",
+        (config_id, ORG_ID),
+    ).fetchone()
+    if not config:
+        raise ValueError("Configuracao do agente nao encontrada")
+    lead_id = int(payload.get("lead_id") or 0) or None
+    lead = None
+    if lead_id:
+        lead = conn.execute(
+            """
+            SELECT l.*, c.legal_name, c.trade_name, c.city, c.state
+            FROM leads l
+            LEFT JOIN companies c ON c.id = l.company_id
+            WHERE l.id = ? AND l.org_id = ?
+            """,
+            (lead_id, ORG_ID),
+        ).fetchone()
+        if not lead:
+            raise ValueError("Lead nao encontrado para simulacao")
+    scenario = (payload.get("scenario") or "first_contact").strip()
+    parsed_config = parse_agent_config_row(config)
+    company_name = ""
+    lead_email = ""
+    if lead:
+        company_name = lead["trade_name"] or lead["legal_name"] or lead["email"]
+        lead_email = lead["email"] or ""
+    result = {
+        "mode": "local_simulation",
+        "scenario": scenario,
+        "decision": "requires_human_review" if parsed_config["rules"].get("requires_human_approval", True) else "eligible_for_autonomy",
+        "reason": "Simulacao local usa regras estruturadas e nao chama modelo externo",
+        "lead_id": lead_id,
+        "lead_email": lead_email,
+        "company_name": company_name,
+        "config_version": parsed_config["version_number"],
+        "hard_guards": parsed_config["rules"].get("hard_guards", []),
+    }
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO agent_simulations (
+            org_id, config_version_id, lead_id, scenario, status, result_json, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (ORG_ID, config_id, lead_id, scenario, "completed", json.dumps(result, ensure_ascii=True), timestamp),
+    )
+    audit(conn, "create_agent_simulation", "agent_simulation", cursor.lastrowid, {"config_version_id": config_id})
+    return parse_agent_simulation_row(
+        conn.execute(
+            """
+            SELECT sim.*, cfg.version_number, cfg.name AS config_name,
+                   l.email AS lead_email, c.legal_name, c.trade_name
+            FROM agent_simulations sim
+            JOIN agent_config_versions cfg ON cfg.id = sim.config_version_id
+            LEFT JOIN leads l ON l.id = sim.lead_id
+            LEFT JOIN companies c ON c.id = l.company_id
+            WHERE sim.id = ?
+            """,
+            (cursor.lastrowid,),
+        ).fetchone()
+    )
+
+
+def parse_agent_cost_row(row):
+    return dict_row(row)
+
+
+def list_agent_costs(conn, limit=50):
+    rows = conn.execute(
+        """
+        SELECT cost.*, cfg.version_number, cfg.name AS config_name,
+               l.email AS lead_email
+        FROM agent_cost_log cost
+        LEFT JOIN agent_config_versions cfg ON cfg.id = cost.config_version_id
+        LEFT JOIN leads l ON l.id = cost.lead_id
+        WHERE cost.org_id = ?
+        ORDER BY cost.id DESC
+        LIMIT ?
+        """,
+        (ORG_ID, min(int(limit), 200)),
+    ).fetchall()
+    return [parse_agent_cost_row(row) for row in rows]
+
+
+def agent_cost_summary(conn):
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total_calls,
+               COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
+               COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+               COALESCE(SUM(total_tokens), 0) AS total_tokens,
+               COALESCE(SUM(estimated_cost), 0) AS estimated_cost
+        FROM agent_cost_log
+        WHERE org_id = ?
+        """,
+        (ORG_ID,),
+    ).fetchone()
+    by_model = conn.execute(
+        """
+        SELECT model_name, COUNT(*) AS calls,
+               COALESCE(SUM(total_tokens), 0) AS total_tokens,
+               COALESCE(SUM(estimated_cost), 0) AS estimated_cost
+        FROM agent_cost_log
+        WHERE org_id = ?
+        GROUP BY model_name
+        ORDER BY estimated_cost DESC, calls DESC
+        """,
+        (ORG_ID,),
+    ).fetchall()
+    data = dict_row(row)
+    data["estimated_cost"] = round(float(data["estimated_cost"] or 0), 6)
+    data["by_model"] = [dict_row(item) for item in by_model]
+    for item in data["by_model"]:
+        item["estimated_cost"] = round(float(item["estimated_cost"] or 0), 6)
+    return data
+
+
+def record_agent_cost(conn, payload):
+    ensure_default_agent_config(conn)
+    payload = payload or {}
+    operation = (payload.get("operation") or "").strip()
+    if not operation:
+        raise ValueError("Operacao e obrigatoria")
+    config_id = int(payload.get("config_version_id") or active_agent_config(conn)["id"])
+    config = conn.execute(
+        "SELECT * FROM agent_config_versions WHERE id = ? AND org_id = ?",
+        (config_id, ORG_ID),
+    ).fetchone()
+    if not config:
+        raise ValueError("Configuracao do agente nao encontrada")
+    prompt_tokens = max(0, int(payload.get("prompt_tokens") or 0))
+    completion_tokens = max(0, int(payload.get("completion_tokens") or 0))
+    total_tokens = prompt_tokens + completion_tokens
+    estimated_cost = max(0.0, float(payload.get("estimated_cost") or 0))
+    model_name = (payload.get("model_name") or config["model_name"]).strip()
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO agent_cost_log (
+            org_id, lead_id, sequence_id, agent_action_id, config_version_id,
+            operation, provider, model_name, prompt_tokens, completion_tokens,
+            total_tokens, estimated_cost, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            ORG_ID,
+            int(payload.get("lead_id") or 0) or None,
+            int(payload.get("sequence_id") or 0) or None,
+            int(payload.get("agent_action_id") or 0) or None,
+            config_id,
+            operation,
+            payload.get("provider") or "manual",
+            model_name,
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
+            estimated_cost,
+            timestamp,
+        ),
+    )
+    audit(conn, "record_agent_cost", "agent_cost_log", cursor.lastrowid, {"operation": operation, "cost": estimated_cost})
+    return parse_agent_cost_row(
+        conn.execute("SELECT * FROM agent_cost_log WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    )
+
+
+def agent_governance(conn):
+    configs = list_agent_configs(conn)
+    return {
+        "active_config": active_agent_config(conn),
+        "versions": configs,
+        "simulations": list_agent_simulations(conn, 20),
+        "cost_summary": agent_cost_summary(conn),
+        "costs": list_agent_costs(conn, 50),
+    }
+
+
 def command_center_metrics(conn):
     pending_approvals = conn.execute(
         "SELECT COUNT(*) AS total FROM approval_queue WHERE org_id = ? AND status = 'pending'",

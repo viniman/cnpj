@@ -644,6 +644,58 @@ def init_db():
                 FOREIGN KEY (objective_id) REFERENCES objectives(id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS agent_config_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                version_number INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'staging',
+                model_name TEXT NOT NULL,
+                prompt_text TEXT NOT NULL,
+                rules_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                activated_at TEXT,
+                archived_at TEXT,
+                UNIQUE (org_id, version_number),
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_simulations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                config_version_id INTEGER NOT NULL,
+                lead_id INTEGER,
+                scenario TEXT NOT NULL,
+                status TEXT NOT NULL,
+                result_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (config_version_id) REFERENCES agent_config_versions(id),
+                FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_cost_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                lead_id INTEGER,
+                sequence_id INTEGER,
+                agent_action_id INTEGER,
+                config_version_id INTEGER,
+                operation TEXT NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'manual',
+                model_name TEXT NOT NULL,
+                prompt_tokens INTEGER NOT NULL DEFAULT 0,
+                completion_tokens INTEGER NOT NULL DEFAULT 0,
+                total_tokens INTEGER NOT NULL DEFAULT 0,
+                estimated_cost REAL NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL,
+                FOREIGN KEY (sequence_id) REFERENCES sequences(id) ON DELETE SET NULL,
+                FOREIGN KEY (agent_action_id) REFERENCES agent_actions(id) ON DELETE SET NULL,
+                FOREIGN KEY (config_version_id) REFERENCES agent_config_versions(id) ON DELETE SET NULL
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -750,6 +802,10 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_kpi_definitions_key ON kpi_definitions(org_id, kpi_key);
             CREATE INDEX IF NOT EXISTS idx_objectives_status ON objectives(org_id, status);
             CREATE INDEX IF NOT EXISTS idx_key_results_objective ON key_results(objective_id);
+            CREATE INDEX IF NOT EXISTS idx_agent_config_status ON agent_config_versions(org_id, status);
+            CREATE INDEX IF NOT EXISTS idx_agent_simulations_config ON agent_simulations(config_version_id);
+            CREATE INDEX IF NOT EXISTS idx_agent_cost_log_created ON agent_cost_log(created_at);
+            CREATE INDEX IF NOT EXISTS idx_agent_cost_log_lead ON agent_cost_log(lead_id);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);

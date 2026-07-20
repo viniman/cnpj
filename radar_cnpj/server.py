@@ -8,9 +8,13 @@ from .database import connect, init_db
 from .services import (
     add_companies_to_list,
     add_suppression,
+    activate_agent_config,
+    agent_governance,
     approve_sequence_step,
     audit_events,
     create_icp_rule,
+    create_agent_config,
+    create_agent_simulation,
     create_list,
     create_campaign,
     create_email_template,
@@ -37,6 +41,7 @@ from .services import (
     get_sequence,
     import_source,
     create_okr,
+    record_agent_cost,
     list_agent_actions,
     list_approvals,
     list_campaigns,
@@ -153,6 +158,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(dashboard(conn))
                 elif parsed.path == "/api/command-center":
                     self.send_json(command_center(conn))
+                elif parsed.path == "/api/agent-governance":
+                    self.send_json(agent_governance(conn))
                 elif parsed.path == "/api/okrs":
                     self.send_json(okr_dashboard(conn))
                 elif parsed.path == "/api/companies":
@@ -346,6 +353,14 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, create_icp_rule(conn, data), 201)
                 elif parsed.path == "/api/okrs":
                     self.send_json_commit(conn, create_okr(conn, data), 201)
+                elif parsed.path == "/api/agent-governance/configs":
+                    self.send_json_commit(conn, create_agent_config(conn, data), 201)
+                elif len(parts) == 5 and parts[1] == "agent-governance" and parts[2] == "configs" and parts[4] == "activate":
+                    self.send_json_commit(conn, activate_agent_config(conn, int(parts[3])))
+                elif parsed.path == "/api/agent-governance/simulations":
+                    self.send_json_commit(conn, create_agent_simulation(conn, data), 201)
+                elif parsed.path == "/api/agent-governance/costs":
+                    self.send_json_commit(conn, record_agent_cost(conn, data), 201)
                 elif len(parts) == 4 and parts[1] == "icp-rules" and parts[3] == "prioritize":
                     self.send_json_commit(
                         conn,
