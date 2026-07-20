@@ -1402,3 +1402,24 @@ Resultado esperado nesta etapa:
 Ran 67 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 21 de ICP por workspace
+
+Branch: `feature/21-icp-context-foundation`
+
+Estado inicial:
+
+- Fase 20 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 67 tests`, `OK`.
+
+Meta da fase:
+
+- Migrar regras ICP e fila de priorizacao SDR para o workspace ativo.
+- Bloquear regra, lista ou sugestao de outro workspace no backend.
+- Garantir que logs de priorizacao e decisao humana fiquem no contexto ativo.
+
+Documento principal:
+
+- `docs/ICP_CONTEXT_SPEC.md`

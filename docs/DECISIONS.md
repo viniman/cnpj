@@ -563,3 +563,32 @@ Consequencias:
   aba `Sequencias`.
 - Fluxos de ICP, respostas e handoffs ainda precisam de fases dedicadas.
 - O envio continua simulado e dependente de aprovacao humana.
+
+## ADR-023 - ICP e fila SDR seguem o workspace ativo
+
+Data: 2026-07-20
+
+Decisao:
+
+- Regras ICP e itens da fila de priorizacao SDR devem usar
+  `current_org_id(conn)`.
+- Priorizacao deve validar regra e lista contra o workspace ativo antes de
+  avaliar candidatos ou criar leads.
+- Decisoes humanas sobre sugestoes so podem atuar em itens do workspace ativo.
+
+Racional:
+
+- ICP define quem pode ser abordado; misturar regras entre empresas internas
+  mudaria o alvo comercial e quebraria confianca operacional.
+- A fila SDR alimenta cadencias e aprovacoes futuras, entao precisa nascer
+  isolada antes de maior autonomia.
+- O prompt do agente exige que ICP seja trilho estruturado de backend, nao
+  julgamento livre do modelo nem estado de interface.
+
+Consequencias:
+
+- Ao trocar workspace, regras ICP e sugestoes SDR de outro contexto deixam de
+  aparecer.
+- Playbooks futuros poderao preencher ICPs, mas a aplicacao devera ser
+  explicita e auditavel.
+- Respostas, handoffs e reunioes ainda mantem migracoes dedicadas futuras.
