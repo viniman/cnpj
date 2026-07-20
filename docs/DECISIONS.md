@@ -272,3 +272,32 @@ Consequencias:
 - A UI mostra as acoes, mas decisoes especificas continuam nas telas/rotas de
   origem ate a fase de caixa de entrada acionavel completa.
 - Qualquer evolucao futura deve manter rastreabilidade ate o dado bruto.
+
+## ADR-012 - Acoes do Command Center sao roteadas para servicos de origem
+
+Data: 2026-07-20
+
+Decisao:
+
+- A inbox acionavel usa um endpoint agregador:
+  `POST /api/command-center/actions`.
+- O endpoint valida tipo e decisao, mas delega a execucao para os servicos de
+  origem: aprovacao, handoff ou reuniao.
+- O retorno sempre inclui um snapshot atualizado de `command_center`.
+
+Racional:
+
+- A caixa unica precisa reduzir navegacao, mas nao pode duplicar regra de
+  negocio.
+- Guardrails de supressao, aprovacao, handoff e agenda ja vivem nos modulos
+  originais.
+- Retornar snapshot atualizado simplifica a UI e evita estado visual antigo
+  apos uma decisao.
+
+Consequencias:
+
+- Acoes na aba `Comando` continuam auditadas pelos servicos originais.
+- Novos tipos de inbox devem adicionar roteamento explicito, nunca decisao por
+  texto livre.
+- Criacao de reuniao por handoff segue na aba `Respostas` por enquanto, porque
+  exige dados de agenda.

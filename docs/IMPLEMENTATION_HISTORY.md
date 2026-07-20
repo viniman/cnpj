@@ -651,3 +651,26 @@ kanban_columns=7
 kanban_cards=14
 activity_items=22
 ```
+
+## 2026-07-20 - Inicio da fase 10 de inbox acionavel
+
+Branch: `feature/10-command-center-action-inbox`
+
+Estado inicial:
+
+- Fase 09 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 38 tests`, `OK`.
+
+Meta da fase:
+
+- Criar endpoint unico de decisao para a inbox do Command Center.
+- Permitir aprovar/rejeitar `approval_queue` pela aba `Comando`.
+- Permitir resolver/dispensar `handoffs` pela aba `Comando`.
+- Permitir concluir/cancelar/no-show de `meetings` pela aba `Comando`.
+- Atualizar metricas, inbox, Kanban e feed apos decisao.
+
+Documento principal:
+
+- `docs/COMMAND_ACTION_INBOX_SPEC.md`

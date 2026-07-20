@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 09 iniciada em `feature/09-command-center-foundation`.
+Status: fase 10 iniciada em `feature/10-command-center-action-inbox`.
 
 Fases:
 
@@ -115,8 +115,9 @@ Fases:
 2. Wizard de onboarding com playbook inicial.
 3. Feed de atividade e explicacao "por que".
 4. Kanban CRM e caixa unica de aprovacoes.
-5. OKRs/KPIs ligados a metricas reais.
-6. Governanca de agente, versionamento e custo de IA.
+5. Inbox acionavel no Command Center.
+6. OKRs/KPIs ligados a metricas reais.
+7. Governanca de agente, versionamento e custo de IA.
 
 ## Camada 6 - SaaS monetizavel
 
