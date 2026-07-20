@@ -38,7 +38,8 @@ flowchart LR
 - `radar_cnpj/email_experiments.py`: regras puras de campanhas simuladas, UTM, funil e elegibilidade.
 - `radar_cnpj/email_templates.py`: renderizacao de templates versionados com variaveis e rodape de compliance.
 - `radar_cnpj/services.py`: tambem orquestra sequencias semi-supervisionadas,
-  fila de aprovacao, ICP estruturado, fila SDR e logs do agente no MVP local.
+  fila de aprovacao, ICP estruturado, fila SDR, logs do agente e Command
+  Center no MVP local.
 - `radar_cnpj/scoring.py`: setor, segmento, score explicavel e estimativa simples.
 - `radar_cnpj/exporter.py`: geracao CSV e XLSX sem biblioteca externa.
 - `static/*`: interface operacional.
@@ -91,6 +92,8 @@ Tabelas principais:
 - Respostas com interesse, duvida, pessoa errada ou ambiguidade criam handoff.
 - Reunioes nao sao criadas automaticamente por resposta; exigem acao humana e
   continuam bloqueadas para opt-out ou e-mail suprimido.
+- Command Center preserva `source_type`, `source_id` e origem de cada item; ele
+  nao substitui as regras dos modulos de origem.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

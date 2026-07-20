@@ -4,6 +4,25 @@ MVP local para pesquisar, filtrar, qualificar e exportar dados publicos de CNPJ 
 
 O projeto foi montado para uso interno em localhost. Ele ja inclui dashboard, busca de empresas, detalhe com socios, listas, higiene de email, supressao, exportacao CSV/XLSX e auditoria.
 
+## Centro de Comando
+
+A aba `Comando` agrega a operacao em uma tela unica:
+
+- Metricas de aprovacoes, handoffs, reunioes abertas, leads ativos e acoes.
+- Inbox humano com itens vindos de `approval_queue`, `handoffs` e `meetings`.
+- CRM Kanban por estado do lead e da jornada.
+- Feed de atividade baseado em `agent_actions`, sempre com origem e motivo.
+
+Endpoint:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/command-center"
+```
+
+Importante: o Command Center nao cria uma fonte paralela de verdade. Ele mostra
+os dados agregados e preserva `source_type` e `source_id` para a acao continuar
+no modulo de origem.
+
 ## Rodar localmente
 
 Com Python:
@@ -540,6 +559,7 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 ## Endpoints principais
 
 - `GET /api/dashboard`
+- `GET /api/command-center`
 - `GET /api/companies`
 - `GET /api/companies/{id}`
 - `POST /api/import`

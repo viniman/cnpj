@@ -598,3 +598,34 @@ Meta da fase:
 Documento principal:
 
 - `docs/COMMAND_CENTER_SPEC.md`
+
+Commits:
+
+- `1a7d6bf docs: define command center phase`
+- `b6733bb feat: add command center aggregator API`
+- `cd81d6d feat: add command center workspace UI`
+
+Implementado:
+
+- API `GET /api/command-center`.
+- Metricas compactas de aprovacoes, handoffs, reunioes, leads ativos e acoes.
+- Inbox unificada de `approval_queue`, `handoffs` e `meetings`.
+- Kanban CRM a partir de `leads` e ultimo `lead_journey`.
+- Feed de atividade a partir de `agent_actions`, com origem e motivo.
+- Aba `Comando` no frontend local.
+- CSS de Kanban operacional.
+- Teste automatizado cobrindo inbox, Kanban e feed.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 38 tests
+OK
+```
