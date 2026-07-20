@@ -191,14 +191,14 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         self.send_json(template)
                 elif parsed.path == "/api/sequences":
                     self.send_json(list_sequences(conn))
+                elif parsed.path == "/api/sequences/journeys":
+                    self.send_json(list_journeys(conn, params))
                 elif len(parts) == 3 and parts[1] == "sequences":
                     sequence = get_sequence(conn, int(parts[2]))
                     if not sequence:
                         self.send_error_json("Sequencia nao encontrada", 404)
                     else:
                         self.send_json(sequence)
-                elif parsed.path == "/api/sequences/journeys":
-                    self.send_json(list_journeys(conn, params))
                 elif parsed.path == "/api/approvals":
                     self.send_json(list_approvals(conn, params))
                 elif parsed.path == "/api/agent-actions":
