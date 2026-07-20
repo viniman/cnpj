@@ -19,6 +19,7 @@ const state = {
   agentGovernance: null,
   playbooks: null,
   notifications: null,
+  workspaceComparison: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -91,6 +92,7 @@ function setView(view) {
   if (view === "command") {
     loadCommandCenter();
     loadNotifications();
+    loadWorkspaceComparison();
     loadOkrs();
     loadPlaybooks();
     loadAgentGovernance();
@@ -296,6 +298,95 @@ async function updateNotificationStatus(notificationId, action) {
   await api(`/api/notifications/${notificationId}/${action}`, { method: "POST", body: "{}" });
   showStatus(action === "dismiss" ? "Notificacao dispensada." : "Notificacao marcada como lida.");
   await loadNotifications();
+}
+
+async function loadWorkspaceComparison() {
+  const data = await api("/api/workspaces/comparison");
+  state.workspaceComparison = data;
+  renderWorkspaceComparison(data);
+}
+
+function renderWorkspaceComparison(data) {
+  const workspaces = data?.workspaces || [];
+  const snapshots = data?.snapshots || [];
+  const totals = workspaces.reduce(
+    (acc, item) => {
+      const metrics = item.metrics || {};
+      acc.leads += Number(metrics.active_leads || 0);
+      acc.handoffs += Number(metrics.pending_handoffs || 0);
+      acc.notifications += Number(metrics.pending_notifications || 0);
+      acc.cost += Number(metrics.agent_cost || 0);
+      return acc;
+    },
+    { leads: 0, handoffs: 0, notifications: 0, cost: 0 },
+  );
+  $("#workspaceComparisonSummary").innerHTML = [
+    metric("Workspaces", workspaces.length),
+    metric("Leads ativos", totals.leads),
+    metric("Handoffs", totals.handoffs, totals.handoffs ? "amber" : ""),
+    metric("Notificacoes", totals.notifications, totals.notifications ? "amber" : ""),
+    metric("Custo IA", totals.cost.toFixed(4)),
+  ].join("");
+
+  $("#workspaceSnapshotSelect").innerHTML = workspaces
+    .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.profile?.display_name || item.name)}</option>`)
+    .join("");
+
+  $("#workspaceComparisonTable").innerHTML = workspaces.length
+    ? table(
+        ["Workspace", "Vertical", "Empresas", "Leads", "Respostas", "Handoffs", "Reunioes", "Notificacoes", "IA", "Playbook"],
+        workspaces.map((item) => {
+          const metrics = item.metrics || {};
+          return [
+            escapeHtml(item.profile?.display_name || item.name),
+            escapeHtml(item.profile?.vertical || "-"),
+            badge(metrics.companies || 0, "purple"),
+            badge(metrics.active_leads || 0, "green"),
+            escapeHtml(metrics.replies || 0),
+            badge(metrics.pending_handoffs || 0, metrics.pending_handoffs ? "amber" : ""),
+            escapeHtml(`${metrics.open_meetings || 0}/${metrics.completed_meetings || 0}`),
+            badge(metrics.pending_notifications || 0, metrics.pending_notifications ? "amber" : ""),
+            escapeHtml(`${metrics.agent_calls || 0} / ${Number(metrics.agent_cost || 0).toFixed(4)}`),
+            escapeHtml(metrics.active_playbook ? `${metrics.active_playbook} v${metrics.active_playbook_version}` : "-"),
+          ];
+        }),
+      )
+    : `<div class="empty-state">Nenhum workspace cadastrado.</div>`;
+
+  $("#workspaceSnapshotsTable").innerHTML = snapshots.length
+    ? table(
+        ["Data", "Workspace", "Leads", "Handoffs", "Custo IA"],
+        snapshots.map((item) => [
+          escapeHtml(item.created_at || "-"),
+          escapeHtml(item.display_name || item.workspace_name || "-"),
+          escapeHtml(item.metrics?.active_leads || 0),
+          escapeHtml(item.metrics?.pending_handoffs || 0),
+          escapeHtml(Number(item.metrics?.agent_cost || 0).toFixed(4)),
+        ]),
+      )
+    : `<div class="empty-state">Nenhum snapshot executivo.</div>`;
+}
+
+async function createWorkspaceFromForm() {
+  await api("/api/workspaces", {
+    method: "POST",
+    body: JSON.stringify({
+      name: $("#workspaceName").value.trim(),
+      vertical: $("#workspaceVertical").value.trim(),
+      default_tone: $("#workspaceTone").value.trim(),
+      sender_name: $("#workspaceSender").value.trim(),
+    }),
+  });
+  showStatus("Workspace criado para comparacao executiva.");
+  await loadWorkspaceComparison();
+}
+
+async function createWorkspaceSnapshotFromForm() {
+  const workspaceId = Number($("#workspaceSnapshotSelect").value || 0);
+  if (!workspaceId) return showStatus("Selecione um workspace.", "warn");
+  await api(`/api/workspaces/${workspaceId}/snapshot`, { method: "POST", body: "{}" });
+  showStatus("Snapshot executivo criado.");
+  await loadWorkspaceComparison();
 }
 
 async function loadPlaybooks() {
@@ -2207,6 +2298,9 @@ function wireEvents() {
   $("#refreshCommandBtn").addEventListener("click", loadCommandCenter);
   $("#generateNotificationsBtn").addEventListener("click", generateNotificationsFromSignals);
   $("#refreshNotificationsBtn").addEventListener("click", loadNotifications);
+  $("#refreshWorkspaceComparisonBtn").addEventListener("click", loadWorkspaceComparison);
+  $("#createWorkspaceBtn").addEventListener("click", createWorkspaceFromForm);
+  $("#createWorkspaceSnapshotBtn").addEventListener("click", createWorkspaceSnapshotFromForm);
   $("#refreshOkrsBtn").addEventListener("click", loadOkrs);
   $("#refreshPlaybooksBtn").addEventListener("click", loadPlaybooks);
   $("#playbookSelect").addEventListener("change", () => {

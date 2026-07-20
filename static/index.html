@@ -93,6 +93,50 @@
 
           <section class="panel">
             <div class="panel-head">
+              <h2>Comparacao executiva</h2>
+              <button id="refreshWorkspaceComparisonBtn" class="button">Atualizar comparacao</button>
+            </div>
+            <div id="workspaceComparisonSummary" class="metric-grid compact-metrics"></div>
+            <div class="governance-grid workspace-grid">
+              <section>
+                <h3>Novo workspace</h3>
+                <div class="form-grid one">
+                  <label>
+                    Nome
+                    <input id="workspaceName" class="input" placeholder="Nine" />
+                  </label>
+                  <label>
+                    Vertical
+                    <input id="workspaceVertical" class="input" placeholder="servicos locais" />
+                  </label>
+                  <label>
+                    Tom padrao
+                    <input id="workspaceTone" class="input" placeholder="direto, B2B, consultivo" />
+                  </label>
+                  <label>
+                    Remetente
+                    <input id="workspaceSender" class="input" placeholder="Time comercial" />
+                  </label>
+                  <button id="createWorkspaceBtn" class="button primary">Criar workspace</button>
+                </div>
+              </section>
+              <section>
+                <h3>Snapshot executivo</h3>
+                <div class="form-grid one">
+                  <label>
+                    Workspace
+                    <select id="workspaceSnapshotSelect" class="input"></select>
+                  </label>
+                  <button id="createWorkspaceSnapshotBtn" class="button primary">Gerar snapshot</button>
+                </div>
+                <div id="workspaceSnapshotsTable" class="table-wrap"></div>
+              </section>
+            </div>
+            <div id="workspaceComparisonTable" class="table-wrap workspace-table"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
               <h2>OKRs e KPIs</h2>
               <button id="refreshOkrsBtn" class="button">Atualizar KPIs</button>
             </div>
