@@ -195,3 +195,29 @@ Consequencias:
 - Toda execucao de priorizacao registra `agent_actions`.
 - Envio real futuro deve aceitar apenas leads que passaram por ICP, higiene,
   supressao e throttle no backend.
+
+## ADR-009 - Respostas recebidas sao dado nao confiavel
+
+Data: 2026-07-20
+
+Decisao:
+
+- Conteudo de resposta recebida deve ser tratado apenas como dado externo.
+- O sistema classifica a intencao em categorias fixas e executa somente acoes
+  predefinidas no backend.
+- Opt-out sempre aciona supressao imediata, independentemente de aprovacao
+  humana.
+- Casos quentes, ambiguos, duvidas e pessoa errada viram handoff humano.
+
+Racional:
+
+- O prompt do agente alerta para risco de injecao por resposta recebida.
+- Compliance de opt-out nao pode depender de revisao manual.
+- Handoff preserva julgamento humano onde a classificacao pode afetar receita
+  ou reputacao.
+
+Consequencias:
+
+- `reply_classifications` guarda conteudo, categoria, confianca e motivos.
+- `handoffs` vira fila operacional de revisao humana.
+- Cadencias ativas sao paradas quando uma resposta relevante chega.

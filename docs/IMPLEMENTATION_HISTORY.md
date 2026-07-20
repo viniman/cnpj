@@ -420,3 +420,26 @@ priority_score=69
 accepted_status=accepted
 agent_actions_total=8
 ```
+
+## 2026-07-20 - Inicio da fase 07 de respostas e handoff
+
+Branch: `feature/07-reply-handoff-foundation`
+
+Estado inicial:
+
+- Fase 06 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 30 tests`, `OK`.
+
+Meta da fase:
+
+- Classificar respostas recebidas em categorias fixas.
+- Aplicar opt-out como supressao imediata.
+- Parar cadencias quando houver resposta relevante.
+- Criar handoffs humanos para interesse, duvida, ambiguidade e casos sensiveis.
+- Registrar classificacoes e decisoes em `agent_actions`.
+
+Documento principal:
+
+- `docs/REPLY_HANDOFF_SPEC.md`

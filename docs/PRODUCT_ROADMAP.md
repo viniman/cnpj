@@ -89,7 +89,7 @@ Meta:
 - Agente escolhe, sugere e acompanha, mas os trilhos duros ficam em codigo.
 - Comecar com aprovacao humana antes de envio autonomo.
 
-Status: fase 06 iniciada em `feature/06-icp-prioritization-foundation`.
+Status: fase 07 iniciada em `feature/07-reply-handoff-foundation`.
 
 Fases:
 
