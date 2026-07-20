@@ -18,6 +18,8 @@ from .services import (
     create_leads_from_list,
     create_sequence,
     dashboard,
+    decide_handoff,
+    decide_priority_queue_item,
     enrich_company,
     enroll_sequence_from_list,
     export_list,
@@ -34,15 +36,18 @@ from .services import (
     list_campaigns,
     list_email_templates,
     list_experiment_leads,
+    list_handoffs,
     list_icp_rules,
     list_journeys,
     list_lists,
     list_priority_queue,
+    list_reply_classifications,
     list_sequences,
     prepare_next_journey_step,
     prioritize_icp_rule,
     remove_company_from_list,
     record_campaign_event,
+    record_inbound_reply,
     reject_sequence_step,
     render_email_template,
     score_emails,
@@ -50,7 +55,6 @@ from .services import (
     seed_sample,
     simulate_campaign,
     validate_emails,
-    decide_priority_queue_item,
 )
 from .official_sources import catalog, download_files, import_brasilapi_cnpj, list_snapshot_files, sync_official_snapshot
 
@@ -219,6 +223,10 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         self.send_json(rule)
                 elif parsed.path == "/api/priority-queue":
                     self.send_json(list_priority_queue(conn, params))
+                elif parsed.path == "/api/replies":
+                    self.send_json(list_reply_classifications(conn, params))
+                elif parsed.path == "/api/handoffs":
+                    self.send_json(list_handoffs(conn, params))
                 elif parsed.path == "/api/sources/official":
                     self.send_json(catalog())
                 elif len(parts) == 5 and parts[1] == "sources" and parts[2] == "official" and parts[3] == "snapshots":
@@ -329,6 +337,12 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, decide_priority_queue_item(conn, int(parts[2]), "accept", data.get("note") or ""))
                 elif len(parts) == 4 and parts[1] == "priority-queue" and parts[3] == "reject":
                     self.send_json_commit(conn, decide_priority_queue_item(conn, int(parts[2]), "reject", data.get("note") or ""))
+                elif parsed.path == "/api/replies/classify":
+                    self.send_json_commit(conn, record_inbound_reply(conn, data), 201)
+                elif len(parts) == 4 and parts[1] == "handoffs" and parts[3] == "resolve":
+                    self.send_json_commit(conn, decide_handoff(conn, int(parts[2]), "resolve", data.get("note") or ""))
+                elif len(parts) == 4 and parts[1] == "handoffs" and parts[3] == "dismiss":
+                    self.send_json_commit(conn, decide_handoff(conn, int(parts[2]), "dismiss", data.get("note") or ""))
                 elif parsed.path == "/api/suppression":
                     self.send_json_commit(conn, add_suppression(conn, data.get("email"), data.get("reason") or "manual"))
                 elif parsed.path == "/api/sources/official/download":

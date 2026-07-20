@@ -543,6 +543,41 @@ def init_db():
                 FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE SET NULL
             );
 
+            CREATE TABLE IF NOT EXISTS reply_classifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                lead_id INTEGER,
+                send_id INTEGER,
+                email TEXT NOT NULL,
+                subject TEXT,
+                body_text TEXT NOT NULL,
+                classification TEXT NOT NULL,
+                confidence REAL NOT NULL DEFAULT 0,
+                reasons_json TEXT NOT NULL,
+                raw_payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL,
+                FOREIGN KEY (send_id) REFERENCES sends(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS handoffs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                lead_id INTEGER,
+                reply_classification_id INTEGER,
+                status TEXT NOT NULL DEFAULT 'pending',
+                priority TEXT NOT NULL DEFAULT 'medium',
+                reason TEXT NOT NULL,
+                context_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                resolved_at TEXT,
+                resolution_note TEXT,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL,
+                FOREIGN KEY (reply_classification_id) REFERENCES reply_classifications(id) ON DELETE SET NULL
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -639,6 +674,10 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_icp_rules_status ON icp_rules(status);
             CREATE INDEX IF NOT EXISTS idx_lead_priority_rule ON lead_priority_queue(icp_rule_id, status);
             CREATE INDEX IF NOT EXISTS idx_lead_priority_score ON lead_priority_queue(priority_score);
+            CREATE INDEX IF NOT EXISTS idx_reply_classifications_created ON reply_classifications(created_at);
+            CREATE INDEX IF NOT EXISTS idx_reply_classifications_class ON reply_classifications(classification);
+            CREATE INDEX IF NOT EXISTS idx_handoffs_status ON handoffs(status);
+            CREATE INDEX IF NOT EXISTS idx_handoffs_priority ON handoffs(priority);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);

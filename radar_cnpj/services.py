@@ -3,6 +3,7 @@ import io
 import json
 import os
 import re
+import unicodedata
 from datetime import datetime, timedelta
 
 from .company_enrichment import (
@@ -2868,6 +2869,493 @@ def decide_priority_queue_item(conn, item_id, decision, note=""):
             (item_id,),
         ).fetchone()
     )
+
+
+REPLY_CLASSIFICATIONS = {
+    "interest_meeting",
+    "question",
+    "not_interested",
+    "opt_out",
+    "out_of_office",
+    "wrong_person",
+    "ambiguous",
+}
+
+REPLY_HANDOFFS = {
+    "opt_out": ("urgent", "Opt-out detectado; confirmar que nao havera novo contato"),
+    "interest_meeting": ("high", "Lead demonstrou interesse ou pediu conversa"),
+    "question": ("medium", "Lead fez pergunta ou pediu mais informacoes"),
+    "wrong_person": ("medium", "Resposta indica pessoa errada ou redirecionamento"),
+    "ambiguous": ("high", "Resposta ambigua exige julgamento humano"),
+    "out_of_office": ("low", "Autoresposta ou ausencia temporaria"),
+}
+
+REPLY_LEAD_STATUS = {
+    "opt_out": "opt_out",
+    "interest_meeting": "responded",
+    "question": "responded",
+    "wrong_person": "responded",
+    "ambiguous": "responded",
+    "not_interested": "disqualified",
+    "out_of_office": "waiting_reply_review",
+}
+
+REPLY_JOURNEY_STATUS = {
+    "opt_out": "opt_out",
+    "interest_meeting": "responded",
+    "question": "responded",
+    "wrong_person": "responded",
+    "ambiguous": "responded",
+    "not_interested": "disqualified",
+    "out_of_office": "paused_reply",
+}
+
+ACTIVE_JOURNEY_STATUSES = {"pending_approval", "waiting"}
+
+
+def ascii_lower(value):
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    return normalized.encode("ascii", "ignore").decode("ascii").lower()
+
+
+def contains_any(text, terms):
+    return any(term in text for term in terms)
+
+
+def classify_reply_text(subject="", body=""):
+    text = ascii_lower("%s\n%s" % (subject or "", body or ""))
+    compact = re.sub(r"\s+", " ", text).strip()
+    reasons = []
+    if contains_any(
+        compact,
+        [
+            "remover",
+            "descadastrar",
+            "descadastro",
+            "nao receber",
+            "nao quero receber",
+            "pare de enviar",
+            "parar contato",
+            "retirar meu email",
+            "tire meu email",
+            "unsubscribe",
+            "opt out",
+        ],
+    ):
+        reasons.append("Pedido de remocao ou descadastro detectado")
+        return {"classification": "opt_out", "confidence": 0.98, "reasons": reasons}
+    if contains_any(compact, ["fora do escritorio", "estou de ferias", "ausencia temporaria", "resposta automatica", "automatic reply", "out of office"]):
+        reasons.append("Autoresposta ou ausencia detectada")
+        return {"classification": "out_of_office", "confidence": 0.90, "reasons": reasons}
+    if contains_any(compact, ["pessoa errada", "nao sou responsavel", "nao sou a pessoa", "fale com", "procure ", "responsavel e"]):
+        reasons.append("Mensagem indica pessoa errada ou redirecionamento")
+        return {"classification": "wrong_person", "confidence": 0.88, "reasons": reasons}
+    if contains_any(compact, ["nao tenho interesse", "sem interesse", "nao faz sentido", "no momento nao", "nao obrigado", "dispenso"]):
+        reasons.append("Recusa clara detectada")
+        return {"classification": "not_interested", "confidence": 0.88, "reasons": reasons}
+    if contains_any(
+        compact,
+        [
+            "tenho interesse",
+            "temos interesse",
+            "vamos conversar",
+            "podemos conversar",
+            "marcar uma reuniao",
+            "agendar",
+            "me ligue",
+            "pode me ligar",
+            "quero conhecer",
+            "mande horarios",
+        ],
+    ):
+        reasons.append("Interesse ou pedido de conversa detectado")
+        return {"classification": "interest_meeting", "confidence": 0.92, "reasons": reasons}
+    if "?" in (subject or "") or "?" in (body or "") or contains_any(
+        compact,
+        ["como funciona", "quanto custa", "qual valor", "mais informacoes", "mais detalhes", "tenho uma duvida", "pode explicar"],
+    ):
+        reasons.append("Pergunta ou pedido de informacao detectado")
+        return {"classification": "question", "confidence": 0.82, "reasons": reasons}
+    reasons.append("Sem padrao confiavel; revisar manualmente")
+    return {"classification": "ambiguous", "confidence": 0.45, "reasons": reasons}
+
+
+def reply_target(conn, payload):
+    send_id = int(payload.get("send_id") or 0)
+    lead_id = int(payload.get("lead_id") or 0)
+    email = normalize_email(payload.get("email") or "")
+    target = {"send_id": None, "lead_id": None, "campaign_id": None, "email": email}
+    if send_id:
+        row = conn.execute(
+            """
+            SELECT s.id AS send_id, s.lead_id, s.campaign_id, s.email,
+                   l.company_id, l.list_id, l.status AS lead_status
+            FROM sends s
+            JOIN leads l ON l.id = s.lead_id
+            WHERE s.id = ?
+            """,
+            (send_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError("Envio nao encontrado")
+        target.update(dict_row(row))
+        target["email"] = normalize_email(row["email"])
+        return target
+    if lead_id:
+        row = conn.execute(
+            "SELECT id AS lead_id, company_id, list_id, email, status AS lead_status FROM leads WHERE id = ? AND org_id = ?",
+            (lead_id, ORG_ID),
+        ).fetchone()
+        if not row:
+            raise ValueError("Lead nao encontrado")
+        target.update(dict_row(row))
+        target["email"] = normalize_email(row["email"] or email)
+        return target
+    if email:
+        row = conn.execute(
+            """
+            SELECT id AS lead_id, company_id, list_id, email, status AS lead_status
+            FROM leads
+            WHERE org_id = ? AND lower(email) = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (ORG_ID, email),
+        ).fetchone()
+        if row:
+            target.update(dict_row(row))
+            target["email"] = normalize_email(row["email"])
+    return target
+
+
+def add_opt_out(conn, email, reason, source="reply"):
+    email = normalize_email(email)
+    if not email:
+        return
+    timestamp = now_iso()
+    conn.execute(
+        """
+        INSERT INTO opt_outs (org_id, email, requested_by, reason, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(email) DO UPDATE SET reason = excluded.reason
+        """,
+        (ORG_ID, email, source, reason, timestamp),
+    )
+
+
+def stop_journeys_for_reply(conn, lead_id, status, reason, timestamp):
+    if not lead_id:
+        return 0
+    placeholders = ",".join("?" for _ in ACTIVE_JOURNEY_STATUSES)
+    values = [status, reason, timestamp, int(lead_id), ORG_ID] + sorted(ACTIVE_JOURNEY_STATUSES)
+    cursor = conn.execute(
+        """
+        UPDATE lead_journey
+        SET status = ?, block_reason = ?, updated_at = ?
+        WHERE lead_id = ? AND org_id = ? AND status IN (%s)
+        """ % placeholders,
+        values,
+    )
+    return cursor.rowcount
+
+
+def register_reply_event(conn, target, classification, payload, timestamp):
+    if not target.get("send_id"):
+        return None
+    event_payload = {
+        "classification": classification,
+        "subject": payload.get("subject") or "",
+        "source": payload.get("source") or "manual_reply",
+    }
+    conn.execute(
+        """
+        INSERT INTO events (send_id, lead_id, campaign_id, event_type, source, payload_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            target["send_id"],
+            target.get("lead_id"),
+            target.get("campaign_id"),
+            "replied",
+            payload.get("source") or "manual_reply",
+            json.dumps(event_payload, ensure_ascii=True),
+            timestamp,
+        ),
+    )
+    conn.execute("UPDATE sends SET status = ? WHERE id = ?", ("replied", target["send_id"]))
+    conn.execute(
+        """
+        INSERT INTO conversions (lead_id, campaign_id, conversion_type, utm_json, notes, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            target.get("lead_id"),
+            target.get("campaign_id"),
+            "reply",
+            json.dumps({}, ensure_ascii=True),
+            "Classificacao: %s" % classification,
+            timestamp,
+        ),
+    )
+
+
+def create_handoff_for_reply(conn, target, reply_id, classification, reason, priority, payload, timestamp):
+    context = {
+        "reply_classification_id": reply_id,
+        "classification": classification,
+        "email": target.get("email") or normalize_email(payload.get("email") or ""),
+        "subject": payload.get("subject") or "",
+        "body_preview": (payload.get("body") or "")[:500],
+        "send_id": target.get("send_id"),
+        "campaign_id": target.get("campaign_id"),
+    }
+    cursor = conn.execute(
+        """
+        INSERT INTO handoffs (
+            org_id, lead_id, reply_classification_id, status, priority,
+            reason, context_json, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            ORG_ID,
+            target.get("lead_id"),
+            reply_id,
+            "pending",
+            priority,
+            reason,
+            json.dumps(context, ensure_ascii=True),
+            timestamp,
+        ),
+    )
+    return cursor.lastrowid
+
+
+def record_inbound_reply(conn, payload):
+    subject = payload.get("subject") or ""
+    body = payload.get("body") or payload.get("body_text") or ""
+    if not body.strip() and not subject.strip():
+        raise ValueError("Informe assunto ou corpo da resposta")
+    target = reply_target(conn, payload)
+    classification = classify_reply_text(subject, body)
+    label = classification["classification"]
+    if label not in REPLY_CLASSIFICATIONS:
+        raise ValueError("Classificacao invalida")
+    timestamp = now_iso()
+    email = target.get("email") or normalize_email(payload.get("email") or "")
+    cursor = conn.execute(
+        """
+        INSERT INTO reply_classifications (
+            org_id, lead_id, send_id, email, subject, body_text, classification,
+            confidence, reasons_json, raw_payload_json, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            ORG_ID,
+            target.get("lead_id"),
+            target.get("send_id"),
+            email,
+            subject,
+            body,
+            label,
+            float(classification["confidence"]),
+            json.dumps(classification["reasons"], ensure_ascii=True),
+            json.dumps(payload, ensure_ascii=True),
+            timestamp,
+        ),
+    )
+    reply_id = cursor.lastrowid
+    lead_status = REPLY_LEAD_STATUS[label]
+    journey_status = REPLY_JOURNEY_STATUS[label]
+    if label == "opt_out":
+        add_opt_out(conn, email, "Opt-out por resposta recebida", source="reply")
+        add_suppression(conn, email, "opt_out_reply", source="reply")
+    if target.get("lead_id"):
+        conn.execute(
+            "UPDATE leads SET status = ?, block_reason = ?, updated_at = ? WHERE id = ?",
+            (
+                lead_status,
+                "Resposta classificada como %s" % label if label in ("opt_out", "not_interested") else "",
+                timestamp,
+                target["lead_id"],
+            ),
+        )
+    stopped = stop_journeys_for_reply(conn, target.get("lead_id"), journey_status, "Resposta classificada como %s" % label, timestamp)
+    register_reply_event(conn, target, label, payload, timestamp)
+    handoff_id = None
+    if label in REPLY_HANDOFFS:
+        priority, reason = REPLY_HANDOFFS[label]
+        handoff_id = create_handoff_for_reply(conn, target, reply_id, label, reason, priority, payload, timestamp)
+    log_agent_action(
+        conn,
+        target.get("lead_id"),
+        None,
+        "reply_classified",
+        "system",
+        "Resposta classificada como %s" % label,
+        {
+            "reply_classification_id": reply_id,
+            "classification": label,
+            "confidence": classification["confidence"],
+            "handoff_id": handoff_id,
+            "journeys_stopped": stopped,
+        },
+    )
+    if handoff_id:
+        log_agent_action(
+            conn,
+            target.get("lead_id"),
+            None,
+            "handoff_created",
+            "system",
+            "Handoff criado para resposta %s" % label,
+            {"reply_classification_id": reply_id, "handoff_id": handoff_id},
+        )
+    audit(
+        conn,
+        "record_inbound_reply",
+        "reply_classification",
+        reply_id,
+        {"classification": label, "handoff_id": handoff_id, "journeys_stopped": stopped},
+    )
+    return {
+        "reply": get_reply_classification(conn, reply_id),
+        "handoff": get_handoff(conn, handoff_id) if handoff_id else None,
+        "journeys_stopped": stopped,
+    }
+
+
+def parse_reply_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["reasons"] = json.loads(data.pop("reasons_json") or "[]")
+    data["raw_payload"] = json.loads(data.pop("raw_payload_json") or "{}")
+    return data
+
+
+def get_reply_classification(conn, reply_id):
+    row = conn.execute(
+        """
+        SELECT rc.*, l.email AS lead_email, c.legal_name, c.trade_name
+        FROM reply_classifications rc
+        LEFT JOIN leads l ON l.id = rc.lead_id
+        LEFT JOIN companies c ON c.id = l.company_id
+        WHERE rc.id = ? AND rc.org_id = ?
+        """,
+        (reply_id, ORG_ID),
+    ).fetchone()
+    return parse_reply_row(row)
+
+
+def list_reply_classifications(conn, params=None):
+    params = params or {}
+    where = ["rc.org_id = ?"]
+    values = [ORG_ID]
+    if params.get("classification"):
+        where.append("rc.classification = ?")
+        values.append(params.get("classification"))
+    rows = conn.execute(
+        """
+        SELECT rc.*, l.email AS lead_email, c.legal_name, c.trade_name
+        FROM reply_classifications rc
+        LEFT JOIN leads l ON l.id = rc.lead_id
+        LEFT JOIN companies c ON c.id = l.company_id
+        WHERE %s
+        ORDER BY rc.id DESC
+        LIMIT ?
+        """
+        % " AND ".join(where),
+        values + [min(int(params.get("limit", 100) or 100), 500)],
+    ).fetchall()
+    return {"items": [parse_reply_row(row) for row in rows]}
+
+
+def parse_handoff_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["context"] = json.loads(data.pop("context_json") or "{}")
+    return data
+
+
+def get_handoff(conn, handoff_id):
+    if not handoff_id:
+        return None
+    row = conn.execute(
+        """
+        SELECT h.*, l.email AS lead_email, c.legal_name, c.trade_name
+        FROM handoffs h
+        LEFT JOIN leads l ON l.id = h.lead_id
+        LEFT JOIN companies c ON c.id = l.company_id
+        WHERE h.id = ? AND h.org_id = ?
+        """,
+        (handoff_id, ORG_ID),
+    ).fetchone()
+    return parse_handoff_row(row)
+
+
+def list_handoffs(conn, params=None):
+    params = params or {}
+    where = ["h.org_id = ?"]
+    values = [ORG_ID]
+    if params.get("status"):
+        where.append("h.status = ?")
+        values.append(params.get("status"))
+    else:
+        where.append("h.status = 'pending'")
+    rows = conn.execute(
+        """
+        SELECT h.*, l.email AS lead_email, c.legal_name, c.trade_name
+        FROM handoffs h
+        LEFT JOIN leads l ON l.id = h.lead_id
+        LEFT JOIN companies c ON c.id = l.company_id
+        WHERE %s
+        ORDER BY
+          CASE h.priority
+            WHEN 'urgent' THEN 1
+            WHEN 'high' THEN 2
+            WHEN 'medium' THEN 3
+            ELSE 4
+          END,
+          h.id DESC
+        LIMIT ?
+        """
+        % " AND ".join(where),
+        values + [min(int(params.get("limit", 100) or 100), 500)],
+    ).fetchall()
+    return {"items": [parse_handoff_row(row) for row in rows]}
+
+
+def decide_handoff(conn, handoff_id, decision, note=""):
+    if decision not in ("resolve", "dismiss"):
+        raise ValueError("Decisao de handoff invalida")
+    handoff = conn.execute(
+        "SELECT * FROM handoffs WHERE id = ? AND org_id = ?",
+        (handoff_id, ORG_ID),
+    ).fetchone()
+    if not handoff:
+        raise ValueError("Handoff nao encontrado")
+    if handoff["status"] != "pending":
+        raise ValueError("Handoff ja decidido")
+    status = "resolved" if decision == "resolve" else "dismissed"
+    timestamp = now_iso()
+    conn.execute(
+        "UPDATE handoffs SET status = ?, resolved_at = ?, resolution_note = ? WHERE id = ?",
+        (status, timestamp, note or "", handoff_id),
+    )
+    log_agent_action(
+        conn,
+        handoff["lead_id"],
+        None,
+        "handoff_%s" % status,
+        "human",
+        note or "Handoff %s por humano" % status,
+        {"handoff_id": handoff_id, "reply_classification_id": handoff["reply_classification_id"]},
+    )
+    audit(conn, "decide_handoff", "handoff", handoff_id, {"status": status, "note": note})
+    return get_handoff(conn, handoff_id)
 
 
 def audit_events(conn, limit=100):
