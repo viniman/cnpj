@@ -172,18 +172,32 @@ function renderCommandInbox(items) {
     return;
   }
   container.innerHTML = table(
-    ["Tipo", "ID", "Prioridade", "Empresa", "Email", "Status", "Origem", "Motivo"],
-    items.map((item) => [
-      badge(item.source_type, commandTypeTone(item.source_type)),
-      item.source_id,
-      badge(item.priority, priorityTone(item.priority)),
-      escapeHtml(item.company_name || "-"),
-      escapeHtml(item.email || "-"),
-      badge(item.status, experimentStatusTone(item.status)),
-      escapeHtml(item.origin_label || "-"),
-      previewHtml(item.reason || item.title || "-"),
-    ]),
+    ["Tipo", "ID", "Prioridade", "Empresa", "Email", "Status", "Origem", "Motivo", ""],
+    items.map((item) => {
+      const actions = (item.actions || [])
+        .map(
+          (action) =>
+            `<button class="row-action" data-command-action="${escapeHtml(action.decision)}" data-command-source-type="${escapeHtml(item.source_type)}" data-command-source-id="${escapeHtml(item.source_id)}">${escapeHtml(action.label)}</button>`,
+        )
+        .join(" ");
+      return [
+        badge(item.source_type, commandTypeTone(item.source_type)),
+        item.source_id,
+        badge(item.priority, priorityTone(item.priority)),
+        escapeHtml(item.company_name || "-"),
+        escapeHtml(item.email || "-"),
+        badge(item.status, experimentStatusTone(item.status)),
+        escapeHtml(item.origin_label || "-"),
+        previewHtml(item.reason || item.title || "-"),
+        actions,
+      ];
+    }),
   );
+  $$("[data-command-action]").forEach((button) => {
+    button.addEventListener("click", () =>
+      runCommandAction(button.dataset.commandSourceType, button.dataset.commandSourceId, button.dataset.commandAction),
+    );
+  });
 }
 
 function renderCommandKanban(columns) {
@@ -245,6 +259,33 @@ function renderCommandActivity(items) {
       previewHtml(item.reason || "-"),
     ]),
   );
+}
+
+function renderCommandCenterSnapshot(data) {
+  state.commandCenter = data;
+  renderCommandMetrics(data.metrics || {});
+  renderCommandInbox(data.inbox?.items || []);
+  renderCommandKanban(data.kanban?.columns || []);
+  renderCommandActivity(data.activity?.items || []);
+}
+
+async function runCommandAction(sourceType, sourceId, decision) {
+  const note = $("#commandActionNote").value.trim();
+  const result = await api("/api/command-center/actions", {
+    method: "POST",
+    body: JSON.stringify({
+      source_type: sourceType,
+      source_id: Number(sourceId),
+      decision,
+      note,
+    }),
+  });
+  if (result.command_center) {
+    renderCommandCenterSnapshot(result.command_center);
+  } else {
+    await loadCommandCenter();
+  }
+  showStatus(`Decisao ${decision} aplicada em ${sourceType} #${sourceId}.`);
 }
 
 function renderImports(items) {

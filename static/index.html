@@ -79,11 +79,23 @@
         <section id="command" class="view">
           <div class="metric-grid" id="commandMetrics"></div>
 
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Decisao da inbox</h2>
+              <button id="refreshCommandBtn" class="button">Atualizar</button>
+            </div>
+            <div class="form-grid one">
+              <label>
+                Nota da decisao
+                <input id="commandActionNote" class="input" placeholder="Contexto da decisao para auditoria" />
+              </label>
+            </div>
+          </section>
+
           <div class="content-grid">
             <section class="panel">
               <div class="panel-head">
                 <h2>Inbox humano</h2>
-                <button id="refreshCommandBtn" class="button">Atualizar</button>
               </div>
               <div id="commandInbox" class="table-wrap"></div>
             </section>
