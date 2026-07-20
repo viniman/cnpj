@@ -89,3 +89,34 @@ Meta da fase:
 Documento principal:
 
 - `docs/COMPANY_ENRICHMENT_SPEC.md`
+
+Commits:
+
+- `898775a docs: define company enrichment phase`
+- `2f60285 feat: add company enrichment foundation`
+
+Implementado:
+
+- Tabelas `company_enrichment`, `scraping_jobs` e `scraping_cache`.
+- Modulo `radar_cnpj/company_enrichment.py` para extrair e-mails, telefones,
+  redes sociais, tecnologias e score de maturidade digital.
+- Respeito a `robots.txt` antes de coleta externa por URL.
+- Cache de HTML por URL com TTL configuravel.
+- Servicos `enrich_company` e `get_company_enrichment`.
+- Endpoints `POST /api/enrichment/company` e
+  `GET /api/enrichment/company/{company_id}`.
+- Aba `Enriquecimento` na UI local e botao `Enriquecer` no detalhe da empresa.
+- Testes de parser, technology checker, score, cache e persistencia.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 16 tests
+OK
+```

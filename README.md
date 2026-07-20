@@ -125,6 +125,52 @@ Os resultados ficam persistidos em:
 - `email_score_log`
 - `known_shared_domains`
 
+## Enriquecimento de empresas
+
+A aba `Enriquecimento` permite coletar sinais publicos do site de uma empresa
+sem sobrescrever os dados oficiais do CNPJ.
+
+Ela extrai:
+
+- E-mails publicados.
+- Telefones e WhatsApp em formatos comuns.
+- Links sociais institucionais.
+- Tecnologias do site, como WordPress, Shopify, Nuvemshop, Google Tag Manager,
+  Google Analytics, RD Station, Hotjar, Intercom, Zendesk e Cloudflare.
+- Score de maturidade digital com explicacao.
+
+Processar HTML informado localmente:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/enrichment/company" `
+  -Body '{"company_id":1,"source_url":"https://empresa.com.br","html":"<html>contato@empresa.com.br</html>"}' `
+  -ContentType "application/json"
+```
+
+Coletar uma URL explicita com `robots.txt` e cache:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/enrichment/company" `
+  -Body '{"company_id":1,"url":"https://empresa.com.br","ttl_days":30}' `
+  -ContentType "application/json"
+```
+
+Buscar o ultimo enriquecimento salvo:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/enrichment/company/1"
+```
+
+Os dados ficam separados do cadastro oficial em:
+
+- `company_enrichment`
+- `scraping_jobs`
+- `scraping_cache`
+
 ## Importar CSV simplificado
 
 Na tela `Importacao`, informe o caminho local de um CSV com algumas destas colunas:
@@ -174,6 +220,8 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `GET /api/lists/{id}/export?format=csv&purpose=...`
 - `POST /api/emails/validate`
 - `POST /api/emails/score`
+- `POST /api/enrichment/company`
+- `GET /api/enrichment/company/{company_id}`
 - `POST /api/suppression`
 - `GET /api/audit`
 
@@ -190,6 +238,7 @@ python -m unittest discover -s tests
 - Emails em opt-out/supressao recebem classificacao restritiva.
 - Nao armazene CPF completo de socios.
 - Nao use scraping agressivo em servicos publicos. Priorize os arquivos oficiais baixaveis.
+- Enriquecimento por site e sinal complementar; nao substitui dado oficial da Receita.
 
 ## Proximas fases sugeridas
 
@@ -199,4 +248,5 @@ python -m unittest discover -s tests
 4. Filtros salvos e tags no frontend.
 5. Canal de solicitacao de titular.
 6. Motor de score configuravel por workspace.
-7. Integracao futura com provedores de email somente com opt-out, bounce e limites.
+7. Descoberta assistida de dominio oficial com validacao de identidade.
+8. Integracao futura com provedores de email somente com opt-out, bounce e limites.

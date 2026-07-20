@@ -33,6 +33,8 @@ flowchart LR
 - `radar_cnpj/receita_importer.py`: parser MVP para diretorios de amostra no formato Receita.
 - `radar_cnpj/official_sources.py`: descoberta WebDAV da fonte oficial, download de ZIPs e consulta BrasilAPI.
 - `radar_cnpj/email_hygiene.py`: classificacao de emails, supressao e opt-out.
+- `radar_cnpj/email_scoring.py`: score comercial de e-mail com explicacoes.
+- `radar_cnpj/company_enrichment.py`: extracao de sinais publicos de site, technology checker e maturidade digital.
 - `radar_cnpj/scoring.py`: setor, segmento, score explicavel e estimativa simples.
 - `radar_cnpj/exporter.py`: geracao CSV e XLSX sem biblioteca externa.
 - `static/*`: interface operacional.
@@ -46,6 +48,8 @@ Tabelas principais:
 - `lists`, `list_companies`, `tags`, `company_tags`, `saved_filters`: operacao comercial por workspace.
 - `suppression_list`, `opt_outs`, `data_subject_requests`: compliance.
 - `email_validations`: historico de higiene de emails.
+- `email_classifications`, `email_score_log`, `known_shared_domains`: scoring avancado de e-mail.
+- `company_enrichment`, `scraping_jobs`, `scraping_cache`: enriquecimento responsavel e cache.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
