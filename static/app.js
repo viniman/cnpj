@@ -14,6 +14,7 @@ const state = {
   handoffs: [],
   meetings: [],
   commandCenter: null,
+  leadTimeline: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -224,6 +225,7 @@ function renderCommandKanban(columns) {
                     ${card.sequence_name ? badge(card.sequence_name, "purple") : ""}
                   </div>
                   <small>${escapeHtml([card.city, card.state].filter(Boolean).join(" / ") || card.next_action_at || "-")}</small>
+                  <button class="row-action" data-lead-replay="${escapeHtml(card.lead_id)}">Replay</button>
                 </article>
               `,
             )
@@ -240,6 +242,9 @@ function renderCommandKanban(columns) {
       `;
     })
     .join("");
+  $$("[data-lead-replay]").forEach((button) => {
+    button.addEventListener("click", () => loadLeadTimeline(button.dataset.leadReplay));
+  });
 }
 
 function renderCommandActivity(items) {
@@ -286,6 +291,87 @@ async function runCommandAction(sourceType, sourceId, decision) {
     await loadCommandCenter();
   }
   showStatus(`Decisao ${decision} aplicada em ${sourceType} #${sourceId}.`);
+}
+
+function timelineTone(kind) {
+  kind = kind || "";
+  if (kind.includes("approval")) return "purple";
+  if (kind.includes("handoff") || kind.includes("meeting")) return "amber";
+  if (kind.includes("conversion") || kind === "reply") return "green";
+  if (kind.includes("event")) return "purple";
+  return "";
+}
+
+function metadataBlock(metadata) {
+  const text = JSON.stringify(metadata || {}, null, 2);
+  if (!text || text === "{}") return "";
+  return `<details class="timeline-meta"><summary>Metadados</summary><pre>${escapeHtml(text)}</pre></details>`;
+}
+
+function renderLeadTimeline(data) {
+  const container = $("#leadTimelineResult");
+  if (!data || !data.lead) {
+    container.innerHTML = `<div class="empty-state">Replay nao encontrado.</div>`;
+    return;
+  }
+  const lead = data.lead || {};
+  const company = data.company || {};
+  const summary = data.summary || {};
+  const title = company.trade_name || company.legal_name || lead.email || `Lead ${lead.id}`;
+  const subtitle = [company.cnpj, company.city, company.state].filter(Boolean).join(" / ");
+  const items = data.timeline || [];
+  const timeline = items.length
+    ? items
+        .map(
+          (item) => `
+            <article class="timeline-item">
+              <div class="timeline-seq">${escapeHtml(item.sequence)}</div>
+              <div class="timeline-body">
+                <div class="timeline-head">
+                  <strong>${escapeHtml(item.title || item.kind)}</strong>
+                  <span>${escapeHtml(item.occurred_at || "-")}</span>
+                </div>
+                <div class="stat-line compact-line">
+                  ${badge(item.kind, timelineTone(item.kind || ""))}
+                  ${badge(item.origin_label || "-", "")}
+                  ${badge(`${item.source_table} #${item.source_id}`, "")}
+                </div>
+                <p>${escapeHtml(item.detail || "-")}</p>
+                ${metadataBlock(item.metadata)}
+              </div>
+            </article>
+          `,
+        )
+        .join("")
+    : `<div class="empty-state">Nenhum evento para este lead.</div>`;
+  container.innerHTML = `
+    <div class="timeline-summary">
+      <div>
+        <h3>${escapeHtml(title)}</h3>
+        <p class="muted">${escapeHtml(subtitle || lead.email || "-")}</p>
+      </div>
+      <div class="stat-line compact-line">
+        ${badge(`lead ${lead.id}`, "purple")}
+        ${badge(lead.status || "-", experimentStatusTone(lead.status || ""))}
+        ${badge(`${summary.timeline_items || 0} eventos`)}
+        ${badge(`${summary.actions || 0} acoes`)}
+        ${badge(`${summary.approvals || 0} aprovacoes`)}
+        ${badge(`${summary.handoffs || 0} handoffs`)}
+        ${badge(`${summary.meetings || 0} reunioes`)}
+      </div>
+    </div>
+    <div class="timeline-list">${timeline}</div>
+  `;
+}
+
+async function loadLeadTimeline(leadId) {
+  const id = Number(leadId || $("#leadTimelineId").value || 0);
+  if (!id) return showStatus("Informe o lead ID para carregar o replay.", "warn");
+  const data = await api(`/api/leads/${id}/timeline`);
+  state.leadTimeline = data;
+  $("#leadTimelineId").value = id;
+  renderLeadTimeline(data);
+  showStatus(`Replay do lead ${id} carregado.`);
 }
 
 function renderImports(items) {
@@ -1695,6 +1781,7 @@ function wireEvents() {
   $("#refreshJourneysBtn").addEventListener("click", loadJourneys);
   $("#refreshAgentActionsBtn").addEventListener("click", loadAgentActions);
   $("#refreshCommandBtn").addEventListener("click", loadCommandCenter);
+  $("#loadLeadTimelineBtn").addEventListener("click", () => loadLeadTimeline());
   $("#createIcpBtn").addEventListener("click", createIcpRuleFromForm);
   $("#refreshIcpBtn").addEventListener("click", loadIcpWorkspace);
   $("#refreshPriorityBtn").addEventListener("click", loadPriorityQueue);

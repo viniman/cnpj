@@ -635,6 +635,97 @@ tr:hover td {
   padding: 10px;
 }
 
+.timeline-wrap {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.timeline-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.timeline-summary h3 {
+  margin-bottom: 4px;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 10px;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.timeline-seq {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.timeline-body {
+  min-width: 0;
+}
+
+.timeline-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.timeline-head span {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.timeline-body p {
+  margin: 6px 0 0;
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.timeline-meta {
+  margin-top: 8px;
+}
+
+.timeline-meta summary {
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.timeline-meta pre {
+  max-height: 220px;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #f8fafc;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+}
+
 @media (max-width: 1180px) {
   .shell {
     grid-template-columns: 1fr;

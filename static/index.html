@@ -92,6 +92,22 @@
             </div>
           </section>
 
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Replay por lead</h2>
+            </div>
+            <div class="toolbar">
+              <div class="toolbar-actions">
+                <input id="leadTimelineId" class="input compact" type="number" min="1" placeholder="Lead ID" />
+                <button id="loadLeadTimelineBtn" class="button primary">Carregar replay</button>
+              </div>
+              <div class="muted">Reconstrua decisoes, respostas, handoffs e reunioes sem sair do Command Center.</div>
+            </div>
+            <div id="leadTimelineResult" class="timeline-wrap">
+              <div class="empty-state">Informe um lead ID ou use o botao Replay no Kanban.</div>
+            </div>
+          </section>
+
           <div class="content-grid">
             <section class="panel">
               <div class="panel-head">
