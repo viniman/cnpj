@@ -74,6 +74,9 @@ Tabelas principais:
 - `agent_config_versions`, `agent_simulations`, `agent_cost_log`: governanca
   do agente SDR, staging de configuracao, simulacoes locais e custo estimado
   de IA por operacao.
+- `company_profiles`, `playbooks`, `playbook_versions`,
+  `workspace_playbook_applications`: perfil operacional do workspace,
+  biblioteca reutilizavel de ICP/copy/cadencia/OKR e aplicacao auditavel.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -111,6 +114,8 @@ Tabelas principais:
   chamada real de LLM.
 - Custos de IA sao registrados em tabela propria para visibilidade por modelo,
   operacao, lead e versao de configuracao.
+- Playbooks sao referencias versionadas; aplicar um playbook nao sobrescreve
+  dados operacionais existentes sem uma fase guiada explicita.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

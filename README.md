@@ -15,6 +15,8 @@ A aba `Comando` agrega a operacao em uma tela unica:
 - Replay por lead, com timeline auditavel de priorizacao, aprovacao, envio,
   resposta, handoff, reuniao, conversao e acoes do agente.
 - OKRs e KPIs com formula explicita, calculados a partir do funil real.
+- Playbooks reutilizaveis com ICP, copy, cadencia, OKR e governanca em pacote
+  versionado.
 - Governanca do agente com versoes de configuracao, staging, ativacao,
   simulacoes locais e custo estimado de IA.
 
@@ -64,6 +66,22 @@ Invoke-RestMethod `
   -Method Post `
   -Uri "http://127.0.0.1:8000/api/agent-governance/configs" `
   -Body '{"name":"SDR conservador","model_name":"gpt-5-mini","prompt_text":"Priorize ICP e escale duvidas.","rules":{"requires_human_approval":true}}' `
+  -ContentType "application/json"
+```
+
+Consultar biblioteca de playbooks:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/playbooks"
+```
+
+Criar playbook:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/playbooks" `
+  -Body '{"name":"Outbound B2B Servicos Locais","description":"Pacote inicial","content":{"icp":{"states":["SP"],"target_cnaes":["620"],"min_email_score":30},"copy":{"tone":"direto, B2B, consultivo"},"cadence":{"steps":[{"name":"Primeiro contato","wait_days":0}]},"okr":{"objective":"Validar nicho","key_results":[{"kpi_key":"replies_received","target_value":10}]},"governance":{"requires_human_approval":true}}}' `
   -ContentType "application/json"
 ```
 
@@ -613,6 +631,10 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/agent-governance/configs/{id}/activate`
 - `POST /api/agent-governance/simulations`
 - `POST /api/agent-governance/costs`
+- `GET /api/playbooks`
+- `POST /api/playbooks`
+- `POST /api/playbooks/{id}/versions`
+- `POST /api/playbooks/{id}/apply`
 - `GET /api/companies`
 - `GET /api/companies/{id}`
 - `POST /api/import`
@@ -698,6 +720,8 @@ python -m unittest discover -s tests
 - Configuracoes do agente passam por staging antes de ativar; simulacoes locais
   nao chamam modelo externo.
 - Custos de IA ficam registrados por operacao/modelo/versao para auditoria.
+- Aplicar playbook grava uma referencia ativa do workspace; nao sobrescreve ICP,
+  sequencias, OKRs ou configuracoes do agente automaticamente.
 
 ## Proximas fases sugeridas
 
@@ -709,6 +733,6 @@ python -m unittest discover -s tests
 6. Motor de score configuravel por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
 8. Templates de resposta manual assistida.
-9. Playbooks reutilizaveis por workspace.
-10. Notificacoes proativas para lead quente, campanha pausada e OKR em risco.
+9. Notificacoes proativas para lead quente, campanha pausada e OKR em risco.
+10. Comparacao multi-workspace no dashboard executivo.
 11. Integracao futura com provedores de email somente com opt-out, bounce e limites.

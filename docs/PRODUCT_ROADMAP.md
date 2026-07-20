@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 14 iniciada em `feature/14-playbook-library-foundation`.
+Status: fase 14 implementada localmente em `feature/14-playbook-library-foundation`.
 
 Fases:
 

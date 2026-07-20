@@ -973,4 +973,53 @@ Documento principal:
 
 Commits:
 
-- `pending docs: define playbook library phase`
+- `0a92580 docs: define playbook library phase`
+- `988c1f0 feat: add playbook library backend`
+- `50f0a41 feat: add playbook command panel`
+- `285a4d3 fix: make playbook bootstrap idempotent`
+
+Implementado:
+
+- Tabelas `company_profiles`, `playbooks`, `playbook_versions` e
+  `workspace_playbook_applications`.
+- Perfil default do workspace interno.
+- Playbook default `Outbound B2B Servicos Locais`.
+- Criacao de playbook com versao 1 ativa.
+- Criacao de nova versao, arquivando a ativa anterior.
+- Aplicacao explicita de playbook/versao ao workspace.
+- Endpoint `GET /api/playbooks`.
+- Endpoints `POST /api/playbooks`, `POST /api/playbooks/{id}/versions` e
+  `POST /api/playbooks/{id}/apply`.
+- Painel `Playbooks` na aba `Comando`, com resumo, biblioteca, versoes e
+  aplicacao ao workspace.
+- Bootstrap idempotente para perfil/playbook default.
+- Testes cobrindo default, criacao, versionamento e aplicacao.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 54 tests
+OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+defaults_before=1
+created_playbook_id=2
+created_active_version=1
+created_version_id=3
+created_version_number=2
+active_application_id=1
+active_playbook_name=Smoke Playbook 20260720015844
+active_version=2
+playbooks_after=2
+```
