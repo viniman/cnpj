@@ -10,6 +10,7 @@ from .services import (
     add_suppression,
     approve_sequence_step,
     audit_events,
+    create_icp_rule,
     create_list,
     create_campaign,
     create_email_template,
@@ -24,6 +25,7 @@ from .services import (
     get_company,
     get_company_enrichment,
     get_email_template,
+    get_icp_rule,
     get_list,
     get_sequence,
     import_source,
@@ -32,10 +34,13 @@ from .services import (
     list_campaigns,
     list_email_templates,
     list_experiment_leads,
+    list_icp_rules,
     list_journeys,
     list_lists,
+    list_priority_queue,
     list_sequences,
     prepare_next_journey_step,
+    prioritize_icp_rule,
     remove_company_from_list,
     record_campaign_event,
     reject_sequence_step,
@@ -45,6 +50,7 @@ from .services import (
     seed_sample,
     simulate_campaign,
     validate_emails,
+    decide_priority_queue_item,
 )
 from .official_sources import catalog, download_files, import_brasilapi_cnpj, list_snapshot_files, sync_official_snapshot
 
@@ -203,6 +209,16 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(list_approvals(conn, params))
                 elif parsed.path == "/api/agent-actions":
                     self.send_json(list_agent_actions(conn, params))
+                elif parsed.path == "/api/icp-rules":
+                    self.send_json(list_icp_rules(conn, params))
+                elif len(parts) == 3 and parts[1] == "icp-rules":
+                    rule = get_icp_rule(conn, int(parts[2]))
+                    if not rule:
+                        self.send_error_json("ICP nao encontrado", 404)
+                    else:
+                        self.send_json(rule)
+                elif parsed.path == "/api/priority-queue":
+                    self.send_json(list_priority_queue(conn, params))
                 elif parsed.path == "/api/sources/official":
                     self.send_json(catalog())
                 elif len(parts) == 5 and parts[1] == "sources" and parts[2] == "official" and parts[3] == "snapshots":
@@ -297,6 +313,22 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, approve_sequence_step(conn, int(parts[2]), data.get("note") or ""))
                 elif len(parts) == 4 and parts[1] == "approvals" and parts[3] == "reject":
                     self.send_json_commit(conn, reject_sequence_step(conn, int(parts[2]), data.get("note") or ""))
+                elif parsed.path == "/api/icp-rules":
+                    self.send_json_commit(conn, create_icp_rule(conn, data), 201)
+                elif len(parts) == 4 and parts[1] == "icp-rules" and parts[3] == "prioritize":
+                    self.send_json_commit(
+                        conn,
+                        prioritize_icp_rule(
+                            conn,
+                            int(parts[2]),
+                            list_id=data.get("list_id"),
+                            limit=data.get("limit"),
+                        ),
+                    )
+                elif len(parts) == 4 and parts[1] == "priority-queue" and parts[3] == "accept":
+                    self.send_json_commit(conn, decide_priority_queue_item(conn, int(parts[2]), "accept", data.get("note") or ""))
+                elif len(parts) == 4 and parts[1] == "priority-queue" and parts[3] == "reject":
+                    self.send_json_commit(conn, decide_priority_queue_item(conn, int(parts[2]), "reject", data.get("note") or ""))
                 elif parsed.path == "/api/suppression":
                     self.send_json_commit(conn, add_suppression(conn, data.get("email"), data.get("reason") or "manual"))
                 elif parsed.path == "/api/sources/official/download":

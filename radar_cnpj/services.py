@@ -2349,6 +2349,527 @@ def list_agent_actions(conn, params=None):
     return {"items": items}
 
 
+ICP_CRITERIA_KEYS = {
+    "states",
+    "cities",
+    "cnaes",
+    "sectors",
+    "sizes",
+    "min_opportunity_score",
+    "min_email_score",
+    "require_email",
+    "require_corporate_email",
+    "exclude_shared_email",
+    "exclude_suppressed",
+    "max_leads",
+}
+
+
+def split_criteria_values(value, digits=False):
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        items = value
+    else:
+        items = re.split(r"[,;\n]+", str(value))
+    cleaned = []
+    for item in items:
+        text = str(item or "").strip()
+        if digits:
+            text = only_digits(text)
+        if text:
+            cleaned.append(text)
+    return cleaned
+
+
+def bool_criteria(value, default=False):
+    if value is None or value == "":
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ("1", "true", "yes", "sim", "on")
+
+
+def int_criteria(value, default=0, minimum=0, maximum=None):
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        number = default
+    number = max(minimum, number)
+    if maximum is not None:
+        number = min(maximum, number)
+    return number
+
+
+def normalize_icp_criteria(payload):
+    criteria = dict(payload or {})
+    normalized = {
+        "states": [item.upper() for item in split_criteria_values(criteria.get("states"))],
+        "cities": [item.lower() for item in split_criteria_values(criteria.get("cities"))],
+        "cnaes": split_criteria_values(criteria.get("cnaes"), digits=True),
+        "sectors": [item.lower() for item in split_criteria_values(criteria.get("sectors"))],
+        "sizes": [item.lower() for item in split_criteria_values(criteria.get("sizes"))],
+        "min_opportunity_score": int_criteria(criteria.get("min_opportunity_score"), 0, 0, 100),
+        "min_email_score": int_criteria(criteria.get("min_email_score"), 30, 0, 100),
+        "require_email": bool_criteria(criteria.get("require_email"), True),
+        "require_corporate_email": bool_criteria(criteria.get("require_corporate_email"), True),
+        "exclude_shared_email": bool_criteria(criteria.get("exclude_shared_email"), True),
+        "exclude_suppressed": bool_criteria(criteria.get("exclude_suppressed"), True),
+        "max_leads": int_criteria(criteria.get("max_leads"), 50, 1, 500),
+    }
+    return normalized
+
+
+def criteria_payload_from_request(payload):
+    if payload.get("criteria") and isinstance(payload.get("criteria"), dict):
+        return payload["criteria"]
+    return {key: payload.get(key) for key in ICP_CRITERIA_KEYS if key in payload}
+
+
+def parse_icp_rule_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["criteria"] = json.loads(data.pop("criteria_json") or "{}")
+    return data
+
+
+def create_icp_rule(conn, payload):
+    name = (payload.get("name") or "").strip()
+    if not name:
+        raise ValueError("Nome do ICP e obrigatorio")
+    status = (payload.get("status") or "active").strip()
+    if status not in ("draft", "active", "archived"):
+        raise ValueError("Status de ICP invalido")
+    criteria = normalize_icp_criteria(criteria_payload_from_request(payload))
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO icp_rules (org_id, name, description, status, criteria_json, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            ORG_ID,
+            name,
+            payload.get("description") or "",
+            status,
+            json.dumps(criteria, ensure_ascii=True),
+            timestamp,
+            timestamp,
+        ),
+    )
+    audit(conn, "create_icp_rule", "icp_rule", cursor.lastrowid, {"name": name, "criteria": criteria})
+    return get_icp_rule(conn, cursor.lastrowid)
+
+
+def get_icp_rule(conn, rule_id):
+    row = conn.execute(
+        "SELECT * FROM icp_rules WHERE id = ? AND org_id = ?",
+        (rule_id, ORG_ID),
+    ).fetchone()
+    return parse_icp_rule_row(row)
+
+
+def list_icp_rules(conn, params=None):
+    params = params or {}
+    where = ["org_id = ?"]
+    values = [ORG_ID]
+    if params.get("status"):
+        where.append("status = ?")
+        values.append(params.get("status"))
+    rows = conn.execute(
+        """
+        SELECT *
+        FROM icp_rules
+        WHERE %s
+        ORDER BY id DESC
+        LIMIT ?
+        """
+        % " AND ".join(where),
+        values + [min(int(params.get("limit", 100) or 100), 500)],
+    ).fetchall()
+    return {"items": [parse_icp_rule_row(row) for row in rows]}
+
+
+def cnae_matches(value, expected):
+    digits = only_digits(value)
+    if not expected:
+        return True
+    return any(digits.startswith(item) for item in expected if item)
+
+
+def row_text(row, key):
+    return str(row[key] or "").strip()
+
+
+def lower_row_text(row, key):
+    return row_text(row, key).lower()
+
+
+def add_match(reasons, label, value):
+    if value:
+        reasons.append("%s: %s" % (label, value))
+    else:
+        reasons.append(label)
+
+
+def evaluate_icp_candidate(conn, row, rule):
+    criteria = rule["criteria"]
+    matched = []
+    blocked = []
+    company_score = int(row["opportunity_score"] or 0)
+    email = normalize_email(row["email"])
+    digital_score = int(row["digital_maturity_score"] or 0)
+    email_score = 0
+    email_labels = []
+    hygiene = {}
+
+    status = lower_row_text(row, "status")
+    if status and "ativa" not in status:
+        blocked.append("Situacao cadastral nao ativa: %s" % row_text(row, "status"))
+
+    if criteria["states"]:
+        if row_text(row, "state").upper() not in criteria["states"]:
+            blocked.append("UF fora do ICP: %s" % row_text(row, "state"))
+        else:
+            add_match(matched, "UF dentro do ICP", row_text(row, "state"))
+
+    if criteria["cities"]:
+        if lower_row_text(row, "city") not in criteria["cities"]:
+            blocked.append("Cidade fora do ICP: %s" % row_text(row, "city"))
+        else:
+            add_match(matched, "Cidade dentro do ICP", row_text(row, "city"))
+
+    if criteria["cnaes"]:
+        if not cnae_matches(row_text(row, "main_cnae_code"), criteria["cnaes"]):
+            blocked.append("CNAE fora do ICP: %s" % row_text(row, "main_cnae_code"))
+        else:
+            add_match(matched, "CNAE dentro do ICP", row_text(row, "main_cnae_code"))
+
+    if criteria["sectors"]:
+        if lower_row_text(row, "sector") not in criteria["sectors"]:
+            blocked.append("Setor fora do ICP: %s" % row_text(row, "sector"))
+        else:
+            add_match(matched, "Setor dentro do ICP", row_text(row, "sector"))
+
+    if criteria["sizes"]:
+        if lower_row_text(row, "size") not in criteria["sizes"]:
+            blocked.append("Porte fora do ICP: %s" % row_text(row, "size"))
+        else:
+            add_match(matched, "Porte dentro do ICP", row_text(row, "size"))
+
+    if company_score < criteria["min_opportunity_score"]:
+        blocked.append("Score da empresa abaixo do ICP: %s" % company_score)
+    elif criteria["min_opportunity_score"]:
+        add_match(matched, "Score da empresa atingiu minimo", company_score)
+
+    if criteria["require_email"] and not email:
+        blocked.append("ICP exige e-mail")
+
+    if email:
+        eligibility = assess_lead_eligibility(conn, email, row["company_id"])
+        hygiene = eligibility["hygiene"]
+        scoring = eligibility["email_score"]
+        email_score = int(scoring.get("score") or 0)
+        email_labels = scoring.get("labels") or []
+        if criteria["exclude_suppressed"] and hygiene.get("classification") in ("Suprimido", "Opt-out"):
+            blocked.append("E-mail em supressao/opt-out")
+        if not eligibility["eligible"]:
+            blocked.append(eligibility["block_reason"])
+        if email_score < criteria["min_email_score"]:
+            blocked.append("Score de e-mail abaixo do ICP: %s" % email_score)
+        else:
+            add_match(matched, "Score de e-mail atingiu minimo", email_score)
+        if criteria["require_corporate_email"] and "personal_domain" in email_labels:
+            blocked.append("ICP exige e-mail corporativo")
+        if criteria["exclude_shared_email"] and set(email_labels) & {"shared_contact", "shared_domain", "known_shared_domain"}:
+            blocked.append("ICP bloqueia contato compartilhado/terceirizado")
+
+    if digital_score:
+        add_match(matched, "Maturidade digital disponivel", digital_score)
+
+    fit_score = min(100, 35 + (len(matched) * 10))
+    priority_score = int(round((company_score * 0.40) + (email_score * 0.35) + (fit_score * 0.20) + (digital_score * 0.05)))
+    reason = {
+        "matched": matched,
+        "blocked": blocked,
+        "company_score": company_score,
+        "email_score": email_score,
+        "email_labels": email_labels,
+        "hygiene_classification": hygiene.get("classification", ""),
+        "digital_maturity_score": digital_score,
+        "fit_score": fit_score,
+        "priority_score": priority_score,
+        "criteria": criteria,
+    }
+    return {
+        "matched": not blocked,
+        "blocked": blocked,
+        "reason": reason,
+        "fit_score": fit_score,
+        "priority_score": priority_score,
+    }
+
+
+def icp_candidate_rows(conn, criteria, list_id=None):
+    limit = min(max(criteria["max_leads"] * 10, criteria["max_leads"]), 1000)
+    if list_id:
+        base = conn.execute("SELECT id FROM lists WHERE id = ? AND org_id = ?", (list_id, ORG_ID)).fetchone()
+        if not base:
+            raise ValueError("Lista nao encontrada")
+        return conn.execute(
+            """
+            SELECT c.id AS company_id, c.cnpj, c.legal_name, c.trade_name, c.status,
+                   c.city, c.state, c.main_cnae_code, c.main_cnae_description,
+                   c.size, c.email, c.sector, c.opportunity_score,
+                   l.id AS lead_id, l.status AS lead_status, l.block_reason AS lead_block_reason,
+                   ce.digital_maturity_score
+            FROM list_companies lc
+            JOIN companies c ON c.id = lc.company_id
+            LEFT JOIN leads l ON l.company_id = c.id AND l.list_id = lc.list_id AND l.org_id = ?
+            LEFT JOIN company_enrichment ce ON ce.company_id = c.id
+            WHERE lc.list_id = ?
+            ORDER BY c.opportunity_score DESC, c.legal_name ASC
+            LIMIT ?
+            """,
+            (ORG_ID, int(list_id), limit),
+        ).fetchall()
+    return conn.execute(
+        """
+        SELECT c.id AS company_id, c.cnpj, c.legal_name, c.trade_name, c.status,
+               c.city, c.state, c.main_cnae_code, c.main_cnae_description,
+               c.size, c.email, c.sector, c.opportunity_score,
+               NULL AS lead_id, NULL AS lead_status, NULL AS lead_block_reason,
+               ce.digital_maturity_score
+        FROM companies c
+        LEFT JOIN company_enrichment ce ON ce.company_id = c.id
+        ORDER BY c.opportunity_score DESC, c.legal_name ASC
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+
+
+def existing_priority_item(conn, rule_id, company_id, list_id=None):
+    if list_id is None:
+        return conn.execute(
+            """
+            SELECT *
+            FROM lead_priority_queue
+            WHERE org_id = ? AND icp_rule_id = ? AND company_id = ? AND list_id IS NULL
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (ORG_ID, rule_id, company_id),
+        ).fetchone()
+    return conn.execute(
+        """
+        SELECT *
+        FROM lead_priority_queue
+        WHERE org_id = ? AND icp_rule_id = ? AND company_id = ? AND list_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (ORG_ID, rule_id, company_id, int(list_id)),
+    ).fetchone()
+
+
+def upsert_priority_item(conn, rule, row, evaluation, list_id=None):
+    existing = existing_priority_item(conn, rule["id"], row["company_id"], list_id)
+    timestamp = now_iso()
+    reason_json = json.dumps(evaluation["reason"], ensure_ascii=True)
+    if existing:
+        if existing["status"] in ("accepted", "rejected", "enrolled"):
+            return None, "existing_decided"
+        conn.execute(
+            """
+            UPDATE lead_priority_queue
+            SET lead_id = ?, status = ?, priority_score = ?, fit_score = ?,
+                reason_json = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                row["lead_id"],
+                "suggested",
+                evaluation["priority_score"],
+                evaluation["fit_score"],
+                reason_json,
+                timestamp,
+                existing["id"],
+            ),
+        )
+        return existing["id"], "updated"
+    cursor = conn.execute(
+        """
+        INSERT INTO lead_priority_queue (
+            org_id, icp_rule_id, lead_id, company_id, list_id, status,
+            priority_score, fit_score, reason_json, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            ORG_ID,
+            rule["id"],
+            row["lead_id"],
+            row["company_id"],
+            int(list_id) if list_id else None,
+            "suggested",
+            evaluation["priority_score"],
+            evaluation["fit_score"],
+            reason_json,
+            timestamp,
+            timestamp,
+        ),
+    )
+    return cursor.lastrowid, "created"
+
+
+def prioritize_icp_rule(conn, rule_id, list_id=None, limit=None):
+    rule = get_icp_rule(conn, rule_id)
+    if not rule:
+        raise ValueError("ICP nao encontrado")
+    if rule["status"] == "archived":
+        raise ValueError("ICP arquivado nao pode priorizar")
+    criteria = dict(rule["criteria"])
+    if limit:
+        criteria["max_leads"] = int_criteria(limit, criteria["max_leads"], 1, 500)
+        rule["criteria"] = criteria
+    if list_id:
+        create_leads_from_list(conn, int(list_id), "priorizacao ICP")
+    rows = icp_candidate_rows(conn, criteria, list_id=list_id)
+    suggested = 0
+    updated = 0
+    skipped_existing = 0
+    blocked = 0
+    blocked_reasons = {}
+    for row in rows:
+        if suggested >= criteria["max_leads"]:
+            break
+        evaluation = evaluate_icp_candidate(conn, row, rule)
+        if not evaluation["matched"]:
+            blocked += 1
+            for reason in evaluation["blocked"]:
+                blocked_reasons[reason] = blocked_reasons.get(reason, 0) + 1
+            continue
+        item_id, state = upsert_priority_item(conn, rule, row, evaluation, list_id=list_id)
+        if not item_id:
+            skipped_existing += 1
+            continue
+        if state == "created":
+            suggested += 1
+        else:
+            updated += 1
+    summary = {
+        "evaluated": len(rows),
+        "suggested": suggested,
+        "updated": updated,
+        "blocked": blocked,
+        "skipped_existing": skipped_existing,
+        "blocked_reasons": blocked_reasons,
+        "list_id": int(list_id) if list_id else None,
+        "max_leads": criteria["max_leads"],
+    }
+    log_agent_action(
+        conn,
+        None,
+        None,
+        "icp_prioritized",
+        "system",
+        "ICP %s priorizou %s leads elegiveis" % (rule["name"], suggested + updated),
+        {"icp_rule_id": rule["id"], "summary": summary},
+    )
+    audit(conn, "prioritize_icp_rule", "icp_rule", rule["id"], summary)
+    return {"icp_rule": get_icp_rule(conn, rule["id"]), "summary": summary, "items": list_priority_queue(conn, {"icp_rule_id": rule["id"], "list_id": list_id}).get("items", [])}
+
+
+def parse_priority_item_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["reason"] = json.loads(data.pop("reason_json") or "{}")
+    return data
+
+
+def list_priority_queue(conn, params=None):
+    params = params or {}
+    where = ["q.org_id = ?"]
+    values = [ORG_ID]
+    if params.get("icp_rule_id"):
+        where.append("q.icp_rule_id = ?")
+        values.append(int(params.get("icp_rule_id")))
+    if params.get("status"):
+        where.append("q.status = ?")
+        values.append(params.get("status"))
+    if params.get("list_id"):
+        where.append("q.list_id = ?")
+        values.append(int(params.get("list_id")))
+    rows = conn.execute(
+        """
+        SELECT q.*, r.name AS icp_name, l.email AS lead_email, c.cnpj,
+               c.legal_name, c.trade_name, c.email AS company_email,
+               c.city, c.state, c.main_cnae_code, c.size, c.opportunity_score
+        FROM lead_priority_queue q
+        JOIN icp_rules r ON r.id = q.icp_rule_id
+        JOIN companies c ON c.id = q.company_id
+        LEFT JOIN leads l ON l.id = q.lead_id
+        WHERE %s
+        ORDER BY q.priority_score DESC, q.id DESC
+        LIMIT ?
+        """
+        % " AND ".join(where),
+        values + [min(int(params.get("limit", 100) or 100), 500)],
+    ).fetchall()
+    return {"items": [parse_priority_item_row(row) for row in rows]}
+
+
+def decide_priority_queue_item(conn, item_id, decision, note=""):
+    if decision not in ("accept", "reject"):
+        raise ValueError("Decisao invalida")
+    item = conn.execute(
+        "SELECT * FROM lead_priority_queue WHERE id = ? AND org_id = ?",
+        (item_id, ORG_ID),
+    ).fetchone()
+    if not item:
+        raise ValueError("Sugestao nao encontrada")
+    if item["status"] not in ("suggested", "stale"):
+        raise ValueError("Sugestao ja decidida")
+    status = "accepted" if decision == "accept" else "rejected"
+    timestamp = now_iso()
+    conn.execute(
+        """
+        UPDATE lead_priority_queue
+        SET status = ?, decision_note = ?, updated_at = ?
+        WHERE id = ?
+        """,
+        (status, note or "", timestamp, item_id),
+    )
+    log_agent_action(
+        conn,
+        item["lead_id"],
+        None,
+        "priority_%s" % status,
+        "human",
+        note or ("Sugestao %s por humano" % status),
+        {"priority_queue_id": item_id, "icp_rule_id": item["icp_rule_id"], "company_id": item["company_id"]},
+    )
+    audit(conn, "decide_priority_queue_item", "lead_priority_queue", item_id, {"status": status, "note": note})
+    return parse_priority_item_row(
+        conn.execute(
+            """
+            SELECT q.*, r.name AS icp_name, l.email AS lead_email, c.cnpj,
+                   c.legal_name, c.trade_name, c.email AS company_email,
+                   c.city, c.state, c.main_cnae_code, c.size, c.opportunity_score
+            FROM lead_priority_queue q
+            JOIN icp_rules r ON r.id = q.icp_rule_id
+            JOIN companies c ON c.id = q.company_id
+            LEFT JOIN leads l ON l.id = q.lead_id
+            WHERE q.id = ?
+            """,
+            (item_id,),
+        ).fetchone()
+    )
+
+
 def audit_events(conn, limit=100):
     rows = conn.execute(
         "SELECT * FROM audit_logs WHERE org_id = ? ORDER BY id DESC LIMIT ?",

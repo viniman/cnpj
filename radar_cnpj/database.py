@@ -509,6 +509,40 @@ def init_db():
                 FOREIGN KEY (sequence_id) REFERENCES sequences(id) ON DELETE SET NULL
             );
 
+            CREATE TABLE IF NOT EXISTS icp_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                criteria_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS lead_priority_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                icp_rule_id INTEGER NOT NULL,
+                lead_id INTEGER,
+                company_id INTEGER NOT NULL,
+                list_id INTEGER,
+                status TEXT NOT NULL DEFAULT 'suggested',
+                priority_score INTEGER NOT NULL DEFAULT 0,
+                fit_score INTEGER NOT NULL DEFAULT 0,
+                reason_json TEXT NOT NULL,
+                decision_note TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE (org_id, icp_rule_id, company_id, list_id),
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (icp_rule_id) REFERENCES icp_rules(id) ON DELETE CASCADE,
+                FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL,
+                FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+                FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE SET NULL
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -602,6 +636,9 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_lead_journey_status ON lead_journey(status);
             CREATE INDEX IF NOT EXISTS idx_approval_queue_status ON approval_queue(status);
             CREATE INDEX IF NOT EXISTS idx_agent_actions_created ON agent_actions(created_at);
+            CREATE INDEX IF NOT EXISTS idx_icp_rules_status ON icp_rules(status);
+            CREATE INDEX IF NOT EXISTS idx_lead_priority_rule ON lead_priority_queue(icp_rule_id, status);
+            CREATE INDEX IF NOT EXISTS idx_lead_priority_score ON lead_priority_queue(priority_score);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);
