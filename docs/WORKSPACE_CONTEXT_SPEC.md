@@ -90,8 +90,9 @@ Define o workspace ativo local.
 
 - A tabela `companies` continua global nesta fase; o dashboard conta empresas
   por vinculo em listas do workspace.
-- Modulos de campanha, templates, sequencias, ICP, respostas e reunioes ainda
-  mantem migracoes dedicadas para fases futuras.
+- Modulos de templates, sequencias, ICP, respostas e reunioes ainda mantem
+  migracoes dedicadas para fases futuras. Experimentos/campanhas simuladas
+  foram migrados na Fase 18.
 - O contexto e local/singleton, adequado para localhost. Produto SaaS exigira
   contexto por usuario/sessao e RBAC.
 

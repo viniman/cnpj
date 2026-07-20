@@ -1243,3 +1243,58 @@ dashboard_lists=0
 dashboard_companies=0
 workspace_restored=1
 ```
+
+## 2026-07-20 - Inicio da fase 18 de contexto em experimentos
+
+Branch: `feature/18-experiment-context-foundation`
+
+Estado inicial:
+
+- Fase 17 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 64 tests`, `OK`.
+
+Meta da fase:
+
+- Migrar leads, campanhas, simulacoes e eventos de experimento para o workspace
+  ativo.
+- Bloquear acesso cruzado a campanha/lista/envio de outro workspace.
+- Preservar envio real fora de escopo; o provider continua `simulated`.
+
+Documento principal:
+
+- `docs/EXPERIMENT_CONTEXT_SPEC.md`
+
+Commits:
+
+- `475281d docs: define experiment context phase`
+- `7f6accf feat: scope experiments to active workspace`
+
+Implementado:
+
+- Supressoes e opt-outs consultados globalmente por seguranca.
+- `add_suppression` auditando no workspace ativo.
+- Leads de experimento criados a partir de listas do workspace ativo.
+- Listagem de leads de experimento filtrada por workspace ativo.
+- Campanhas criadas, listadas e detalhadas por workspace ativo.
+- Simulacao recusando campanha/lista fora do workspace ativo.
+- Eventos recusando envio fora do workspace ativo.
+- Funil de campanha contado pelo workspace ativo.
+- Aba `Experimentos` recarregando listas ao trocar workspace.
+- Teste de isolamento multi-workspace em `tests/test_email_experiments.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_email_experiments
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 65 tests
+OK
+```
