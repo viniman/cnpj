@@ -3704,6 +3704,10 @@ def command_center_inbox(conn, limit=50):
                 "origin_label": command_origin_label("approval"),
                 "created_at": approval["created_at"],
                 "context": context,
+                "actions": [
+                    {"decision": "approve", "label": "Aprovar"},
+                    {"decision": "reject", "label": "Rejeitar"},
+                ],
             }
         )
     for handoff in list_handoffs(conn, {"status": "pending", "limit": limit})["items"]:
@@ -3721,6 +3725,10 @@ def command_center_inbox(conn, limit=50):
                 "origin_label": command_origin_label("handoff"),
                 "created_at": handoff["created_at"],
                 "context": context,
+                "actions": [
+                    {"decision": "resolve", "label": "Resolver"},
+                    {"decision": "dismiss", "label": "Dispensar"},
+                ],
             }
         )
     meeting_rows = conn.execute(
@@ -3755,6 +3763,11 @@ def command_center_inbox(conn, limit=50):
                     "meeting_url": meeting.get("meeting_url") or "",
                     "handoff_id": meeting.get("handoff_id"),
                 },
+                "actions": [
+                    {"decision": "complete", "label": "Concluir"},
+                    {"decision": "cancel", "label": "Cancelar"},
+                    {"decision": "no_show", "label": "No-show"},
+                ],
             }
         )
     items.sort(key=lambda item: item.get("created_at") or "", reverse=True)
@@ -3859,6 +3872,50 @@ def command_center(conn):
         "inbox": command_center_inbox(conn, 50),
         "kanban": command_center_kanban(conn, 200),
         "activity": command_center_activity(conn, 100),
+    }
+
+
+def command_center_action(conn, payload):
+    payload = payload or {}
+    source_type = (payload.get("source_type") or "").strip()
+    decision = (payload.get("decision") or "").strip()
+    source_id = int(payload.get("source_id") or 0)
+    note = payload.get("note") or ""
+    if not source_id:
+        raise ValueError("Informe source_id")
+
+    if source_type == "approval":
+        if decision == "approve":
+            result = approve_sequence_step(conn, source_id, note)
+        elif decision == "reject":
+            result = reject_sequence_step(conn, source_id, note)
+        else:
+            raise ValueError("Decisao invalida para approval")
+    elif source_type == "handoff":
+        if decision == "resolve":
+            result = decide_handoff(conn, source_id, "resolve", note)
+        elif decision == "dismiss":
+            result = decide_handoff(conn, source_id, "dismiss", note)
+        else:
+            raise ValueError("Decisao invalida para handoff")
+    elif source_type == "meeting":
+        if decision == "complete":
+            result = update_meeting_status(conn, source_id, "completed", note)
+        elif decision == "cancel":
+            result = update_meeting_status(conn, source_id, "cancelled", note)
+        elif decision == "no_show":
+            result = update_meeting_status(conn, source_id, "no_show", note)
+        else:
+            raise ValueError("Decisao invalida para meeting")
+    else:
+        raise ValueError("Tipo de origem invalido")
+
+    return {
+        "source_type": source_type,
+        "source_id": source_id,
+        "decision": decision,
+        "result": result,
+        "command_center": command_center(conn),
     }
 
 

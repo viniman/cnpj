@@ -6,6 +6,7 @@ from radar_cnpj.database import connect, init_db
 from radar_cnpj.services import (
     add_companies_to_list,
     command_center,
+    command_center_action,
     create_email_template,
     create_leads_from_list,
     create_list,
@@ -90,6 +91,49 @@ class CommandCenterTest(unittest.TestCase):
         )
         return lead["id"]
 
+    def seed_pending_approval(self, conn):
+        company_id = upsert_company(
+            conn,
+            {
+                "cnpj": "44.555.666/0001-77",
+                "legal_name": "DELTA FLOW LTDA",
+                "trade_name": "Delta Flow",
+                "status": "Ativa",
+                "email": "comercial@deltaflow.com.br",
+                "main_cnae_code": "6201501",
+                "main_cnae_description": "Software",
+                "city": "Sao Paulo",
+                "state": "SP",
+                "capital_social": 180000,
+            },
+            "Teste",
+            "fixture",
+            "Teste automatizado",
+        )
+        lead_list = create_list(conn, "Lista Approval Command", "Teste")
+        add_companies_to_list(conn, lead_list["id"], [company_id])
+        create_leads_from_list(conn, lead_list["id"], "teste approval command")
+        template = create_email_template(
+            conn,
+            {
+                "name": "Primeiro contato approval",
+                "purpose": "first_contact",
+                "subject": "Ideia para {{nome_empresa}}",
+                "body": "Mensagem para {{nome_empresa}}.",
+            },
+        )
+        sequence = create_sequence(
+            conn,
+            {
+                "name": "Cadencia approval",
+                "steps": [{"name": "Primeiro contato", "template_id": template["id"]}],
+            },
+        )
+        enroll_sequence_from_list(conn, sequence["id"], lead_list["id"])
+        approval = conn.execute("SELECT * FROM approval_queue WHERE status = 'pending' ORDER BY id DESC LIMIT 1").fetchone()
+        lead = conn.execute("SELECT * FROM leads WHERE company_id = ?", (company_id,)).fetchone()
+        return approval["id"], lead["id"]
+
     def test_command_center_aggregates_inbox_kanban_and_activity(self):
         conn = connect()
         try:
@@ -113,6 +157,83 @@ class CommandCenterTest(unittest.TestCase):
             self.assertIn("approval_requested", actions)
             self.assertIn("reply_classified", actions)
             self.assertIn("meeting_created", actions)
+        finally:
+            conn.close()
+
+    def test_command_center_action_approves_approval(self):
+        conn = connect()
+        try:
+            approval_id, lead_id = self.seed_pending_approval(conn)
+            result = command_center_action(
+                conn,
+                {
+                    "source_type": "approval",
+                    "source_id": approval_id,
+                    "decision": "approve",
+                    "note": "Aprovado pela inbox unificada",
+                },
+            )
+            self.assertEqual(result["source_type"], "approval")
+            self.assertEqual(result["decision"], "approve")
+            approval = conn.execute("SELECT status FROM approval_queue WHERE id = ?", (approval_id,)).fetchone()
+            self.assertEqual(approval["status"], "approved")
+            send = conn.execute("SELECT id FROM sends WHERE lead_id = ?", (lead_id,)).fetchone()
+            self.assertIsNotNone(send)
+            inbox_ids = [
+                item["source_id"]
+                for item in result["command_center"]["inbox"]["items"]
+                if item["source_type"] == "approval"
+            ]
+            self.assertNotIn(approval_id, inbox_ids)
+        finally:
+            conn.close()
+
+    def test_command_center_action_decides_handoff_and_meeting(self):
+        conn = connect()
+        try:
+            lead_id = self.seed_command_center_context(conn)
+            handoff = conn.execute("SELECT * FROM handoffs WHERE lead_id = ? AND status = 'pending'", (lead_id,)).fetchone()
+            meeting = conn.execute("SELECT * FROM meetings WHERE lead_id = ? AND status = 'scheduled'", (lead_id,)).fetchone()
+
+            handoff_result = command_center_action(
+                conn,
+                {
+                    "source_type": "handoff",
+                    "source_id": handoff["id"],
+                    "decision": "resolve",
+                    "note": "Resolvido pela inbox unificada",
+                },
+            )
+            self.assertEqual(handoff_result["result"]["status"], "resolved")
+
+            meeting_result = command_center_action(
+                conn,
+                {
+                    "source_type": "meeting",
+                    "source_id": meeting["id"],
+                    "decision": "complete",
+                    "note": "Reuniao concluida pela inbox unificada",
+                },
+            )
+            self.assertEqual(meeting_result["result"]["status"], "completed")
+            lead = conn.execute("SELECT status FROM leads WHERE id = ?", (lead_id,)).fetchone()
+            self.assertEqual(lead["status"], "qualified")
+        finally:
+            conn.close()
+
+    def test_command_center_action_rejects_invalid_decision(self):
+        conn = connect()
+        try:
+            approval_id, _lead_id = self.seed_pending_approval(conn)
+            with self.assertRaises(ValueError):
+                command_center_action(
+                    conn,
+                    {
+                        "source_type": "approval",
+                        "source_id": approval_id,
+                        "decision": "complete",
+                    },
+                )
         finally:
             conn.close()
 

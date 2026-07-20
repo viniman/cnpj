@@ -19,6 +19,7 @@ from .services import (
     create_meeting,
     create_meeting_from_handoff,
     create_sequence,
+    command_center_action,
     command_center,
     dashboard,
     decide_handoff,
@@ -346,6 +347,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, decide_priority_queue_item(conn, int(parts[2]), "accept", data.get("note") or ""))
                 elif len(parts) == 4 and parts[1] == "priority-queue" and parts[3] == "reject":
                     self.send_json_commit(conn, decide_priority_queue_item(conn, int(parts[2]), "reject", data.get("note") or ""))
+                elif parsed.path == "/api/command-center/actions":
+                    self.send_json_commit(conn, command_center_action(conn, data))
                 elif parsed.path == "/api/replies/classify":
                     self.send_json_commit(conn, record_inbound_reply(conn, data), 201)
                 elif len(parts) == 4 and parts[1] == "handoffs" and parts[3] == "meeting":
