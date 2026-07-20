@@ -1506,3 +1506,58 @@ Resultado esperado nesta etapa:
 Ran 70 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 23 de Command Center por workspace
+
+Branch: `feature/23-command-center-context-foundation`
+
+Estado inicial:
+
+- Fase 22 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 70 tests`, `OK` usando `TEMP/TMP` em `D:`
+  porque o drive `C:` esta sem espaco livre no ambiente local.
+
+Meta da fase:
+
+- Migrar metricas, inbox, Kanban e feed do Command Center para o workspace
+  ativo.
+- Migrar replay por lead para o workspace ativo.
+- Bloquear acoes e timelines de outro workspace por validacao nos servicos de
+  origem.
+
+Documento principal:
+
+- `docs/COMMAND_CENTER_CONTEXT_SPEC.md`
+
+Commits:
+
+- `cd6fd8e docs: define command center context phase`
+- `a0272be feat: scope command center to active workspace`
+
+Implementado:
+
+- Replay por lead filtrando pelo workspace ativo.
+- Metricas, inbox, Kanban e feed de atividade do Command Center usando o
+  workspace ativo.
+- Inbox de reunioes e feed com joins protegidos por `org_id`.
+- Acoes do Command Center permanecendo delegadas para os servicos de origem.
+- Teste multi-workspace em `tests/test_command_center.py`.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_command_center
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 71 tests
+OK
+```

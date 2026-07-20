@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 22 implementada localmente em `feature/22-reply-meeting-context-foundation`.
+Status: fase 23 implementada localmente em `feature/23-command-center-context-foundation`.
 
 Fases:
 
@@ -129,6 +129,7 @@ Fases:
 16. Sequencias, jornadas e aprovacoes por workspace ativo.
 17. ICP e fila SDR por workspace ativo.
 18. Respostas, handoffs e reunioes por workspace ativo.
+19. Command Center e replay por workspace ativo.
 
 ## Camada 6 - SaaS monetizavel
 
