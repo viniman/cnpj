@@ -18,6 +18,7 @@
         </div>
         <nav class="nav">
           <button class="nav-item active" data-view="dashboard">Dashboard</button>
+          <button class="nav-item" data-view="command">Comando</button>
           <button class="nav-item" data-view="companies">Empresas</button>
           <button class="nav-item" data-view="lists">Listas</button>
           <button class="nav-item" data-view="import">Importacao</button>
@@ -73,6 +74,34 @@
               <div id="imports" class="table-wrap"></div>
             </section>
           </div>
+        </section>
+
+        <section id="command" class="view">
+          <div class="metric-grid" id="commandMetrics"></div>
+
+          <div class="content-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Inbox humano</h2>
+                <button id="refreshCommandBtn" class="button">Atualizar</button>
+              </div>
+              <div id="commandInbox" class="table-wrap"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Feed de atividade</h2>
+              </div>
+              <div id="commandActivity" class="table-wrap"></div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>CRM Kanban</h2>
+            </div>
+            <div id="commandKanban" class="kanban-grid"></div>
+          </section>
         </section>
 
         <section id="companies" class="view">

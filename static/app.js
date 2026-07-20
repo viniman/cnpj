@@ -13,6 +13,7 @@ const state = {
   replies: [],
   handoffs: [],
   meetings: [],
+  commandCenter: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -67,6 +68,7 @@ function setView(view) {
   $$(".nav-item").forEach((node) => node.classList.toggle("active", node.dataset.view === view));
   const titles = {
     dashboard: "Dashboard",
+    command: "Centro de Comando",
     companies: "Pesquisa de empresas",
     lists: "Listas",
     import: "Importacao",
@@ -81,6 +83,7 @@ function setView(view) {
   };
   $("#pageTitle").textContent = titles[view] || "Radar CNPJ";
   if (view === "dashboard") loadDashboard();
+  if (view === "command") loadCommandCenter();
   if (view === "companies") {
     loadLists();
     loadCompanies();
@@ -127,6 +130,121 @@ function renderBars(selector, items, key, subtitleKey) {
       return `<div class="bar-row"><span class="truncate" title="${escapeHtml(label)}">${escapeHtml(label)}</span><div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div><strong>${item.total}</strong></div>`;
     })
     .join("");
+}
+
+async function loadCommandCenter() {
+  const data = await api("/api/command-center");
+  state.commandCenter = data;
+  renderCommandMetrics(data.metrics || {});
+  renderCommandInbox(data.inbox?.items || []);
+  renderCommandKanban(data.kanban?.columns || []);
+  renderCommandActivity(data.activity?.items || []);
+}
+
+function renderCommandMetrics(metrics) {
+  $("#commandMetrics").innerHTML = [
+    metric("Aprovacoes", metrics.pending_approvals || 0, metrics.pending_approvals ? "amber" : ""),
+    metric("Handoffs", metrics.pending_handoffs || 0, metrics.pending_handoffs ? "amber" : ""),
+    metric("Reunioes abertas", metrics.open_meetings || 0, metrics.open_meetings ? "green" : ""),
+    metric("Leads ativos", metrics.active_leads || 0),
+    metric("Acoes logadas", metrics.recent_actions || 0),
+  ].join("");
+}
+
+function commandTypeTone(type) {
+  if (type === "meeting") return "green";
+  if (type === "handoff") return "amber";
+  if (type === "approval") return "purple";
+  return "";
+}
+
+function priorityTone(priority) {
+  if (priority === "urgent") return "red";
+  if (priority === "high") return "amber";
+  if (priority === "medium") return "purple";
+  return "";
+}
+
+function renderCommandInbox(items) {
+  const container = $("#commandInbox");
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhuma pendencia humana agora.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["Tipo", "ID", "Prioridade", "Empresa", "Email", "Status", "Origem", "Motivo"],
+    items.map((item) => [
+      badge(item.source_type, commandTypeTone(item.source_type)),
+      item.source_id,
+      badge(item.priority, priorityTone(item.priority)),
+      escapeHtml(item.company_name || "-"),
+      escapeHtml(item.email || "-"),
+      badge(item.status, experimentStatusTone(item.status)),
+      escapeHtml(item.origin_label || "-"),
+      previewHtml(item.reason || item.title || "-"),
+    ]),
+  );
+}
+
+function renderCommandKanban(columns) {
+  const container = $("#commandKanban");
+  if (!columns.length) {
+    container.innerHTML = `<div class="empty-state">Nenhum lead no pipeline.</div>`;
+    return;
+  }
+  container.innerHTML = columns
+    .map((column) => {
+      const cards = column.items || [];
+      const markup = cards.length
+        ? cards
+            .map(
+              (card) => `
+                <article class="kanban-card">
+                  <div class="kanban-card-head">
+                    <strong title="${escapeHtml(card.company_name)}">${escapeHtml(card.company_name || "-")}</strong>
+                    ${badge(card.score || 0, scoreTone(card.score || 0))}
+                  </div>
+                  <span>${escapeHtml(card.email || "-")}</span>
+                  <div class="stat-line compact-line">
+                    ${badge(card.status, experimentStatusTone(card.status))}
+                    ${card.sequence_name ? badge(card.sequence_name, "purple") : ""}
+                  </div>
+                  <small>${escapeHtml([card.city, card.state].filter(Boolean).join(" / ") || card.next_action_at || "-")}</small>
+                </article>
+              `,
+            )
+            .join("")
+        : `<div class="kanban-empty">Vazio</div>`;
+      return `
+        <section class="kanban-column">
+          <header>
+            <h3>${escapeHtml(column.label)}</h3>
+            <span>${cards.length}</span>
+          </header>
+          <div class="kanban-list">${markup}</div>
+        </section>
+      `;
+    })
+    .join("");
+}
+
+function renderCommandActivity(items) {
+  const container = $("#commandActivity");
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhuma atividade registrada.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["Data", "Acao", "Origem", "Lead", "Empresa", "Motivo"],
+    items.map((item) => [
+      escapeHtml(item.created_at),
+      badge(item.action_type, "purple"),
+      escapeHtml(item.origin_label || item.source || "-"),
+      escapeHtml(item.lead_email || "-"),
+      escapeHtml(item.company_name || "-"),
+      previewHtml(item.reason || "-"),
+    ]),
+  );
 }
 
 function renderImports(items) {
@@ -1535,6 +1653,7 @@ function wireEvents() {
   $("#refreshApprovalsBtn").addEventListener("click", loadApprovals);
   $("#refreshJourneysBtn").addEventListener("click", loadJourneys);
   $("#refreshAgentActionsBtn").addEventListener("click", loadAgentActions);
+  $("#refreshCommandBtn").addEventListener("click", loadCommandCenter);
   $("#createIcpBtn").addEventListener("click", createIcpRuleFromForm);
   $("#refreshIcpBtn").addEventListener("click", loadIcpWorkspace);
   $("#refreshPriorityBtn").addEventListener("click", loadPriorityQueue);
