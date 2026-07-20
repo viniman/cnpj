@@ -4,6 +4,9 @@ const state = {
   selectedCompanies: new Set(),
   lists: [],
   currentListId: null,
+  templates: [],
+  selectedTemplateId: null,
+  lastRenderedTemplate: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -63,6 +66,7 @@ function setView(view) {
     import: "Importacao",
     enrichment: "Enriquecimento",
     experiments: "Experimentos",
+    templates: "Templates",
     hygiene: "Higiene de emails",
     audit: "Auditoria",
   };
@@ -75,6 +79,7 @@ function setView(view) {
   if (view === "lists") loadLists(true);
   if (view === "import") loadOfficialCatalog();
   if (view === "experiments") loadExperiments();
+  if (view === "templates") loadTemplates();
   if (view === "audit") loadAudit();
 }
 
@@ -694,6 +699,141 @@ async function recordExperimentEvent() {
   await Promise.all([loadCampaigns(), loadExperimentLeads()]);
 }
 
+function clearTemplateForm() {
+  state.selectedTemplateId = null;
+  state.lastRenderedTemplate = null;
+  $("#templateSelectedId").value = "";
+  $("#templateName").value = "";
+  $("#templatePurpose").value = "first_contact";
+  $("#templateSubject").value = "";
+  $("#templateBody").value = "";
+  $("#templatePreviewResult").innerHTML = `<div class="empty-state">Selecione um template e renderize com uma empresa.</div>`;
+}
+
+async function loadTemplates() {
+  const data = await api("/api/templates");
+  state.templates = data.items || [];
+  renderTemplatesTable(state.templates);
+}
+
+function renderTemplatesTable(items) {
+  const container = $("#templatesTable");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhum template criado ainda.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["ID", "Nome", "Finalidade", "Status", "Versao", "Variaveis", ""],
+    items.map((item) => {
+      const version = item.active_version || {};
+      return [
+        item.id,
+        `<span class="truncate" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>`,
+        badge(item.purpose),
+        badge(item.status, item.status === "active" ? "green" : "amber"),
+        badge(version.version_number || "-"),
+        escapeHtml((version.variables || []).join(", ") || "-"),
+        `<button class="row-action" data-select-template="${item.id}">Selecionar</button>`,
+      ];
+    }),
+  );
+  $$("[data-select-template]").forEach((button) => {
+    button.addEventListener("click", () => selectTemplate(button.dataset.selectTemplate));
+  });
+}
+
+async function selectTemplate(templateId) {
+  const template = await api(`/api/templates/${templateId}`);
+  const version = template.active_version || {};
+  state.selectedTemplateId = template.id;
+  $("#templateSelectedId").value = template.id;
+  $("#templateName").value = template.name;
+  $("#templatePurpose").value = template.purpose || "other";
+  $("#templateSubject").value = version.subject || "";
+  $("#templateBody").value = version.body || "";
+  showStatus(`Template ${template.id} selecionado.`);
+}
+
+function templatePayloadFromForm() {
+  return {
+    name: $("#templateName").value.trim(),
+    purpose: $("#templatePurpose").value,
+    subject: $("#templateSubject").value.trim(),
+    body: $("#templateBody").value.trim(),
+  };
+}
+
+async function createTemplateFromForm() {
+  const payload = templatePayloadFromForm();
+  if (!payload.name || !payload.subject || !payload.body) {
+    return showStatus("Informe nome, assunto e corpo do template.", "warn");
+  }
+  const template = await api("/api/templates", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  state.selectedTemplateId = template.id;
+  $("#templateSelectedId").value = template.id;
+  showStatus("Template criado com versao 1 ativa.");
+  await loadTemplates();
+}
+
+async function createTemplateVersionFromForm() {
+  const templateId = Number($("#templateSelectedId").value || state.selectedTemplateId || 0);
+  if (!templateId) return showStatus("Selecione um template para criar nova versao.", "warn");
+  const payload = templatePayloadFromForm();
+  const template = await api(`/api/templates/${templateId}/versions`, {
+    method: "POST",
+    body: JSON.stringify({ subject: payload.subject, body: payload.body }),
+  });
+  const version = template.active_version || {};
+  showStatus(`Nova versao ativa: ${version.version_number}.`);
+  await loadTemplates();
+}
+
+function previewHtml(value) {
+  return `<pre class="preview-text">${escapeHtml(value || "-")}</pre>`;
+}
+
+async function renderTemplateFromForm() {
+  const templateId = Number($("#templateSelectedId").value || state.selectedTemplateId || 0);
+  if (!templateId) return showStatus("Selecione um template.", "warn");
+  const payload = {
+    template_id: templateId,
+    company_id: Number($("#templatePreviewCompanyId").value || 0) || undefined,
+    cta_url: $("#templatePreviewCta").value.trim(),
+    unsubscribe_url: $("#templatePreviewUnsubscribe").value.trim(),
+    privacy_url: $("#templatePreviewPrivacy").value.trim(),
+  };
+  const rendered = await api("/api/templates/render", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  state.lastRenderedTemplate = rendered;
+  $("#templatePreviewResult").innerHTML = table(
+    ["Campo", "Valor"],
+    [
+      ["Template", escapeHtml(`${rendered.name} v${rendered.version_number}`)],
+      ["Assunto", escapeHtml(rendered.subject)],
+      ["Corpo", previewHtml(rendered.body)],
+      ["Variaveis ausentes", escapeHtml((rendered.missing_variables || []).join(", ") || "-")],
+      ["Variaveis nao suportadas", escapeHtml((rendered.unsupported_variables || []).join(", ") || "-")],
+    ],
+  );
+  showStatus("Preview renderizado com rodape de compliance.");
+}
+
+function useTemplateInCampaign() {
+  const rendered = state.lastRenderedTemplate;
+  if (!rendered) return showStatus("Renderize um template antes de usar na campanha.", "warn");
+  $("#campaignSubject").value = rendered.subject || "";
+  $("#campaignBody").value = rendered.body || "";
+  $("#campaignCta").value = $("#templatePreviewCta").value.trim() || $("#campaignCta").value;
+  setView("experiments");
+  showStatus("Template renderizado aplicado ao formulario de campanha simulada.");
+}
+
 async function seed() {
   const result = await api("/api/seed", { method: "POST", body: "{}" });
   showStatus(result.message || "Amostra carregada.");
@@ -795,6 +935,12 @@ function wireEvents() {
   $("#createCampaignBtn").addEventListener("click", createCampaignFromForm);
   $("#refreshCampaignsBtn").addEventListener("click", loadCampaigns);
   $("#recordExperimentEventBtn").addEventListener("click", recordExperimentEvent);
+  $("#clearTemplateFormBtn").addEventListener("click", clearTemplateForm);
+  $("#refreshTemplatesBtn").addEventListener("click", loadTemplates);
+  $("#createTemplateBtn").addEventListener("click", createTemplateFromForm);
+  $("#createTemplateVersionBtn").addEventListener("click", createTemplateVersionFromForm);
+  $("#renderTemplateBtn").addEventListener("click", renderTemplateFromForm);
+  $("#useTemplateInCampaignBtn").addEventListener("click", useTemplateInCampaign);
   $("#seedBtn").addEventListener("click", seed);
   $("#seedBtnImport").addEventListener("click", seed);
   $("#validateEmailsBtn").addEventListener("click", validateFreeEmails);

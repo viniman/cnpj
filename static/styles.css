@@ -539,6 +539,15 @@ tr:hover td {
   text-overflow: ellipsis;
 }
 
+.preview-text {
+  max-width: 640px;
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--ink);
+  font-family: inherit;
+  line-height: 1.45;
+}
+
 @media (max-width: 1180px) {
   .shell {
     grid-template-columns: 1fr;

@@ -23,6 +23,7 @@
           <button class="nav-item" data-view="import">Importacao</button>
           <button class="nav-item" data-view="enrichment">Enriquecimento</button>
           <button class="nav-item" data-view="experiments">Experimentos</button>
+          <button class="nav-item" data-view="templates">Templates</button>
           <button class="nav-item" data-view="hygiene">Higiene</button>
           <button class="nav-item" data-view="audit">Auditoria</button>
         </nav>
@@ -364,6 +365,94 @@
               <h2>Leads</h2>
             </div>
             <div id="experimentLeadsTable" class="table-wrap"></div>
+          </section>
+        </section>
+
+        <section id="templates" class="view">
+          <div class="content-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Editor de template</h2>
+                <button id="clearTemplateFormBtn" class="button">Novo</button>
+              </div>
+              <div class="form-grid">
+                <label>
+                  ID selecionado
+                  <input id="templateSelectedId" class="input" readonly placeholder="Novo template" />
+                </label>
+                <label>
+                  Nome
+                  <input id="templateName" class="input" placeholder="Primeiro contato B2B" />
+                </label>
+                <label>
+                  Finalidade
+                  <select id="templatePurpose" class="input">
+                    <option value="first_contact">Primeiro contato</option>
+                    <option value="follow_up">Follow-up</option>
+                    <option value="final_follow_up">Follow-up final</option>
+                    <option value="reply_to_question">Resposta a duvida</option>
+                    <option value="other">Outro</option>
+                  </select>
+                </label>
+                <label>
+                  Assunto
+                  <input id="templateSubject" class="input" placeholder="Ideia rapida para {{nome_empresa}}" />
+                </label>
+              </div>
+              <div class="form-grid one">
+                <label>
+                  Corpo editavel
+                  <textarea id="templateBody" class="textarea" placeholder="Vi que a {{nome_empresa}} atua em {{cidade}}..."></textarea>
+                </label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <div class="toolbar-actions">
+                  <button id="createTemplateBtn" class="button primary">Criar template</button>
+                  <button id="createTemplateVersionBtn" class="button">Salvar nova versao</button>
+                </div>
+                <p class="muted">Use variaveis como {{nome_empresa}}, {{cidade}}, {{motivo_contato}} e {{cta_url}}.</p>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Preview seguro</h2>
+                <button id="renderTemplateBtn" class="button primary">Renderizar</button>
+              </div>
+              <div class="form-grid">
+                <label>
+                  ID da empresa
+                  <input id="templatePreviewCompanyId" class="input" type="number" min="1" placeholder="1" />
+                </label>
+                <label>
+                  CTA
+                  <input id="templatePreviewCta" class="input" placeholder="https://usevagou.com.br/contato" />
+                </label>
+                <label>
+                  Unsubscribe
+                  <input id="templatePreviewUnsubscribe" class="input" placeholder="http://127.0.0.1:8000/unsubscribe" />
+                </label>
+                <label>
+                  Privacidade
+                  <input id="templatePreviewPrivacy" class="input" placeholder="http://127.0.0.1:8000/privacy" />
+                </label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <button id="useTemplateInCampaignBtn" class="button">Usar na campanha</button>
+                <p class="muted">O rodape de compliance aparece apenas no texto renderizado.</p>
+              </div>
+              <div id="templatePreviewResult" class="table-wrap">
+                <div class="empty-state">Selecione um template e renderize com uma empresa.</div>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Biblioteca de templates</h2>
+              <button id="refreshTemplatesBtn" class="button">Atualizar</button>
+            </div>
+            <div id="templatesTable" class="table-wrap"></div>
           </section>
         </section>
 
