@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 16 iniciada em `feature/16-workspace-comparison-foundation`.
+Status: fase 16 implementada localmente em `feature/16-workspace-comparison-foundation`.
 
 Fases:
 

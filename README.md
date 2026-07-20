@@ -21,6 +21,7 @@ A aba `Comando` agrega a operacao em uma tela unica:
   simulacoes locais e custo estimado de IA.
 - Notificacoes proativas para lead quente, campanha pausada e OKR atingido ou
   em risco.
+- Comparacao executiva multi-workspace com perfis de empresa e snapshots.
 
 Endpoint:
 
@@ -101,6 +102,22 @@ Consultar notificacoes:
 
 ```powershell
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/notifications"
+```
+
+Consultar comparacao executiva de workspaces:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/workspaces/comparison"
+```
+
+Criar workspace para comparacao:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/workspaces" `
+  -Body '{"name":"Nine","vertical":"servicos locais","default_tone":"direto, acolhedor","sender_name":"Time Nine"}' `
+  -ContentType "application/json"
 ```
 
 ## Rodar localmente
@@ -657,6 +674,9 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/notifications/generate`
 - `POST /api/notifications/{id}/mark-read`
 - `POST /api/notifications/{id}/dismiss`
+- `GET /api/workspaces/comparison`
+- `POST /api/workspaces`
+- `POST /api/workspaces/{id}/snapshot`
 - `GET /api/companies`
 - `GET /api/companies/{id}`
 - `POST /api/import`
@@ -746,6 +766,9 @@ python -m unittest discover -s tests
   sequencias, OKRs ou configuracoes do agente automaticamente.
 - Notificacoes guardam origem (`source_type` e `source_id`) e nao alteram o
   registro operacional original ao serem lidas ou dispensadas.
+- Comparacao multi-workspace usa metricas por `org_id` onde ja existe esse
+  vinculo; empresas sao contadas pelas listas do workspace ate a futura
+  migracao completa da base bruta.
 
 ## Proximas fases sugeridas
 
@@ -757,6 +780,6 @@ python -m unittest discover -s tests
 6. Motor de score configuravel por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
 8. Templates de resposta manual assistida.
-9. Comparacao multi-workspace no dashboard executivo.
+9. Troca de contexto operacional por workspace.
 10. Adaptadores reais de notificacao: Slack, WhatsApp e resumo por e-mail.
 11. Integracao futura com provedores de email somente com opt-out, bounce e limites.

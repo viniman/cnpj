@@ -79,6 +79,8 @@ Tabelas principais:
   biblioteca reutilizavel de ICP/copy/cadencia/OKR e aplicacao auditavel.
 - `notifications`: fila local de alertas proativos com origem operacional,
   status e metadados de auditoria.
+- `workspace_metric_snapshots`: snapshots manuais das metricas executivas por
+  workspace.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -120,6 +122,9 @@ Tabelas principais:
   dados operacionais existentes sem uma fase guiada explicita.
 - Notificacoes sao consequencias auditaveis; marcar como lida ou dispensada
   nao altera handoffs, campanhas, OKRs ou outros registros de origem.
+- Comparacao executiva calcula metricas por `org_id` nas tabelas que ja suportam
+  workspace; empresas sao medidas por listas ate a base bruta ganhar isolamento
+  por tenant.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

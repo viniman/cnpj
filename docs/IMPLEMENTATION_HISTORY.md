@@ -1123,4 +1123,54 @@ Documento principal:
 
 Commits:
 
-- `pending docs: define workspace comparison phase`
+- `691da34 docs: define workspace comparison phase`
+- `34b0584 feat: add workspace comparison backend`
+- `3b62647 feat: add workspace comparison panel`
+
+Implementado:
+
+- Tabela `workspace_metric_snapshots`.
+- Criacao de workspace em `organizations` e `company_profiles`.
+- Calculo executivo por workspace:
+  - empresas vinculadas a listas;
+  - leads ativos;
+  - respostas;
+  - handoffs pendentes;
+  - reunioes abertas/concluidas;
+  - notificacoes pendentes;
+  - chamadas/tokens/custo de IA;
+  - playbook ativo.
+- Endpoint `GET /api/workspaces/comparison`.
+- Endpoint `POST /api/workspaces`.
+- Endpoint `POST /api/workspaces/{id}/snapshot`.
+- Painel `Comparacao executiva` na aba `Comando`.
+- Testes cobrindo criacao, comparacao por workspace e snapshot.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 60 tests
+OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+workspaces_before=1
+created_workspace_id=2
+created_workspace_name=Smoke Workspace 20260720021357
+created_vertical=servicos locais
+created_companies=0
+snapshot_id=1
+snapshot_workspace=Smoke Workspace 20260720021357
+snapshots_after=1
+workspaces_after=2
+```
