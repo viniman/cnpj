@@ -239,6 +239,60 @@ Tabelas principais:
 
 Importante: esta fase nao envia e-mail. O provider e sempre `simulated`.
 
+## Templates de e-mail versionados
+
+A aba `Templates` permite criar copies reutilizaveis com variaveis e preview
+com dados reais de empresa. O rodape de compliance e sempre injetado pelo
+backend e nao fica editavel no corpo do template.
+
+Variaveis principais:
+
+- `{{nome_empresa}}`
+- `{{razao_social}}`
+- `{{cidade}}`
+- `{{estado}}`
+- `{{cnae_descricao}}`
+- `{{setor}}`
+- `{{segmento}}`
+- `{{nome_contato}}`
+- `{{motivo_contato}}`
+- `{{cta_url}}`
+
+Criar template:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/templates" `
+  -Body '{"name":"Primeiro contato","purpose":"first_contact","subject":"Ideia para {{nome_empresa}}","body":"Vi que a {{nome_empresa}} {{motivo_contato}}. CTA: {{cta_url}}"}' `
+  -ContentType "application/json"
+```
+
+Criar nova versao:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/templates/1/versions" `
+  -Body '{"subject":"Nova ideia para {{nome_empresa}}","body":"Ola {{nome_contato}}, podemos conversar sobre {{cidade}}?"}' `
+  -ContentType "application/json"
+```
+
+Renderizar preview:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/templates/render" `
+  -Body '{"template_id":1,"company_id":1,"cta_url":"https://usevagou.com.br/contato"}' `
+  -ContentType "application/json"
+```
+
+Tabelas:
+
+- `email_templates`
+- `email_template_versions`
+
 ## Importar CSV simplificado
 
 Na tela `Importacao`, informe o caminho local de um CSV com algumas destas colunas:
@@ -297,6 +351,11 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `GET /api/experiments/campaigns/{id}`
 - `POST /api/experiments/campaigns/{id}/simulate`
 - `POST /api/experiments/events`
+- `POST /api/templates`
+- `GET /api/templates`
+- `GET /api/templates/{id}`
+- `POST /api/templates/{id}/versions`
+- `POST /api/templates/render`
 - `POST /api/suppression`
 - `GET /api/audit`
 
@@ -315,6 +374,7 @@ python -m unittest discover -s tests
 - Nao use scraping agressivo em servicos publicos. Priorize os arquivos oficiais baixaveis.
 - Enriquecimento por site e sinal complementar; nao substitui dado oficial da Receita.
 - Campanhas locais sao simuladas e nao chamam provedor externo.
+- Rodape de compliance de templates e injetado pelo backend.
 
 ## Proximas fases sugeridas
 
@@ -325,5 +385,5 @@ python -m unittest discover -s tests
 5. Canal de solicitacao de titular.
 6. Motor de score configuravel por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
-8. Templates versionados com variaveis e rodape de compliance injetado.
+8. Sequencias/cadencias semi-supervisionadas com aprovacao humana.
 9. Integracao futura com provedores de email somente com opt-out, bounce e limites.

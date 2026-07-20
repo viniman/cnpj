@@ -36,6 +36,7 @@ flowchart LR
 - `radar_cnpj/email_scoring.py`: score comercial de e-mail com explicacoes.
 - `radar_cnpj/company_enrichment.py`: extracao de sinais publicos de site, technology checker e maturidade digital.
 - `radar_cnpj/email_experiments.py`: regras puras de campanhas simuladas, UTM, funil e elegibilidade.
+- `radar_cnpj/email_templates.py`: renderizacao de templates versionados com variaveis e rodape de compliance.
 - `radar_cnpj/scoring.py`: setor, segmento, score explicavel e estimativa simples.
 - `radar_cnpj/exporter.py`: geracao CSV e XLSX sem biblioteca externa.
 - `static/*`: interface operacional.
@@ -54,6 +55,8 @@ Tabelas principais:
 - `leads`, `campaigns`, `campaign_variants`, `sends`, `events`,
   `conversions`, `throttle_config`, `pause_events`: CRM de experimento
   comercial em modo simulado.
+- `email_templates`, `email_template_versions`: biblioteca de copy
+  reutilizavel, versionada e renderizada no backend.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -64,6 +67,8 @@ Tabelas principais:
 - Emails sao checados contra supressao e opt-out.
 - Leads de campanha sao checados contra higiene, scoring e supressao antes de
   qualquer envio simulado.
+- Templates recebem rodape de compliance no backend, nao por texto editavel na
+  interface.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

@@ -215,3 +215,37 @@ Meta da fase:
 Documento principal:
 
 - `docs/EMAIL_TEMPLATE_SPEC.md`
+
+Commits:
+
+- `2e14f5e docs: define email template phase`
+- `8f79680 feat: add versioned email template backend`
+- `b273b4d feat: add email template workspace UI`
+
+Implementado:
+
+- Tabelas `email_templates` e `email_template_versions`.
+- Modulo `radar_cnpj/email_templates.py` com extracao de variaveis,
+  validacao de variaveis de sistema, contexto de empresa e renderizacao.
+- Criacao de template com versao 1 ativa.
+- Criacao de nova versao sem sobrescrever historico.
+- Preview com dados reais de empresa.
+- Rodape de compliance injetado pelo backend.
+- Endpoints `/api/templates/*`.
+- Aba `Templates` no frontend local.
+- Botao para aplicar template renderizado no formulario de campanha simulada.
+- Testes cobrindo criacao, versionamento, renderizacao e bloqueio de variaveis
+  de compliance editaveis.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 24 tests
+OK
+```
