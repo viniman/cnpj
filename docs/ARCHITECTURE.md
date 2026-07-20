@@ -71,6 +71,9 @@ Tabelas principais:
   ou handoff.
 - `kpi_definitions`, `objectives`, `key_results`: OKRs e KPIs calculados a
   partir do funil operacional.
+- `agent_config_versions`, `agent_simulations`, `agent_cost_log`: governanca
+  do agente SDR, staging de configuracao, simulacoes locais e custo estimado
+  de IA por operacao.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -102,6 +105,12 @@ Tabelas principais:
   `source_table`, `source_id`, origem e metadados para auditoria.
 - Key Results apontam para `kpi_key`; o valor atual vem de consulta ao funil,
   nao de snapshot salvo como verdade primaria.
+- Configuracoes do agente SDR nascem em `staging` e so entram em uso por
+  ativacao explicita.
+- Simulacoes de agente usam regras locais deterministicas e nao fazem envio nem
+  chamada real de LLM.
+- Custos de IA sao registrados em tabela propria para visibilidade por modelo,
+  operacao, lead e versao de configuracao.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

@@ -15,6 +15,8 @@ A aba `Comando` agrega a operacao em uma tela unica:
 - Replay por lead, com timeline auditavel de priorizacao, aprovacao, envio,
   resposta, handoff, reuniao, conversao e acoes do agente.
 - OKRs e KPIs com formula explicita, calculados a partir do funil real.
+- Governanca do agente com versoes de configuracao, staging, ativacao,
+  simulacoes locais e custo estimado de IA.
 
 Endpoint:
 
@@ -47,6 +49,22 @@ Consultar OKRs e KPIs:
 
 ```powershell
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/okrs"
+```
+
+Consultar governanca do agente:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/agent-governance"
+```
+
+Criar uma nova configuracao em staging:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/agent-governance/configs" `
+  -Body '{"name":"SDR conservador","model_name":"gpt-5-mini","prompt_text":"Priorize ICP e escale duvidas.","rules":{"requires_human_approval":true}}' `
+  -ContentType "application/json"
 ```
 
 ## Rodar localmente
@@ -590,6 +608,11 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `GET /api/leads/{id}/timeline`
 - `GET /api/okrs`
 - `POST /api/okrs`
+- `GET /api/agent-governance`
+- `POST /api/agent-governance/configs`
+- `POST /api/agent-governance/configs/{id}/activate`
+- `POST /api/agent-governance/simulations`
+- `POST /api/agent-governance/costs`
 - `GET /api/companies`
 - `GET /api/companies/{id}`
 - `POST /api/import`
@@ -672,6 +695,9 @@ python -m unittest discover -s tests
   originais nem altera regras de origem.
 - Key Results apontam para KPIs calculados; o valor atual nao e salvo como
   verdade paralela.
+- Configuracoes do agente passam por staging antes de ativar; simulacoes locais
+  nao chamam modelo externo.
+- Custos de IA ficam registrados por operacao/modelo/versao para auditoria.
 
 ## Proximas fases sugeridas
 
@@ -683,5 +709,6 @@ python -m unittest discover -s tests
 6. Motor de score configuravel por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
 8. Templates de resposta manual assistida.
-9. OKRs/KPIs ligados a metricas reais do funil.
-10. Integracao futura com provedores de email somente com opt-out, bounce e limites.
+9. Playbooks reutilizaveis por workspace.
+10. Notificacoes proativas para lead quente, campanha pausada e OKR em risco.
+11. Integracao futura com provedores de email somente com opt-out, bounce e limites.

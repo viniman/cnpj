@@ -896,4 +896,55 @@ Documento principal:
 
 Commits:
 
-- `pending docs: define agent governance phase`
+- `8385531 docs: define agent governance phase`
+- `80e81a7 feat: add agent governance backend`
+- `3513935 feat: add agent governance command panel`
+
+Implementado:
+
+- Tabelas `agent_config_versions`, `agent_simulations` e `agent_cost_log`.
+- Configuracao default ativa do agente SDR.
+- Criacao de versoes em `staging`.
+- Ativacao explicita de versao, arquivando a ativa anterior.
+- Simulacao local deterministica sem chamada real de LLM.
+- Registro de custo estimado por operacao, modelo, lead e versao.
+- Endpoint `GET /api/agent-governance`.
+- Endpoints `POST /api/agent-governance/configs`,
+  `POST /api/agent-governance/configs/{id}/activate`,
+  `POST /api/agent-governance/simulations` e
+  `POST /api/agent-governance/costs`.
+- Painel `Governanca do agente` na aba `Comando`, com resumo, versoes,
+  simulacoes e custos recentes.
+- Testes cobrindo default, criacao, ativacao, simulacao e custo agregado.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 50 tests
+OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+active_before=1
+created_config_id=3
+created_version=3
+created_status=staging
+activated_status=active
+active_after=3
+simulation_id=2
+simulation_decision=requires_human_review
+cost_id=2
+total_calls=2
+total_tokens=1240
+estimated_cost=0.024
+```
