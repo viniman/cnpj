@@ -5,6 +5,15 @@ import os
 import re
 from datetime import datetime
 
+from .company_enrichment import (
+    cache_lookup,
+    cache_store,
+    enrich_from_html,
+    fetch_url,
+    normalize_url,
+    parsed_enrichment_row,
+    robots_allowed,
+)
 from .database import now_iso
 from .email_hygiene import classify_email, normalize_email
 from .email_scoring import score_email
@@ -462,6 +471,158 @@ def get_company(conn, company_id):
         ).fetchall()
     ]
     return data
+
+
+def get_company_enrichment(conn, company_id):
+    row = conn.execute(
+        """
+        SELECT ce.*, c.legal_name, c.trade_name, c.cnpj
+        FROM company_enrichment ce
+        JOIN companies c ON c.id = ce.company_id
+        WHERE ce.company_id = ?
+        """,
+        (company_id,),
+    ).fetchone()
+    return parsed_enrichment_row(row)
+
+
+def persist_company_enrichment(conn, company_id, enrichment):
+    timestamp = now_iso()
+    collected_at = enrichment.get("collected_at") or timestamp
+    conn.execute(
+        """
+        INSERT INTO company_enrichment (
+            company_id, source_url, source_type, detected_domain, emails_json,
+            phones_json, social_links_json, technologies_json,
+            digital_maturity_score, reasons_json, confidence, collected_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(company_id) DO UPDATE SET
+            source_url = excluded.source_url,
+            source_type = excluded.source_type,
+            detected_domain = excluded.detected_domain,
+            emails_json = excluded.emails_json,
+            phones_json = excluded.phones_json,
+            social_links_json = excluded.social_links_json,
+            technologies_json = excluded.technologies_json,
+            digital_maturity_score = excluded.digital_maturity_score,
+            reasons_json = excluded.reasons_json,
+            confidence = excluded.confidence,
+            collected_at = excluded.collected_at,
+            updated_at = excluded.updated_at
+        """,
+        (
+            company_id,
+            enrichment.get("source_url") or "",
+            enrichment.get("source_type") or "manual",
+            enrichment.get("detected_domain") or "",
+            json.dumps(enrichment.get("emails") or [], ensure_ascii=True),
+            json.dumps(enrichment.get("phones") or [], ensure_ascii=True),
+            json.dumps(enrichment.get("social_links") or [], ensure_ascii=True),
+            json.dumps(enrichment.get("technologies") or [], ensure_ascii=True),
+            int(enrichment.get("digital_maturity_score") or 0),
+            json.dumps(enrichment.get("reasons") or [], ensure_ascii=True),
+            enrichment.get("confidence") or "low",
+            collected_at,
+            timestamp,
+        ),
+    )
+    audit(
+        conn,
+        "enrich_company",
+        "company",
+        company_id,
+        {
+            "source_url": enrichment.get("source_url"),
+            "source_type": enrichment.get("source_type"),
+            "score": enrichment.get("digital_maturity_score"),
+        },
+    )
+    return get_company_enrichment(conn, company_id)
+
+
+def start_scraping_job(conn, company_id, url, status="running", message=""):
+    cursor = conn.execute(
+        """
+        INSERT INTO scraping_jobs (company_id, url, status, message, started_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (company_id, url, status, message, now_iso()),
+    )
+    return cursor.lastrowid
+
+
+def finish_scraping_job(conn, job_id, status, message):
+    conn.execute(
+        """
+        UPDATE scraping_jobs
+        SET status = ?, message = ?, finished_at = ?
+        WHERE id = ?
+        """,
+        (status, message, now_iso(), job_id),
+    )
+
+
+def enrich_company(conn, company_id, url="", html="", source_url="", ttl_days=30):
+    company = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+    if not company:
+        raise ValueError("Empresa nao encontrada")
+
+    company_data = dict_row(company)
+    source_url = source_url or url or ""
+    if html:
+        enrichment = enrich_from_html(
+            company_data,
+            source_url=source_url,
+            html_text=html,
+            headers={},
+            source_type="provided_html",
+        )
+        saved = persist_company_enrichment(conn, company_id, enrichment)
+        saved["job"] = {"status": "completed", "message": "HTML informado processado localmente"}
+        return saved
+
+    if not url:
+        raise ValueError("Informe html ou url para enriquecer a empresa")
+
+    normalized_url = normalize_url(url)
+    job_id = start_scraping_job(conn, company_id, normalized_url, "running", "Coleta iniciada")
+    try:
+        cached = cache_lookup(conn, normalized_url)
+        if cached:
+            headers = json.loads(cached["headers_json"] or "{}")
+            enrichment = enrich_from_html(
+                company_data,
+                source_url=normalized_url,
+                html_text=cached["body_text"],
+                headers=headers,
+                source_type="public_website",
+            )
+            message = "Cache reutilizado dentro do TTL"
+        else:
+            allowed, robots_message = robots_allowed(normalized_url)
+            if not allowed:
+                finish_scraping_job(conn, job_id, "blocked_by_robots", robots_message)
+                raise ValueError("Busca bloqueada por robots.txt")
+            fetched = fetch_url(normalized_url)
+            cache_store(conn, fetched, ttl_days=ttl_days)
+            enrichment = enrich_from_html(
+                company_data,
+                source_url=normalized_url,
+                html_text=fetched["body_text"],
+                headers=fetched["headers"],
+                source_type="public_website",
+            )
+            message = "URL coletada; %s" % robots_message
+        saved = persist_company_enrichment(conn, company_id, enrichment)
+        finish_scraping_job(conn, job_id, "completed", message)
+        saved["job"] = {"id": job_id, "status": "completed", "message": message}
+        return saved
+    except Exception as exc:
+        existing = conn.execute("SELECT status FROM scraping_jobs WHERE id = ?", (job_id,)).fetchone()
+        if existing and existing["status"] == "running":
+            finish_scraping_job(conn, job_id, "failed", str(exc))
+        raise
 
 
 def dashboard(conn):

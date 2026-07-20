@@ -61,6 +61,7 @@ function setView(view) {
     companies: "Pesquisa de empresas",
     lists: "Listas",
     import: "Importacao",
+    enrichment: "Enriquecimento",
     hygiene: "Higiene de emails",
     audit: "Auditoria",
   };
@@ -225,6 +226,9 @@ async function loadCompanyDetail(id) {
       ${badge(company.sector, "purple")}
       ${badge(`Score ${company.opportunity_score}`, scoreTone(company.opportunity_score))}
     </div>
+    <div class="toolbar-actions detail-actions">
+      <button class="button primary" data-enrich-company="${company.id}">Enriquecer</button>
+    </div>
     <div class="detail-grid">
       ${detailItem("CNPJ", company.cnpj)}
       ${detailItem("CNAE", `${fmt(company.main_cnae_code)} ${fmt(company.main_cnae_description)}`)}
@@ -243,6 +247,10 @@ async function loadCompanyDetail(id) {
     <ul>${(company.score_reasons || []).map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul>
     <p class="muted">Base legal: ${escapeHtml(fmt(company.legal_basis))}</p>
   `;
+  const enrichButton = $("#companyDetail [data-enrich-company]");
+  if (enrichButton) {
+    enrichButton.addEventListener("click", () => prefillEnrichment(company));
+  }
 }
 
 function detailItem(label, value) {
@@ -486,6 +494,70 @@ async function lookupBrasilApi() {
   await loadCompanies();
 }
 
+function prefillEnrichment(company) {
+  const suggestedUrl = (company.source_url || "").startsWith("http") ? company.source_url : "";
+  $("#enrichCompanyId").value = company.id;
+  $("#enrichUrl").value = suggestedUrl;
+  $("#enrichSourceUrl").value = suggestedUrl;
+  $("#enrichHtml").value = "";
+  setView("enrichment");
+}
+
+function inlineBadges(values, tone = "") {
+  const items = values || [];
+  if (!items.length) return "-";
+  return items.map((item) => badge(item, tone)).join(" ");
+}
+
+function renderEnrichmentResult(item) {
+  if (!item) {
+    $("#enrichmentResult").innerHTML = `<div class="empty-state">Nenhum enriquecimento salvo para esta empresa.</div>`;
+    return;
+  }
+  $("#enrichmentResult").innerHTML = table(
+    ["Campo", "Valor"],
+    [
+      ["Empresa", escapeHtml(item.trade_name || item.legal_name || item.company_name || item.company_id)],
+      ["CNPJ", escapeHtml(fmt(item.cnpj))],
+      ["Origem", escapeHtml(fmt(item.source_url))],
+      ["Tipo", badge(item.source_type || "manual")],
+      ["Dominio", escapeHtml(fmt(item.detected_domain))],
+      ["Score digital", badge(item.digital_maturity_score, scoreTone(item.digital_maturity_score || 0))],
+      ["Confianca", badge(item.confidence, item.confidence === "high" ? "green" : item.confidence === "medium" ? "amber" : "red")],
+      ["Emails", inlineBadges(item.emails, "green")],
+      ["Telefones", escapeHtml((item.phones || []).join("; ") || "-")],
+      ["Redes sociais", escapeHtml((item.social_links || []).join("; ") || "-")],
+      ["Tecnologias", inlineBadges(item.technologies, "purple")],
+      ["Motivos", escapeHtml((item.reasons || []).join("; ") || "-")],
+      ["Job", escapeHtml(item.job ? `${item.job.status}: ${item.job.message}` : "-")],
+    ],
+  );
+}
+
+async function enrichCompanyFromForm() {
+  const companyId = Number($("#enrichCompanyId").value || 0);
+  const url = $("#enrichUrl").value.trim();
+  const sourceUrl = $("#enrichSourceUrl").value.trim() || url;
+  const html = $("#enrichHtml").value.trim();
+  const ttlDays = Number($("#enrichTtl").value || 30);
+  if (!companyId) return showStatus("Informe o ID da empresa.", "warn");
+  if (!url && !html) return showStatus("Informe uma URL ou cole um HTML de teste.", "warn");
+  showStatus(html ? "Processando HTML informado..." : "Coletando URL com robots.txt e cache...");
+  const result = await api("/api/enrichment/company", {
+    method: "POST",
+    body: JSON.stringify({ company_id: companyId, url, source_url: sourceUrl, html, ttl_days: ttlDays }),
+  });
+  renderEnrichmentResult(result);
+  showStatus("Enriquecimento salvo com auditoria.");
+}
+
+async function loadEnrichmentFromForm() {
+  const companyId = Number($("#enrichCompanyId").value || 0);
+  if (!companyId) return showStatus("Informe o ID da empresa.", "warn");
+  const result = await api(`/api/enrichment/company/${companyId}`);
+  renderEnrichmentResult(result);
+}
+
 async function seed() {
   const result = await api("/api/seed", { method: "POST", body: "{}" });
   showStatus(result.message || "Amostra carregada.");
@@ -580,6 +652,8 @@ function wireEvents() {
   $("#syncOfficialBtn").addEventListener("click", () => syncOfficial());
   $("#downloadDomainsBtn").addEventListener("click", () => syncOfficial("domains"));
   $("#brasilApiBtn").addEventListener("click", lookupBrasilApi);
+  $("#enrichCompanyBtn").addEventListener("click", enrichCompanyFromForm);
+  $("#loadEnrichmentBtn").addEventListener("click", loadEnrichmentFromForm);
   $("#seedBtn").addEventListener("click", seed);
   $("#seedBtnImport").addEventListener("click", seed);
   $("#validateEmailsBtn").addEventListener("click", validateFreeEmails);

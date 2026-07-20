@@ -21,6 +21,7 @@
           <button class="nav-item" data-view="companies">Empresas</button>
           <button class="nav-item" data-view="lists">Listas</button>
           <button class="nav-item" data-view="import">Importacao</button>
+          <button class="nav-item" data-view="enrichment">Enriquecimento</button>
           <button class="nav-item" data-view="hygiene">Higiene</button>
           <button class="nav-item" data-view="audit">Auditoria</button>
         </nav>
@@ -212,6 +213,51 @@
               <button id="seedBtnImport" class="button">Carregar amostra interna</button>
             </div>
             <p class="muted">Para a base nacional completa, use este MVP para validar filtros e listas. A carga massiva deve migrar para Postgres COPY e tabelas de staging.</p>
+          </section>
+        </section>
+
+        <section id="enrichment" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Enriquecimento de empresa</h2>
+              <button id="loadEnrichmentBtn" class="button">Buscar ultimo</button>
+            </div>
+            <div class="form-grid">
+              <label>
+                ID da empresa
+                <input id="enrichCompanyId" class="input" type="number" min="1" placeholder="1" />
+              </label>
+              <label>
+                URL do site publico
+                <input id="enrichUrl" class="input" placeholder="https://empresa.com.br" />
+              </label>
+              <label>
+                TTL do cache em dias
+                <input id="enrichTtl" class="input" type="number" min="1" max="365" value="30" />
+              </label>
+              <label>
+                URL de origem para HTML informado
+                <input id="enrichSourceUrl" class="input" placeholder="https://empresa.com.br/contato" />
+              </label>
+            </div>
+            <div class="form-grid one">
+              <label>
+                HTML opcional para teste local
+                <textarea id="enrichHtml" class="textarea" placeholder="<html>contato@empresa.com.br ...</html>"></textarea>
+              </label>
+            </div>
+            <div class="toolbar">
+              <button id="enrichCompanyBtn" class="button primary">Enriquecer empresa</button>
+              <p class="muted">Use HTML para teste local ou URL explicita para coleta com robots.txt e cache.</p>
+            </div>
+          </section>
+          <section class="panel api-panel">
+            <div class="panel-head">
+              <h2>Resultado</h2>
+            </div>
+            <div id="enrichmentResult" class="table-wrap">
+              <div class="empty-state">Informe uma empresa para iniciar o enriquecimento.</div>
+            </div>
           </section>
         </section>
 

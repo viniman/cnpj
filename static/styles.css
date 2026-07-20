@@ -452,6 +452,10 @@ tr:hover td {
   gap: 10px;
 }
 
+.detail-actions {
+  margin: 12px 0;
+}
+
 .detail-item {
   border: 1px solid #edf1f7;
   border-radius: 7px;
@@ -480,6 +484,10 @@ tr:hover td {
 
 .form-grid.two {
   grid-template-columns: 1fr 1fr;
+}
+
+.form-grid.one {
+  grid-template-columns: 1fr;
 }
 
 .form-grid label {

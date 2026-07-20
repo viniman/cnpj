@@ -11,8 +11,10 @@ from .services import (
     audit_events,
     create_list,
     dashboard,
+    enrich_company,
     export_list,
     get_company,
+    get_company_enrichment,
     get_list,
     import_source,
     list_lists,
@@ -112,6 +114,12 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         self.send_error_json("Empresa nao encontrada", 404)
                     else:
                         self.send_json(company)
+                elif len(parts) == 4 and parts[1] == "enrichment" and parts[2] == "company":
+                    enrichment = get_company_enrichment(conn, int(parts[3]))
+                    if not enrichment:
+                        self.send_error_json("Enriquecimento nao encontrado", 404)
+                    else:
+                        self.send_json(enrichment)
                 elif parsed.path == "/api/lists":
                     self.send_json({"items": list_lists(conn)})
                 elif len(parts) == 3 and parts[1] == "lists":
@@ -183,6 +191,16 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         company_id=data.get("company_id"),
                     )
                     self.send_json({"items": results})
+                elif parsed.path == "/api/enrichment/company":
+                    result = enrich_company(
+                        conn,
+                        int(data.get("company_id") or 0),
+                        url=data.get("url") or "",
+                        html=data.get("html") or "",
+                        source_url=data.get("source_url") or "",
+                        ttl_days=data.get("ttl_days") or 30,
+                    )
+                    self.send_json(result)
                 elif parsed.path == "/api/suppression":
                     self.send_json(add_suppression(conn, data.get("email"), data.get("reason") or "manual"))
                 elif parsed.path == "/api/sources/official/download":

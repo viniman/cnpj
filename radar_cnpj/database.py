@@ -246,6 +246,46 @@ def init_db():
                 FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
             );
 
+            CREATE TABLE IF NOT EXISTS company_enrichment (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER NOT NULL UNIQUE,
+                source_url TEXT,
+                source_type TEXT NOT NULL,
+                detected_domain TEXT,
+                emails_json TEXT NOT NULL,
+                phones_json TEXT NOT NULL,
+                social_links_json TEXT NOT NULL,
+                technologies_json TEXT NOT NULL,
+                digital_maturity_score INTEGER NOT NULL DEFAULT 0,
+                reasons_json TEXT NOT NULL,
+                confidence TEXT NOT NULL,
+                collected_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS scraping_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER,
+                url TEXT,
+                status TEXT NOT NULL,
+                message TEXT,
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS scraping_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url TEXT NOT NULL UNIQUE,
+                status_code INTEGER NOT NULL DEFAULT 0,
+                headers_json TEXT NOT NULL,
+                body_hash TEXT NOT NULL,
+                body_text TEXT NOT NULL,
+                fetched_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -322,6 +362,10 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_email_classifications_score ON email_classifications(score);
             CREATE INDEX IF NOT EXISTS idx_email_classifications_domain ON email_classifications(domain);
             CREATE INDEX IF NOT EXISTS idx_known_shared_domains_domain ON known_shared_domains(domain);
+            CREATE INDEX IF NOT EXISTS idx_company_enrichment_domain ON company_enrichment(detected_domain);
+            CREATE INDEX IF NOT EXISTS idx_company_enrichment_score ON company_enrichment(digital_maturity_score);
+            CREATE INDEX IF NOT EXISTS idx_scraping_jobs_status ON scraping_jobs(status);
+            CREATE INDEX IF NOT EXISTS idx_scraping_cache_expires ON scraping_cache(expires_at);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);
