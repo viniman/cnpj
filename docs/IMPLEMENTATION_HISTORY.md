@@ -680,6 +680,7 @@ Commits:
 - `d62b81b docs: define command center action inbox phase`
 - `e58d72d feat: add command center inbox actions API`
 - `c7436bd feat: add command center inbox action UI`
+- `9895d04 docs: add phase 10 command action inbox notes`
 
 Implementado:
 
@@ -704,4 +705,24 @@ Resultado esperado nesta etapa:
 ```text
 Ran 41 tests
 OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+list_id=15
+company_id=11
+lead_id=23
+approvals_created=1
+approval_id=6
+approval_status=approved
+handoff_id=6
+handoff_status=resolved
+meeting_id=4
+meeting_status=completed
+snapshot_inbox_items=5
+final_inbox_items=5
+kanban_columns=7
+activity_items=36
 ```

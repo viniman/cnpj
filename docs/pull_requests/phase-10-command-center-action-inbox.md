@@ -39,7 +39,7 @@ sair da aba `Comando`, mas delegando cada acao para o servico de origem.
 - [x] API retorna snapshot atualizado do Command Center.
 - [x] UI atualiza metrics/inbox/Kanban/feed apos decisao.
 - [x] Testes automatizados cobrem as tres familias de item.
-- [ ] Smoke test HTTP final executado apos reiniciar servidor.
+- [x] Smoke test HTTP final executado apos reiniciar servidor.
 
 ## Como testar localmente
 
@@ -53,6 +53,26 @@ Resultado esperado:
 ```text
 Ran 41 tests
 OK
+```
+
+Smoke HTTP final executado em `2026-07-20`:
+
+```text
+health=True
+list_id=15
+company_id=11
+lead_id=23
+approvals_created=1
+approval_id=6
+approval_status=approved
+handoff_id=6
+handoff_status=resolved
+meeting_id=4
+meeting_status=completed
+snapshot_inbox_items=5
+final_inbox_items=5
+kanban_columns=7
+activity_items=36
 ```
 
 Teste manual sugerido:
