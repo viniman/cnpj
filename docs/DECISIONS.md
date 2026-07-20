@@ -677,3 +677,29 @@ Consequencias:
   aparecer.
 - Defaults podem ter `version_number = 1` em cada workspace.
 - Playbooks continuam com fase dedicada para aplicar configuracoes de agente.
+
+## ADR-027 - Playbooks sao locais ao workspace ativo
+
+Data: 2026-07-20
+
+Decisao:
+
+- Perfil de empresa, biblioteca de playbooks, versoes e aplicacao ativa devem
+  usar `current_org_id(conn)`.
+- Defaults de playbook sao idempotentes por workspace.
+- Compartilhamento entre workspaces fica fora do caminho implicito e deve ser
+  implementado como clonagem futura auditavel.
+
+Racional:
+
+- Playbook combina ICP, copy, cadencia, OKR e governanca; aplicar o pacote da
+  empresa errada criaria erro comercial silencioso.
+- O prompt de governanca pede reuso entre empresas, mas como acao explicita,
+  nao vazamento automatico.
+- Defaults por workspace aceleram onboarding sem misturar identidade comercial.
+
+Consequencias:
+
+- O mesmo nome de playbook pode existir em workspaces diferentes.
+- Ao trocar workspace, biblioteca e aplicacao ativa mudam junto.
+- Fase futura pode criar acao `clone_playbook_to_workspace` com auditoria.
