@@ -120,3 +120,25 @@ Resultado esperado nesta etapa:
 Ran 16 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 03 de CRM de experimento
+
+Branch: `feature/03-email-experiment-foundation`
+
+Estado inicial:
+
+- Fase 02 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 16 tests`, `OK`.
+
+Meta da fase:
+
+- Criar leads a partir de listas qualificadas.
+- Criar campanhas e variantes em modo simulado.
+- Planejar envios simulados com trilhos duros de higiene, score e supressao.
+- Registrar eventos e funil sem chamar provedor externo.
+
+Documento principal:
+
+- `docs/EMAIL_EXPERIMENT_SPEC.md`

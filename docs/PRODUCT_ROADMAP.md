@@ -69,14 +69,17 @@ Meta:
 - Priorizar clique, resposta, cadastro e demanda criada sobre abertura.
 - Preparar arquitetura futura Vercel + AWS SES + SNS + QStash.
 
+Status: fase 03 iniciada em `feature/03-email-experiment-foundation`.
+
 Fases:
 
 1. Modelo local de `leads`, `campaigns`, `campaign_variants`, `sends`,
    `events`, `conversions`, `throttle_config`, `pause_events`.
 2. Simulador local de campanhas sem envio real.
-3. Trilho duro de supressao antes de qualquer envio.
-4. Documentacao de DNS SPF/DKIM/DMARC e SES.
-5. Integracao SES apenas apos ambiente e dominio validados.
+3. Trilho duro de higiene, score e supressao antes de qualquer envio.
+4. Dashboard de funil priorizando clique, resposta e conversao.
+5. Documentacao de DNS SPF/DKIM/DMARC e SES.
+6. Integracao SES apenas apos ambiente e dominio validados.
 
 ## Camada 4 - Agente SDR semi-supervisionado
 

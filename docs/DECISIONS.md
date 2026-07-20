@@ -92,3 +92,28 @@ Consequencias:
 - Descoberta automatica de dominio so deve entrar depois de validacao de
   identidade do site candidato.
 
+## ADR-005 - Campanhas comecam em modo simulado
+
+Data: 2026-07-20
+
+Decisao:
+
+- O modulo de experimento comercial nasce sem envio real.
+- Campanhas, envios e eventos usam `mode = simulated` e `provider = simulated`.
+- Qualquer integracao real com AWS SES depende de dominio dedicado, SPF, DKIM,
+  DMARC, SNS validado, throttle e pausa automatica implementados.
+
+Racional:
+
+- O valor inicial esta em medir qualidade de lista, copy, segmento e funil.
+- Envio real sem reputacao, unsubscribe e tratamento de bounce pode causar dano
+  legal e reputacional.
+- O MVP local deve exercitar regras e dados antes de tocar canal externo.
+
+Consequencias:
+
+- O backend pode planejar e auditar envios simulados.
+- A UI deve deixar claro quando uma campanha e simulada.
+- Guardrails de higiene, supressao e scoring ja sao testados nesta fase,
+  preparando o caminho para SES sem confiar na interface.
+
