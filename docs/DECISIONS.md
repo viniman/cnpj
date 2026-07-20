@@ -64,3 +64,31 @@ Consequencias:
 - Qualquer modulo de campanha local deve nascer em modo `simulated`.
 - Funcoes de envio devem sempre checar supressao no momento da acao.
 
+## ADR-004 - Enriquecimento nao sobrescreve dado oficial
+
+Data: 2026-07-20
+
+Decisao:
+
+- Dados enriquecidos por site, HTML, tecnologia ou scraping ficam em tabelas
+  separadas de `companies`.
+- O cadastro oficial importado da Receita continua sendo a fonte primaria para
+  CNPJ, razao social, CNAE, endereco, socios e situacao.
+- A UI e a API devem apresentar enriquecimento como sinal complementar, sempre
+  com origem e timestamp.
+
+Racional:
+
+- Dados publicos de site podem mudar, estar incompletos ou pertencer a outro
+  dominio semelhante.
+- Misturar enriquecimento com dado oficial destruiria a rastreabilidade.
+- A camada de governanca futura precisa diferenciar fato oficial, sinal
+  coletado, inferencia e edicao manual.
+
+Consequencias:
+
+- `company_enrichment` guarda o ultimo retrato enriquecido.
+- `scraping_jobs` e `scraping_cache` registram tentativa, origem e TTL.
+- Descoberta automatica de dominio so deve entrar depois de validacao de
+  identidade do site candidato.
+

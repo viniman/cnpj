@@ -68,3 +68,24 @@ Resultado esperado nesta etapa:
 Ran 11 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 02 de enriquecimento empresarial
+
+Branch: `feature/02-company-enrichment-foundation`
+
+Estado inicial:
+
+- Fase 01 mesclada localmente no `master` por fast-forward.
+- Nao ha remoto Git configurado; PRs sao registrados em `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 11 tests`, `OK`.
+
+Meta da fase:
+
+- Criar a fundacao de enriquecimento responsavel por HTML/URL explicita.
+- Persistir sinais em tabela propria, sem sobrescrever dados oficiais.
+- Respeitar `robots.txt`, cache e TTL.
+- Expor API local e testes automatizados.
+
+Documento principal:
+
+- `docs/COMPANY_ENRICHMENT_SPEC.md`

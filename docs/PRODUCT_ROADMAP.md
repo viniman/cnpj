@@ -51,12 +51,15 @@ Meta:
 - Respeitar `robots.txt`, cache e TTL.
 - Identificar stack tecnologica e maturidade digital.
 
+Status: fase 02 iniciada em `feature/02-company-enrichment-foundation`.
+
 Fases:
 
 1. Modelo `company_enrichment`, `scraping_jobs`, `scraping_cache`.
-2. Fetch HTML simples com robots/rate limit.
+2. Fetch HTML simples com robots/cache/TTL.
 3. Extracao de e-mails, telefones, links sociais e tecnologias.
 4. Score de maturidade digital.
+5. Descoberta assistida de dominio oficial, com validacao antes de vincular.
 
 ## Camada 3 - CRM de experimento e envio responsavel
 
