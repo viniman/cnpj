@@ -69,6 +69,8 @@ Tabelas principais:
   fila de intervencao humana.
 - `meetings`: agenda operacional criada por humano a partir de lead, resposta
   ou handoff.
+- `kpi_definitions`, `objectives`, `key_results`: OKRs e KPIs calculados a
+  partir do funil operacional.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -98,6 +100,8 @@ Tabelas principais:
   origem, mantendo guardrails e auditoria existentes.
 - O replay por lead e uma composicao de leitura sobre tabelas de origem, com
   `source_table`, `source_id`, origem e metadados para auditoria.
+- Key Results apontam para `kpi_key`; o valor atual vem de consulta ao funil,
+  nao de snapshot salvo como verdade primaria.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

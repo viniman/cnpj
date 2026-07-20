@@ -826,4 +826,47 @@ Documento principal:
 
 Commits:
 
-- `pending docs: define okr kpi phase`
+- `6ffbff7 docs: define okr kpi phase`
+- `7e373a1 feat: add okr kpi backend`
+- `9ba5f58 feat: add okr kpi command panel`
+
+Implementado:
+
+- Tabelas `kpi_definitions`, `objectives` e `key_results`.
+- Catalogo default com 7 KPIs do funil real.
+- Endpoint `GET /api/okrs`.
+- Endpoint `POST /api/okrs`.
+- OKR default sintetico quando nao ha objetivo salvo.
+- Criacao de objetivo com validacao de `kpi_key` e meta positiva.
+- Progresso de KR calculado por valor atual / meta.
+- Painel `OKRs e KPIs` na aba `Comando`.
+- Testes cobrindo calculo de KPI, OKR default, criacao e erro de KPI
+  desconhecido.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 46 tests
+OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+kpis=7
+default_objective_before=default
+created_objective_id=1
+created_kr_kpi=meetings_completed
+created_kr_progress=100
+meetings_completed_value=4
+objectives_after=1
+first_saved_objective=1
+```

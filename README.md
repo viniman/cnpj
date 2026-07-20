@@ -14,6 +14,7 @@ A aba `Comando` agrega a operacao em uma tela unica:
 - Feed de atividade baseado em `agent_actions`, sempre com origem e motivo.
 - Replay por lead, com timeline auditavel de priorizacao, aprovacao, envio,
   resposta, handoff, reuniao, conversao e acoes do agente.
+- OKRs e KPIs com formula explicita, calculados a partir do funil real.
 
 Endpoint:
 
@@ -40,6 +41,12 @@ Consultar replay de um lead:
 
 ```powershell
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/leads/1/timeline"
+```
+
+Consultar OKRs e KPIs:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/okrs"
 ```
 
 ## Rodar localmente
@@ -581,6 +588,8 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `GET /api/command-center`
 - `POST /api/command-center/actions`
 - `GET /api/leads/{id}/timeline`
+- `GET /api/okrs`
+- `POST /api/okrs`
 - `GET /api/companies`
 - `GET /api/companies/{id}`
 - `POST /api/import`
@@ -661,6 +670,8 @@ python -m unittest discover -s tests
 - Reunioes exigem acao humana e respeitam opt-out/supressao.
 - Replay por lead e uma composicao de leitura; ele nao substitui as tabelas
   originais nem altera regras de origem.
+- Key Results apontam para KPIs calculados; o valor atual nao e salvo como
+  verdade paralela.
 
 ## Proximas fases sugeridas
 
