@@ -7,6 +7,7 @@ from datetime import datetime
 
 from .database import now_iso
 from .email_hygiene import classify_email, normalize_email
+from .email_scoring import score_email
 from .exporter import rows_to_csv_bytes, rows_to_xlsx_bytes
 from .receita_importer import parse_receita_directory, parse_receita_zip_directory
 from .scoring import estimate_market_value, infer_sector, score_company
@@ -654,6 +655,201 @@ def suppression_sets(conn):
     return suppressions, opt_outs
 
 
+def known_shared_domain_set(conn):
+    rows = conn.execute("SELECT domain FROM known_shared_domains WHERE org_id = ?", (ORG_ID,)).fetchall()
+    return {normalize_domain(row["domain"]) for row in rows}
+
+
+def normalize_domain(value):
+    return str(value or "").strip().lower()
+
+
+def email_domain(email):
+    normalized = normalize_email(email)
+    if "@" not in normalized:
+        return ""
+    return normalized.split("@", 1)[1]
+
+
+def email_context_counts(conn, email):
+    normalized = normalize_email(email)
+    domain = email_domain(normalized)
+    same_email = conn.execute(
+        "SELECT COUNT(DISTINCT cnpj) AS total FROM companies WHERE lower(email) = ?",
+        (normalized,),
+    ).fetchone()["total"]
+    same_domain = 0
+    if domain:
+        same_domain = conn.execute(
+            """
+            SELECT COUNT(DISTINCT cnpj) AS total
+            FROM companies
+            WHERE email IS NOT NULL
+              AND email != ''
+              AND substr(lower(email), instr(lower(email), '@') + 1) = ?
+            """,
+            (domain,),
+        ).fetchone()["total"]
+    return int(same_email or 0), int(same_domain or 0)
+
+
+def company_partner_names(conn, company_id):
+    rows = conn.execute("SELECT name FROM partners WHERE company_id = ?", (company_id,)).fetchall()
+    return [row["name"] for row in rows]
+
+
+def upsert_known_shared_domain(conn, domain, inferred_type, reason):
+    domain = normalize_domain(domain)
+    if not domain:
+        return
+    timestamp = now_iso()
+    conn.execute(
+        """
+        INSERT INTO known_shared_domains (org_id, domain, inferred_type, reason, first_seen_at, last_seen_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(domain) DO UPDATE SET
+            inferred_type = excluded.inferred_type,
+            reason = excluded.reason,
+            last_seen_at = excluded.last_seen_at
+        """,
+        (ORG_ID, domain, inferred_type, reason, timestamp, timestamp),
+    )
+
+
+def persist_email_score(conn, scoring, company_id=None):
+    previous = conn.execute(
+        """
+        SELECT score
+        FROM email_classifications
+        WHERE email = ? AND (company_id = ? OR (company_id IS NULL AND ? IS NULL))
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (scoring["email"], company_id, company_id),
+    ).fetchone()
+    previous_score = previous["score"] if previous else None
+    classified_at = now_iso()
+    labels_json = json.dumps(scoring["labels"], ensure_ascii=True)
+    reasons_json = json.dumps(scoring["reasons"], ensure_ascii=True)
+    conn.execute(
+        """
+        INSERT INTO email_classifications (
+            company_id, email, domain, area, classification, score, labels_json,
+            reasons_json, is_shared_contact, is_shared_domain,
+            shared_company_count, shared_domain_count, algorithm_version, classified_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(company_id, email) DO UPDATE SET
+            domain = excluded.domain,
+            area = excluded.area,
+            classification = excluded.classification,
+            score = excluded.score,
+            labels_json = excluded.labels_json,
+            reasons_json = excluded.reasons_json,
+            is_shared_contact = excluded.is_shared_contact,
+            is_shared_domain = excluded.is_shared_domain,
+            shared_company_count = excluded.shared_company_count,
+            shared_domain_count = excluded.shared_domain_count,
+            algorithm_version = excluded.algorithm_version,
+            classified_at = excluded.classified_at
+        """,
+        (
+            company_id,
+            scoring["email"],
+            scoring["domain"],
+            scoring["area"],
+            scoring["classification"],
+            scoring["score"],
+            labels_json,
+            reasons_json,
+            1 if "shared_contact" in scoring["labels"] else 0,
+            1 if "shared_domain" in scoring["labels"] or "known_shared_domain" in scoring["labels"] else 0,
+            scoring["shared_company_count"],
+            scoring["shared_domain_count"],
+            scoring["algorithm_version"],
+            classified_at,
+        ),
+    )
+    conn.execute(
+        """
+        INSERT INTO email_score_log (company_id, email, previous_score, new_score, reasons_json, algorithm_version, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            company_id,
+            scoring["email"],
+            previous_score,
+            scoring["score"],
+            reasons_json,
+            scoring["algorithm_version"],
+            classified_at,
+        ),
+    )
+
+
+def score_email_record(conn, email, company_id=None):
+    email = normalize_email(email)
+    if not email and company_id:
+        row = conn.execute("SELECT email FROM companies WHERE id = ?", (company_id,)).fetchone()
+        email = normalize_email(row["email"] if row else "")
+    suppression, opt_out = suppression_sets(conn)
+    hygiene = classify_email(email, suppression, opt_out)
+    same_email, same_domain = email_context_counts(conn, email)
+    partner_names = company_partner_names(conn, company_id) if company_id else []
+    known_domains = known_shared_domain_set(conn)
+    scoring = score_email(
+        email,
+        partner_names=partner_names,
+        hygiene_result=hygiene,
+        same_email_companies=same_email,
+        same_domain_companies=same_domain,
+        known_shared_domains=known_domains,
+        suppression_set=suppression,
+        opt_out_set=opt_out,
+    )
+    if "shared_domain" in scoring["labels"]:
+        upsert_known_shared_domain(
+            conn,
+            scoring["domain"],
+            scoring["shared_domain_type"],
+            "Dominio aparece em %s CNPJs distintos" % scoring["shared_domain_count"],
+        )
+    persist_email_score(conn, scoring, company_id=company_id)
+    return scoring
+
+
+def score_emails(conn, emails=None, list_id=None, company_id=None):
+    targets = []
+    if company_id:
+        row = conn.execute("SELECT id, email FROM companies WHERE id = ?", (company_id,)).fetchone()
+        if row and row["email"]:
+            targets.append((row["id"], row["email"]))
+    if list_id:
+        rows = conn.execute(
+            """
+            SELECT c.id, c.email
+            FROM list_companies lc
+            JOIN companies c ON c.id = lc.company_id
+            WHERE lc.list_id = ? AND c.email IS NOT NULL AND c.email != ''
+            """,
+            (list_id,),
+        ).fetchall()
+        targets.extend((row["id"], row["email"]) for row in rows)
+    for email in emails or []:
+        targets.append((None, email))
+
+    results = []
+    seen = set()
+    for target_company_id, email in targets:
+        key = (target_company_id, normalize_email(email))
+        if key in seen:
+            continue
+        seen.add(key)
+        results.append(score_email_record(conn, email, company_id=target_company_id))
+    audit(conn, "score_emails", "email_classification", list_id or company_id, {"count": len(results)})
+    return results
+
+
 def validate_emails(conn, emails=None, list_id=None):
     emails = emails or []
     company_lookup = {}
@@ -677,6 +873,8 @@ def validate_emails(conn, emails=None, list_id=None):
     for email in emails:
         result = classify_email(email, suppression, opt_out, seen)
         company_id = company_lookup.get(result["email"])
+        if company_id:
+            result["advanced"] = score_email_record(conn, result["email"], company_id=company_id)
         conn.execute(
             """
             INSERT INTO email_validations (email, company_id, list_id, classification, score, reasons, validated_at)

@@ -26,7 +26,7 @@ descartaveis ou terceirizados.
 - `disposable`: dominio descartavel.
 - `personal_domain`: dominio pessoal conhecido.
 - `generic_inbox`: caixa generica.
-- `role_inbox`: caixa de area/função.
+- `role_inbox`: caixa de area/funcao.
 - `decision_maker`: prefixo associado a decisor.
 - `nominal`: aparencia de nome proprio.
 - `partner_match`: local-part bate com socio/administrador.
@@ -104,4 +104,3 @@ Score final fica entre `0` e `100`.
 - Testes provam que dominio descartavel ou opt-out recebe score restritivo.
 - API retorna score e motivos.
 - UI mostra o score e a explicacao.
-

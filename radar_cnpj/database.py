@@ -203,6 +203,49 @@ def init_db():
                 FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE SET NULL
             );
 
+            CREATE TABLE IF NOT EXISTS known_shared_domains (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                domain TEXT NOT NULL UNIQUE,
+                inferred_type TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                first_seen_at TEXT NOT NULL,
+                last_seen_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS email_classifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER,
+                email TEXT NOT NULL,
+                domain TEXT NOT NULL,
+                area TEXT,
+                classification TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                labels_json TEXT NOT NULL,
+                reasons_json TEXT NOT NULL,
+                is_shared_contact INTEGER NOT NULL DEFAULT 0,
+                is_shared_domain INTEGER NOT NULL DEFAULT 0,
+                shared_company_count INTEGER NOT NULL DEFAULT 0,
+                shared_domain_count INTEGER NOT NULL DEFAULT 0,
+                algorithm_version TEXT NOT NULL,
+                classified_at TEXT NOT NULL,
+                UNIQUE (company_id, email),
+                FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS email_score_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER,
+                email TEXT NOT NULL,
+                previous_score INTEGER,
+                new_score INTEGER NOT NULL,
+                reasons_json TEXT NOT NULL,
+                algorithm_version TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -276,6 +319,9 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_companies_capital ON companies(capital_social);
             CREATE INDEX IF NOT EXISTS idx_companies_email ON companies(email);
             CREATE INDEX IF NOT EXISTS idx_partners_name ON partners(name);
+            CREATE INDEX IF NOT EXISTS idx_email_classifications_score ON email_classifications(score);
+            CREATE INDEX IF NOT EXISTS idx_email_classifications_domain ON email_classifications(domain);
+            CREATE INDEX IF NOT EXISTS idx_known_shared_domains_domain ON known_shared_domains(domain);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);

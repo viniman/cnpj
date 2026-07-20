@@ -502,18 +502,28 @@ async function validateFreeEmails() {
   renderEmailResults(data.items);
 }
 
+async function scoreFreeEmails() {
+  const emails = $("#emailInput").value.split(/\s|,|;/).filter(Boolean);
+  const data = await api("/api/emails/score", {
+    method: "POST",
+    body: JSON.stringify({ emails }),
+  });
+  renderEmailResults(data.items.map((item) => ({ email: item.email, advanced: item })));
+}
+
 function renderEmailResults(items) {
   if (!items.length) {
     $("#emailResults").innerHTML = `<div class="empty-state">Nenhum email para validar.</div>`;
     return;
   }
   $("#emailResults").innerHTML = table(
-    ["Email", "Classificacao", "Score", "Motivos"],
+    ["Email", "Higiene", "Area", "Score", "Motivos"],
     items.map((item) => [
       escapeHtml(item.email),
-      badge(item.classification, emailTone(item.classification)),
-      badge(item.score, scoreTone(item.score)),
-      escapeHtml((item.reasons || []).join("; ")),
+      badge(item.classification || item.advanced?.classification, emailTone(item.classification || item.advanced?.classification)),
+      escapeHtml(fmt(item.advanced?.area)),
+      badge(item.advanced?.score ?? item.score, scoreTone(item.advanced?.score ?? item.score)),
+      escapeHtml(((item.advanced?.reasons || item.reasons || [])).join("; ")),
     ]),
   );
 }
@@ -573,6 +583,7 @@ function wireEvents() {
   $("#seedBtn").addEventListener("click", seed);
   $("#seedBtnImport").addEventListener("click", seed);
   $("#validateEmailsBtn").addEventListener("click", validateFreeEmails);
+  $("#scoreEmailsBtn").addEventListener("click", scoreFreeEmails);
   $("#suppressionBtn").addEventListener("click", addSuppression);
   $("#refreshAuditBtn").addEventListener("click", loadAudit);
   $("#listDetail").addEventListener("click", async (event) => {

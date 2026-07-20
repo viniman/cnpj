@@ -17,6 +17,7 @@ from .services import (
     import_source,
     list_lists,
     remove_company_from_list,
+    score_emails,
     search_companies,
     seed_sample,
     validate_emails,
@@ -173,6 +174,14 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(add_companies_to_list(conn, int(parts[2]), ids))
                 elif parsed.path == "/api/emails/validate":
                     results = validate_emails(conn, data.get("emails") or [], data.get("list_id"))
+                    self.send_json({"items": results})
+                elif parsed.path == "/api/emails/score":
+                    results = score_emails(
+                        conn,
+                        emails=data.get("emails") or [],
+                        list_id=data.get("list_id"),
+                        company_id=data.get("company_id"),
+                    )
                     self.send_json({"items": results})
                 elif parsed.path == "/api/suppression":
                     self.send_json(add_suppression(conn, data.get("email"), data.get("reason") or "manual"))
