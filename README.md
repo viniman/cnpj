@@ -358,6 +358,56 @@ Tabelas:
 - `approval_queue`
 - `agent_actions`
 
+## ICP estruturado e fila SDR
+
+A aba `ICP SDR` permite transformar filtros comerciais em regra estruturada.
+O agente futuro so pode priorizar empresas que passem por essa regra no
+backend.
+
+Fluxo:
+
+1. Crie ou escolha uma lista de empresas.
+2. Abra `ICP SDR`.
+3. Crie um ICP com UF, cidade, CNAE, setor, porte e scores minimos.
+4. Clique em `Priorizar` na regra ICP.
+5. Revise a `Fila SDR priorizada`.
+6. Aceite ou rejeite cada sugestao com uma nota.
+
+Criar ICP:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/icp-rules" `
+  -Body '{"name":"Software SP","criteria":{"states":["SP"],"cnaes":["620"],"min_email_score":30,"max_leads":50}}' `
+  -ContentType "application/json"
+```
+
+Priorizar uma lista:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/icp-rules/1/prioritize" `
+  -Body '{"list_id":1}' `
+  -ContentType "application/json"
+```
+
+Aceitar sugestao:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/priority-queue/1/accept" `
+  -Body '{"note":"Bom fit para cadencia"}' `
+  -ContentType "application/json"
+```
+
+Tabelas:
+
+- `icp_rules`
+- `lead_priority_queue`
+
 ## Importar CSV simplificado
 
 Na tela `Importacao`, informe o caminho local de um CSV com algumas destas colunas:
@@ -431,6 +481,13 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/approvals/{id}/approve`
 - `POST /api/approvals/{id}/reject`
 - `GET /api/agent-actions`
+- `POST /api/icp-rules`
+- `GET /api/icp-rules`
+- `GET /api/icp-rules/{id}`
+- `POST /api/icp-rules/{id}/prioritize`
+- `GET /api/priority-queue`
+- `POST /api/priority-queue/{id}/accept`
+- `POST /api/priority-queue/{id}/reject`
 - `POST /api/suppression`
 - `GET /api/audit`
 
@@ -451,6 +508,7 @@ python -m unittest discover -s tests
 - Campanhas locais sao simuladas e nao chamam provedor externo.
 - Rodape de compliance de templates e injetado pelo backend.
 - Sequencias exigem aprovacao humana por passo antes de simular envio.
+- Fila SDR so inclui empresas que passam pelo ICP estruturado no backend.
 
 ## Proximas fases sugeridas
 
@@ -461,6 +519,5 @@ python -m unittest discover -s tests
 5. Canal de solicitacao de titular.
 6. Motor de score configuravel por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
-8. ICP estruturado e priorizacao automatizada para fila SDR.
-9. Classificacao de respostas, handoff humano e reunioes.
-10. Integracao futura com provedores de email somente com opt-out, bounce e limites.
+8. Classificacao de respostas, handoff humano e reunioes.
+9. Integracao futura com provedores de email somente com opt-out, bounce e limites.

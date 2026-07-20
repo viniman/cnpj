@@ -38,7 +38,7 @@ flowchart LR
 - `radar_cnpj/email_experiments.py`: regras puras de campanhas simuladas, UTM, funil e elegibilidade.
 - `radar_cnpj/email_templates.py`: renderizacao de templates versionados com variaveis e rodape de compliance.
 - `radar_cnpj/services.py`: tambem orquestra sequencias semi-supervisionadas,
-  fila de aprovacao e logs do agente no MVP local.
+  fila de aprovacao, ICP estruturado, fila SDR e logs do agente no MVP local.
 - `radar_cnpj/scoring.py`: setor, segmento, score explicavel e estimativa simples.
 - `radar_cnpj/exporter.py`: geracao CSV e XLSX sem biblioteca externa.
 - `static/*`: interface operacional.
@@ -62,6 +62,8 @@ Tabelas principais:
 - `sequences`, `sequence_steps`, `lead_journey`, `approval_queue`,
   `agent_actions`: cadencias semi-supervisionadas, estado por lead, revisao
   humana e auditoria de decisoes.
+- `icp_rules`, `lead_priority_queue`: regras estruturadas de cliente ideal e
+  fila SDR priorizada antes de qualquer cadencia.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -77,6 +79,9 @@ Tabelas principais:
 - Sequencias nao executam passos sem item aprovado em `approval_queue`.
 - Aprovacoes rejeitadas nao geram registros em `sends`.
 - Cada acao de sequencia registra origem e motivo em `agent_actions`.
+- ICP e aplicado no backend antes de uma empresa entrar na fila SDR.
+- Priorizacao bloqueia supressao, opt-out, e-mail fraco e contato
+  terceirizado conforme criterio estruturado.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

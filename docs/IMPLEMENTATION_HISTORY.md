@@ -367,3 +367,37 @@ Meta da fase:
 Documento principal:
 
 - `docs/ICP_PRIORITIZATION_SPEC.md`
+
+Commits:
+
+- `99bcfcc docs: define icp prioritization phase`
+- `dcf0f0a feat: add icp prioritization backend`
+- `6d7eff8 feat: add icp prioritization workspace UI`
+
+Implementado:
+
+- Tabelas `icp_rules` e `lead_priority_queue`.
+- Criacao/listagem de ICP com criterios estruturados.
+- Priorizacao a partir de lista ou base inteira.
+- Reuso dos guardrails de higiene, score de e-mail e supressao.
+- Bloqueio por UF, cidade, CNAE, setor, porte, score da empresa e score do
+  e-mail.
+- Calculo de `fit_score` e `priority_score` com explicacao auditavel.
+- Aceite/rejeicao humana de sugestoes da fila SDR.
+- Registro de priorizacao e decisoes em `agent_actions`.
+- Endpoints `/api/icp-rules/*` e `/api/priority-queue/*`.
+- Aba `ICP SDR` no frontend local.
+- Testes cobrindo match de ICP, bloqueio de suprimidos e decisao humana.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 30 tests
+OK
+```
