@@ -94,6 +94,8 @@ Tabelas principais:
   continuam bloqueadas para opt-out ou e-mail suprimido.
 - Command Center preserva `source_type`, `source_id` e origem de cada item; ele
   nao substitui as regras dos modulos de origem.
+- A inbox acionavel do Command Center roteia decisoes para os servicos de
+  origem, mantendo guardrails e auditoria existentes.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

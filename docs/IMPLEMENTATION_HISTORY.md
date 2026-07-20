@@ -674,3 +674,34 @@ Meta da fase:
 Documento principal:
 
 - `docs/COMMAND_ACTION_INBOX_SPEC.md`
+
+Commits:
+
+- `d62b81b docs: define command center action inbox phase`
+- `e58d72d feat: add command center inbox actions API`
+- `c7436bd feat: add command center inbox action UI`
+
+Implementado:
+
+- Endpoint `POST /api/command-center/actions`.
+- Roteamento explicito para aprovar/rejeitar `approval_queue`.
+- Roteamento explicito para resolver/dispensar `handoffs`.
+- Roteamento explicito para concluir/cancelar/no-show de `meetings`.
+- Payload de inbox com `actions` por item.
+- Campo de nota e botoes de acao na aba `Comando`.
+- Re-renderizacao da UI pelo snapshot atualizado do Command Center.
+- Testes cobrindo as tres familias e decisao invalida.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 41 tests
+OK
+```

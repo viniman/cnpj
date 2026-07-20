@@ -19,9 +19,20 @@ Endpoint:
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/command-center"
 ```
 
+Aplicar uma decisao da inbox:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/command-center/actions" `
+  -Body '{"source_type":"approval","source_id":1,"decision":"approve","note":"Aprovado pelo Command Center"}' `
+  -ContentType "application/json"
+```
+
 Importante: o Command Center nao cria uma fonte paralela de verdade. Ele mostra
 os dados agregados e preserva `source_type` e `source_id` para a acao continuar
-no modulo de origem.
+no modulo de origem. As decisoes da inbox sao roteadas para esses mesmos
+modulos.
 
 ## Rodar localmente
 
@@ -560,6 +571,7 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 
 - `GET /api/dashboard`
 - `GET /api/command-center`
+- `POST /api/command-center/actions`
 - `GET /api/companies`
 - `GET /api/companies/{id}`
 - `POST /api/import`
