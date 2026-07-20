@@ -117,3 +117,30 @@ Consequencias:
 - Guardrails de higiene, supressao e scoring ja sao testados nesta fase,
   preparando o caminho para SES sem confiar na interface.
 
+## ADR-006 - Rodape de compliance e injetado pelo backend
+
+Data: 2026-07-20
+
+Decisao:
+
+- Templates de e-mail guardam apenas assunto e corpo editaveis.
+- O rodape de compliance, unsubscribe e privacidade e gerado no backend no
+  momento da renderizacao.
+- Variaveis de sistema como `{{unsubscribe_url}}` e `{{privacy_url}}` nao podem
+  ser salvas no corpo editavel do template.
+
+Racional:
+
+- Compliance nao pode depender da disciplina de quem edita a copy.
+- O agente SDR futuro tambem deve receber texto renderizado com trilhos de
+  compliance ja aplicados.
+- Versionar templates sem rodape editavel evita campanhas antigas com texto de
+  compliance divergente.
+
+Consequencias:
+
+- `email_template_versions` guarda `compliance_footer` usado naquela versao.
+- Renderizacao retorna `body_without_footer`, `footer` e `body`.
+- Campanhas futuras devem referenciar `template_version_id` para preservar a
+  copy usada no momento do experimento.
+

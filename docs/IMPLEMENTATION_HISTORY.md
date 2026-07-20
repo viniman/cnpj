@@ -193,3 +193,25 @@ campaign_mode=simulated
 simulated_sent=1
 simulated_blocked=2
 ```
+
+## 2026-07-20 - Inicio da fase 04 de templates versionados
+
+Branch: `feature/04-email-template-foundation`
+
+Estado inicial:
+
+- Fase 03 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 19 tests`, `OK`.
+
+Meta da fase:
+
+- Criar templates reutilizaveis com assunto/corpo editaveis.
+- Versionar cada alteracao sem sobrescrever historico.
+- Renderizar variaveis com dados reais de empresa.
+- Injetar rodape de compliance no backend.
+
+Documento principal:
+
+- `docs/EMAIL_TEMPLATE_SPEC.md`

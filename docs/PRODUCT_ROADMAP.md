@@ -77,9 +77,10 @@ Fases:
    `events`, `conversions`, `throttle_config`, `pause_events`.
 2. Simulador local de campanhas sem envio real.
 3. Trilho duro de higiene, score e supressao antes de qualquer envio.
-4. Dashboard de funil priorizando clique, resposta e conversao.
-5. Documentacao de DNS SPF/DKIM/DMARC e SES.
-6. Integracao SES apenas apos ambiente e dominio validados.
+4. Templates versionados com variaveis e rodape de compliance injetado.
+5. Dashboard de funil priorizando clique, resposta e conversao.
+6. Documentacao de DNS SPF/DKIM/DMARC e SES.
+7. Integracao SES apenas apos ambiente e dominio validados.
 
 ## Camada 4 - Agente SDR semi-supervisionado
 
