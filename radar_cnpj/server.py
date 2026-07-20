@@ -8,27 +8,37 @@ from .database import connect, init_db
 from .services import (
     add_companies_to_list,
     add_suppression,
+    approve_sequence_step,
     audit_events,
     create_list,
     create_campaign,
     create_email_template,
     create_email_template_version,
     create_leads_from_list,
+    create_sequence,
     dashboard,
     enrich_company,
+    enroll_sequence_from_list,
     export_list,
     get_campaign,
     get_company,
     get_company_enrichment,
     get_email_template,
     get_list,
+    get_sequence,
     import_source,
+    list_agent_actions,
+    list_approvals,
     list_campaigns,
     list_email_templates,
     list_experiment_leads,
+    list_journeys,
     list_lists,
+    list_sequences,
+    prepare_next_journey_step,
     remove_company_from_list,
     record_campaign_event,
+    reject_sequence_step,
     render_email_template,
     score_emails,
     search_companies,
@@ -179,6 +189,20 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         self.send_error_json("Template nao encontrado", 404)
                     else:
                         self.send_json(template)
+                elif parsed.path == "/api/sequences":
+                    self.send_json(list_sequences(conn))
+                elif len(parts) == 3 and parts[1] == "sequences":
+                    sequence = get_sequence(conn, int(parts[2]))
+                    if not sequence:
+                        self.send_error_json("Sequencia nao encontrada", 404)
+                    else:
+                        self.send_json(sequence)
+                elif parsed.path == "/api/sequences/journeys":
+                    self.send_json(list_journeys(conn, params))
+                elif parsed.path == "/api/approvals":
+                    self.send_json(list_approvals(conn, params))
+                elif parsed.path == "/api/agent-actions":
+                    self.send_json(list_agent_actions(conn, params))
                 elif parsed.path == "/api/sources/official":
                     self.send_json(catalog())
                 elif len(parts) == 5 and parts[1] == "sources" and parts[2] == "official" and parts[3] == "snapshots":
@@ -263,6 +287,16 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, create_email_template_version(conn, int(parts[2]), data))
                 elif parsed.path == "/api/templates/render":
                     self.send_json_commit(conn, render_email_template(conn, data))
+                elif parsed.path == "/api/sequences":
+                    self.send_json_commit(conn, create_sequence(conn, data), 201)
+                elif len(parts) == 4 and parts[1] == "sequences" and parts[3] == "enroll":
+                    self.send_json_commit(conn, enroll_sequence_from_list(conn, int(parts[2]), int(data.get("list_id") or 0)))
+                elif len(parts) == 5 and parts[1] == "sequences" and parts[2] == "journeys" and parts[4] == "prepare-next":
+                    self.send_json_commit(conn, prepare_next_journey_step(conn, int(parts[3])))
+                elif len(parts) == 4 and parts[1] == "approvals" and parts[3] == "approve":
+                    self.send_json_commit(conn, approve_sequence_step(conn, int(parts[2]), data.get("note") or ""))
+                elif len(parts) == 4 and parts[1] == "approvals" and parts[3] == "reject":
+                    self.send_json_commit(conn, reject_sequence_step(conn, int(parts[2]), data.get("note") or ""))
                 elif parsed.path == "/api/suppression":
                     self.send_json_commit(conn, add_suppression(conn, data.get("email"), data.get("reason") or "manual"))
                 elif parsed.path == "/api/sources/official/download":

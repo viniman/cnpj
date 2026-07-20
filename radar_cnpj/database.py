@@ -430,6 +430,85 @@ def init_db():
                 FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS sequences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                campaign_id INTEGER,
+                name TEXT NOT NULL,
+                description TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS sequence_steps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sequence_id INTEGER NOT NULL,
+                step_number INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                step_type TEXT NOT NULL DEFAULT 'email',
+                wait_days INTEGER NOT NULL DEFAULT 0,
+                template_id INTEGER NOT NULL,
+                template_version_id INTEGER NOT NULL,
+                require_approval INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                UNIQUE (sequence_id, step_number),
+                FOREIGN KEY (sequence_id) REFERENCES sequences(id) ON DELETE CASCADE,
+                FOREIGN KEY (template_id) REFERENCES email_templates(id),
+                FOREIGN KEY (template_version_id) REFERENCES email_template_versions(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS lead_journey (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                lead_id INTEGER NOT NULL,
+                sequence_id INTEGER NOT NULL,
+                current_step_id INTEGER,
+                current_step_number INTEGER NOT NULL DEFAULT 1,
+                status TEXT NOT NULL,
+                next_action_at TEXT,
+                last_action_at TEXT,
+                block_reason TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE (org_id, lead_id, sequence_id),
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE,
+                FOREIGN KEY (sequence_id) REFERENCES sequences(id) ON DELETE CASCADE,
+                FOREIGN KEY (current_step_id) REFERENCES sequence_steps(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS approval_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                item_type TEXT NOT NULL,
+                item_id INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                title TEXT NOT NULL,
+                context_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                decided_at TEXT,
+                decision_note TEXT,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS agent_actions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                lead_id INTEGER,
+                sequence_id INTEGER,
+                action_type TEXT NOT NULL,
+                source TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL,
+                FOREIGN KEY (sequence_id) REFERENCES sequences(id) ON DELETE SET NULL
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -518,6 +597,11 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_events_campaign_type ON events(campaign_id, event_type);
             CREATE INDEX IF NOT EXISTS idx_email_templates_status ON email_templates(status);
             CREATE INDEX IF NOT EXISTS idx_email_template_versions_active ON email_template_versions(template_id, is_active);
+            CREATE INDEX IF NOT EXISTS idx_sequences_status ON sequences(status);
+            CREATE INDEX IF NOT EXISTS idx_sequence_steps_sequence ON sequence_steps(sequence_id, step_number);
+            CREATE INDEX IF NOT EXISTS idx_lead_journey_status ON lead_journey(status);
+            CREATE INDEX IF NOT EXISTS idx_approval_queue_status ON approval_queue(status);
+            CREATE INDEX IF NOT EXISTS idx_agent_actions_created ON agent_actions(created_at);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);
