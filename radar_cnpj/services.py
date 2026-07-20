@@ -1678,9 +1678,10 @@ def get_active_template_version(conn, template_id):
 
 
 def get_email_template(conn, template_id):
+    org_id = current_org_id(conn)
     template = conn.execute(
         "SELECT * FROM email_templates WHERE id = ? AND org_id = ?",
-        (template_id, ORG_ID),
+        (template_id, org_id),
     ).fetchone()
     if not template:
         return None
@@ -1703,6 +1704,7 @@ def get_email_template(conn, template_id):
 
 
 def list_email_templates(conn):
+    org_id = current_org_id(conn)
     rows = conn.execute(
         """
         SELECT *
@@ -1710,7 +1712,7 @@ def list_email_templates(conn):
         WHERE org_id = ?
         ORDER BY updated_at DESC, id DESC
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     return {"items": [get_email_template(conn, row["id"]) for row in rows]}
 
@@ -1721,6 +1723,7 @@ def normalize_template_purpose(value):
 
 
 def create_email_template(conn, payload):
+    org_id = current_org_id(conn)
     name = (payload.get("name") or "").strip()
     subject = (payload.get("subject") or "").strip()
     body = (payload.get("body") or "").strip()
@@ -1737,7 +1740,7 @@ def create_email_template(conn, payload):
         INSERT INTO email_templates (org_id, name, purpose, status, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (ORG_ID, name, normalize_template_purpose(payload.get("purpose")), "active", timestamp, timestamp),
+        (org_id, name, normalize_template_purpose(payload.get("purpose")), "active", timestamp, timestamp),
     )
     template_id = cursor.lastrowid
     variables = extract_variables(subject, body)
@@ -1760,11 +1763,12 @@ def create_email_template(conn, payload):
             timestamp,
         ),
     )
-    audit(conn, "create_email_template", "email_template", template_id, {"name": name, "variables": variables})
+    audit(conn, "create_email_template", "email_template", template_id, {"name": name, "variables": variables}, org_id=org_id)
     return get_email_template(conn, template_id)
 
 
 def create_email_template_version(conn, template_id, payload):
+    org_id = current_org_id(conn)
     template = get_email_template(conn, template_id)
     if not template:
         raise ValueError("Template nao encontrado")
@@ -1806,11 +1810,13 @@ def create_email_template_version(conn, template_id, payload):
         "email_template",
         template_id,
         {"version_number": version_number, "variables": variables},
+        org_id=org_id,
     )
     return get_email_template(conn, template_id)
 
 
 def template_version_for_render(conn, template_id=None, template_version_id=None):
+    org_id = current_org_id(conn)
     if template_version_id:
         row = conn.execute(
             """
@@ -1819,7 +1825,7 @@ def template_version_for_render(conn, template_id=None, template_version_id=None
             JOIN email_templates t ON t.id = v.template_id
             WHERE v.id = ? AND t.org_id = ?
             """,
-            (int(template_version_id), ORG_ID),
+            (int(template_version_id), org_id),
         ).fetchone()
     else:
         row = conn.execute(
@@ -1831,12 +1837,13 @@ def template_version_for_render(conn, template_id=None, template_version_id=None
             ORDER BY v.version_number DESC
             LIMIT 1
             """,
-            (int(template_id or 0), ORG_ID),
+            (int(template_id or 0), org_id),
         ).fetchone()
     return row
 
 
 def render_email_template(conn, payload):
+    org_id = current_org_id(conn)
     version = template_version_for_render(
         conn,
         template_id=payload.get("template_id"),
@@ -1882,6 +1889,7 @@ def render_email_template(conn, payload):
         "email_template",
         version["template_id"],
         {"version_id": version["id"], "company_id": company_id, "missing": rendered["missing_variables"]},
+        org_id=org_id,
     )
     return result
 

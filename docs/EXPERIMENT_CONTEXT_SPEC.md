@@ -34,7 +34,7 @@ sem implementar envio real de e-mail.
 - Envio real via SES.
 - Filas serverless/QStash.
 - Recebimento real de webhook SNS.
-- Migrar templates, sequencias, ICP, respostas/reunioes.
+- Migrar sequencias, ICP, respostas/reunioes.
 - Contexto por usuario/sessao web.
 
 ## Decisao central
@@ -69,3 +69,5 @@ backend contra `current_org_id(conn)`.
 - Funil de campanha conta `sends` e `events` apenas da campanha no workspace
   ativo.
 - A aba `Experimentos` recarrega listas ao trocar workspace.
+- Templates usados para montar campanhas simuladas seguem o workspace ativo a
+  partir da Fase 19.

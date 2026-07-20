@@ -776,6 +776,8 @@ python -m unittest discover -s tests
   seguem em migracao gradual.
 - Experimentos/campanhas simuladas tambem respeitam o workspace ativo: leads,
   campanhas, simulacoes, eventos e funil sao filtrados por contexto.
+- Templates de e-mail tambem respeitam o workspace ativo: criacao, listagem,
+  versoes e renderizacao nao atravessam workspaces.
 
 ## Proximas fases sugeridas
 

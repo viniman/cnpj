@@ -130,6 +130,8 @@ Tabelas principais:
   notificacoes e OKRs ja migrados leem `current_org_id(conn)`.
 - Experimentos comerciais simulados tambem leem `current_org_id(conn)` para
   leads, campanhas, funil e eventos.
+- Templates de e-mail e suas versoes leem `current_org_id(conn)` para criacao,
+  listagem, detalhe, versionamento e renderizacao.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo
   vinculo com listas do workspace ativo.
 - Supressao e opt-out sao consultados globalmente pelo modulo de higiene,

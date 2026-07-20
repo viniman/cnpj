@@ -510,3 +510,30 @@ Consequencias:
 - Ao trocar workspace, campanhas e leads de outro workspace desaparecem das
   telas migradas.
 - Sequencias e agente SDR ainda precisam de fases proprias de migracao.
+
+## ADR-021 - Templates sao configuracao operacional do workspace
+
+Data: 2026-07-20
+
+Decisao:
+
+- Templates de e-mail e suas versoes devem usar `current_org_id(conn)`.
+- Renderizacao deve recusar template/version de outro workspace.
+- Compartilhamento entre workspaces fica fora do caminho implicito e deve ser
+  implementado no futuro como clonagem/acao auditavel.
+
+Racional:
+
+- Copy, tom de voz e variaveis padrao fazem parte da identidade operacional de
+  cada empresa interna.
+- Reutilizacao acidental de template entre workspaces pode gerar mensagem com
+  tom, CTA ou oferta errados.
+- O rodape de compliance continua injetado no backend, independente do
+  workspace.
+
+Consequencias:
+
+- Ao trocar workspace, a aba `Templates` mostra apenas a biblioteca daquele
+  contexto.
+- Campanhas e sequencias futuras devem referenciar templates do mesmo workspace.
+- Playbooks continuam sendo o caminho certo para reuso planejado entre empresas.

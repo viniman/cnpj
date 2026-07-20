@@ -1298,3 +1298,54 @@ Resultado esperado nesta etapa:
 Ran 65 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 19 de templates por workspace
+
+Branch: `feature/19-template-context-foundation`
+
+Estado inicial:
+
+- Fase 18 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 65 tests`, `OK`.
+
+Meta da fase:
+
+- Migrar biblioteca de templates, versoes e renderizacao para o workspace ativo.
+- Bloquear detalhe, versionamento e renderizacao de template fora do contexto.
+- Preservar rodape de compliance injetado pelo backend.
+
+Documento principal:
+
+- `docs/TEMPLATE_CONTEXT_SPEC.md`
+
+Commits:
+
+- `4c573e2 docs: define template context phase`
+- `b8cd137 feat: scope email templates to active workspace`
+
+Implementado:
+
+- Templates criados no workspace ativo.
+- Listagem e detalhe de templates filtrados por workspace ativo.
+- Criacao de versao bloqueada para template fora do workspace ativo.
+- Renderizacao bloqueada por template ou versao fora do workspace ativo.
+- Auditoria de criacao, versionamento e renderizacao no workspace ativo.
+- Rodape de compliance preservado no backend.
+- Teste de isolamento multi-workspace em `tests/test_email_templates.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_email_templates
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 66 tests
+OK
+```
