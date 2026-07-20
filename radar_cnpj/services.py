@@ -4703,9 +4703,10 @@ def parse_agent_config_row(row):
 
 
 def ensure_default_agent_config(conn):
+    org_id = current_org_id(conn)
     active = conn.execute(
         "SELECT id FROM agent_config_versions WHERE org_id = ? AND status = 'active' LIMIT 1",
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()
     if active:
         return active["id"]
@@ -4719,7 +4720,7 @@ def ensure_default_agent_config(conn):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             1,
             "SDR semi-supervisionado padrao",
             "active",
@@ -4730,11 +4731,12 @@ def ensure_default_agent_config(conn):
             timestamp,
         ),
     )
-    audit(conn, "create_default_agent_config", "agent_config_version", cursor.lastrowid, {"version_number": 1})
+    audit(conn, "create_default_agent_config", "agent_config_version", cursor.lastrowid, {"version_number": 1}, org_id=org_id)
     return cursor.lastrowid
 
 
 def list_agent_configs(conn):
+    org_id = current_org_id(conn)
     ensure_default_agent_config(conn)
     rows = conn.execute(
         """
@@ -4743,12 +4745,13 @@ def list_agent_configs(conn):
         WHERE org_id = ?
         ORDER BY version_number DESC
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     return [parse_agent_config_row(row) for row in rows]
 
 
 def active_agent_config(conn):
+    org_id = current_org_id(conn)
     ensure_default_agent_config(conn)
     row = conn.execute(
         """
@@ -4758,20 +4761,22 @@ def active_agent_config(conn):
         ORDER BY version_number DESC
         LIMIT 1
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()
     return parse_agent_config_row(row)
 
 
 def next_agent_config_version(conn):
+    org_id = current_org_id(conn)
     row = conn.execute(
         "SELECT MAX(version_number) AS version_number FROM agent_config_versions WHERE org_id = ?",
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()
     return int(row["version_number"] or 0) + 1
 
 
 def create_agent_config(conn, payload):
+    org_id = current_org_id(conn)
     ensure_default_agent_config(conn)
     payload = payload or {}
     name = (payload.get("name") or "").strip()
@@ -4797,7 +4802,7 @@ def create_agent_config(conn, payload):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             version_number,
             name,
             "staging",
@@ -4808,17 +4813,18 @@ def create_agent_config(conn, payload):
         ),
     )
     config = parse_agent_config_row(
-        conn.execute("SELECT * FROM agent_config_versions WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        conn.execute("SELECT * FROM agent_config_versions WHERE id = ? AND org_id = ?", (cursor.lastrowid, org_id)).fetchone()
     )
-    audit(conn, "create_agent_config", "agent_config_version", config["id"], {"version_number": version_number})
+    audit(conn, "create_agent_config", "agent_config_version", config["id"], {"version_number": version_number}, org_id=org_id)
     return config
 
 
 def activate_agent_config(conn, config_id):
+    org_id = current_org_id(conn)
     ensure_default_agent_config(conn)
     config = conn.execute(
         "SELECT * FROM agent_config_versions WHERE id = ? AND org_id = ?",
-        (int(config_id), ORG_ID),
+        (int(config_id), org_id),
     ).fetchone()
     if not config:
         raise ValueError("Configuracao do agente nao encontrada")
@@ -4829,7 +4835,7 @@ def activate_agent_config(conn, config_id):
         SET status = 'archived', archived_at = ?
         WHERE org_id = ? AND status = 'active' AND id != ?
         """,
-        (timestamp, ORG_ID, int(config_id)),
+        (timestamp, org_id, int(config_id)),
     )
     conn.execute(
         """
@@ -4837,11 +4843,11 @@ def activate_agent_config(conn, config_id):
         SET status = 'active', activated_at = ?, archived_at = NULL
         WHERE id = ? AND org_id = ?
         """,
-        (timestamp, int(config_id), ORG_ID),
+        (timestamp, int(config_id), org_id),
     )
-    audit(conn, "activate_agent_config", "agent_config_version", int(config_id), {"activated_at": timestamp})
+    audit(conn, "activate_agent_config", "agent_config_version", int(config_id), {"activated_at": timestamp}, org_id=org_id)
     return parse_agent_config_row(
-        conn.execute("SELECT * FROM agent_config_versions WHERE id = ?", (int(config_id),)).fetchone()
+        conn.execute("SELECT * FROM agent_config_versions WHERE id = ? AND org_id = ?", (int(config_id), org_id)).fetchone()
     )
 
 
@@ -4854,30 +4860,32 @@ def parse_agent_simulation_row(row):
 
 
 def list_agent_simulations(conn, limit=20):
+    org_id = current_org_id(conn)
     rows = conn.execute(
         """
         SELECT sim.*, cfg.version_number, cfg.name AS config_name,
                l.email AS lead_email, c.legal_name, c.trade_name
         FROM agent_simulations sim
-        JOIN agent_config_versions cfg ON cfg.id = sim.config_version_id
-        LEFT JOIN leads l ON l.id = sim.lead_id
+        JOIN agent_config_versions cfg ON cfg.id = sim.config_version_id AND cfg.org_id = sim.org_id
+        LEFT JOIN leads l ON l.id = sim.lead_id AND l.org_id = sim.org_id
         LEFT JOIN companies c ON c.id = l.company_id
         WHERE sim.org_id = ?
         ORDER BY sim.id DESC
         LIMIT ?
         """,
-        (ORG_ID, min(int(limit), 100)),
+        (org_id, min(int(limit), 100)),
     ).fetchall()
     return [parse_agent_simulation_row(row) for row in rows]
 
 
 def create_agent_simulation(conn, payload):
+    org_id = current_org_id(conn)
     ensure_default_agent_config(conn)
     payload = payload or {}
     config_id = int(payload.get("config_version_id") or active_agent_config(conn)["id"])
     config = conn.execute(
         "SELECT * FROM agent_config_versions WHERE id = ? AND org_id = ?",
-        (config_id, ORG_ID),
+        (config_id, org_id),
     ).fetchone()
     if not config:
         raise ValueError("Configuracao do agente nao encontrada")
@@ -4891,7 +4899,7 @@ def create_agent_simulation(conn, payload):
             LEFT JOIN companies c ON c.id = l.company_id
             WHERE l.id = ? AND l.org_id = ?
             """,
-            (lead_id, ORG_ID),
+            (lead_id, org_id),
         ).fetchone()
         if not lead:
             raise ValueError("Lead nao encontrado para simulacao")
@@ -4921,21 +4929,21 @@ def create_agent_simulation(conn, payload):
         )
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (ORG_ID, config_id, lead_id, scenario, "completed", json.dumps(result, ensure_ascii=True), timestamp),
+        (org_id, config_id, lead_id, scenario, "completed", json.dumps(result, ensure_ascii=True), timestamp),
     )
-    audit(conn, "create_agent_simulation", "agent_simulation", cursor.lastrowid, {"config_version_id": config_id})
+    audit(conn, "create_agent_simulation", "agent_simulation", cursor.lastrowid, {"config_version_id": config_id}, org_id=org_id)
     return parse_agent_simulation_row(
         conn.execute(
             """
             SELECT sim.*, cfg.version_number, cfg.name AS config_name,
                    l.email AS lead_email, c.legal_name, c.trade_name
             FROM agent_simulations sim
-            JOIN agent_config_versions cfg ON cfg.id = sim.config_version_id
-            LEFT JOIN leads l ON l.id = sim.lead_id
+            JOIN agent_config_versions cfg ON cfg.id = sim.config_version_id AND cfg.org_id = sim.org_id
+            LEFT JOIN leads l ON l.id = sim.lead_id AND l.org_id = sim.org_id
             LEFT JOIN companies c ON c.id = l.company_id
-            WHERE sim.id = ?
+            WHERE sim.id = ? AND sim.org_id = ?
             """,
-            (cursor.lastrowid,),
+            (cursor.lastrowid, org_id),
         ).fetchone()
     )
 
@@ -4945,23 +4953,25 @@ def parse_agent_cost_row(row):
 
 
 def list_agent_costs(conn, limit=50):
+    org_id = current_org_id(conn)
     rows = conn.execute(
         """
         SELECT cost.*, cfg.version_number, cfg.name AS config_name,
                l.email AS lead_email
         FROM agent_cost_log cost
-        LEFT JOIN agent_config_versions cfg ON cfg.id = cost.config_version_id
-        LEFT JOIN leads l ON l.id = cost.lead_id
+        LEFT JOIN agent_config_versions cfg ON cfg.id = cost.config_version_id AND cfg.org_id = cost.org_id
+        LEFT JOIN leads l ON l.id = cost.lead_id AND l.org_id = cost.org_id
         WHERE cost.org_id = ?
         ORDER BY cost.id DESC
         LIMIT ?
         """,
-        (ORG_ID, min(int(limit), 200)),
+        (org_id, min(int(limit), 200)),
     ).fetchall()
     return [parse_agent_cost_row(row) for row in rows]
 
 
 def agent_cost_summary(conn):
+    org_id = current_org_id(conn)
     row = conn.execute(
         """
         SELECT COUNT(*) AS total_calls,
@@ -4972,7 +4982,7 @@ def agent_cost_summary(conn):
         FROM agent_cost_log
         WHERE org_id = ?
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()
     by_model = conn.execute(
         """
@@ -4984,7 +4994,7 @@ def agent_cost_summary(conn):
         GROUP BY model_name
         ORDER BY estimated_cost DESC, calls DESC
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     data = dict_row(row)
     data["estimated_cost"] = round(float(data["estimated_cost"] or 0), 6)
@@ -4995,6 +5005,7 @@ def agent_cost_summary(conn):
 
 
 def record_agent_cost(conn, payload):
+    org_id = current_org_id(conn)
     ensure_default_agent_config(conn)
     payload = payload or {}
     operation = (payload.get("operation") or "").strip()
@@ -5003,10 +5014,22 @@ def record_agent_cost(conn, payload):
     config_id = int(payload.get("config_version_id") or active_agent_config(conn)["id"])
     config = conn.execute(
         "SELECT * FROM agent_config_versions WHERE id = ? AND org_id = ?",
-        (config_id, ORG_ID),
+        (config_id, org_id),
     ).fetchone()
     if not config:
         raise ValueError("Configuracao do agente nao encontrada")
+    lead_id = int(payload.get("lead_id") or 0) or None
+    sequence_id = int(payload.get("sequence_id") or 0) or None
+    agent_action_id = int(payload.get("agent_action_id") or 0) or None
+    if lead_id and not conn.execute("SELECT id FROM leads WHERE id = ? AND org_id = ?", (lead_id, org_id)).fetchone():
+        raise ValueError("Lead nao encontrado para custo do agente")
+    if sequence_id and not conn.execute("SELECT id FROM sequences WHERE id = ? AND org_id = ?", (sequence_id, org_id)).fetchone():
+        raise ValueError("Sequencia nao encontrada para custo do agente")
+    if agent_action_id and not conn.execute(
+        "SELECT id FROM agent_actions WHERE id = ? AND org_id = ?",
+        (agent_action_id, org_id),
+    ).fetchone():
+        raise ValueError("Acao do agente nao encontrada para custo do agente")
     prompt_tokens = max(0, int(payload.get("prompt_tokens") or 0))
     completion_tokens = max(0, int(payload.get("completion_tokens") or 0))
     total_tokens = prompt_tokens + completion_tokens
@@ -5023,10 +5046,10 @@ def record_agent_cost(conn, payload):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
-            int(payload.get("lead_id") or 0) or None,
-            int(payload.get("sequence_id") or 0) or None,
-            int(payload.get("agent_action_id") or 0) or None,
+            org_id,
+            lead_id,
+            sequence_id,
+            agent_action_id,
             config_id,
             operation,
             payload.get("provider") or "manual",
@@ -5038,9 +5061,9 @@ def record_agent_cost(conn, payload):
             timestamp,
         ),
     )
-    audit(conn, "record_agent_cost", "agent_cost_log", cursor.lastrowid, {"operation": operation, "cost": estimated_cost})
+    audit(conn, "record_agent_cost", "agent_cost_log", cursor.lastrowid, {"operation": operation, "cost": estimated_cost}, org_id=org_id)
     return parse_agent_cost_row(
-        conn.execute("SELECT * FROM agent_cost_log WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        conn.execute("SELECT * FROM agent_cost_log WHERE id = ? AND org_id = ?", (cursor.lastrowid, org_id)).fetchone()
     )
 
 
