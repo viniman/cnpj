@@ -64,6 +64,8 @@ Tabelas principais:
   humana e auditoria de decisoes.
 - `icp_rules`, `lead_priority_queue`: regras estruturadas de cliente ideal e
   fila SDR priorizada antes de qualquer cadencia.
+- `reply_classifications`, `handoffs`: classificacao de respostas recebidas e
+  fila de intervencao humana.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -82,6 +84,9 @@ Tabelas principais:
 - ICP e aplicado no backend antes de uma empresa entrar na fila SDR.
 - Priorizacao bloqueia supressao, opt-out, e-mail fraco e contato
   terceirizado conforme criterio estruturado.
+- Conteudo de resposta recebida e tratado como dado externo, nao instrucao.
+- Opt-out por resposta grava supressao e opt-out imediatamente.
+- Respostas com interesse, duvida, pessoa errada ou ambiguidade criam handoff.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

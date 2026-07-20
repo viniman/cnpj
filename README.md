@@ -408,6 +408,55 @@ Tabelas:
 - `icp_rules`
 - `lead_priority_queue`
 
+## Respostas e handoff humano
+
+A aba `Respostas` permite simular uma resposta recebida e classificar a
+intencao em categorias fixas. O conteudo da resposta e tratado como dado
+externo, nunca como instrucao para o sistema.
+
+Fluxo:
+
+1. Informe `send_id`, `lead_id` ou e-mail.
+2. Cole assunto/corpo da resposta.
+3. Clique em `Classificar resposta`.
+4. Revise a classificacao e os handoffs pendentes.
+5. Resolva ou dispense o handoff com uma nota.
+
+Classificar resposta:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/replies/classify" `
+  -Body '{"send_id":1,"body":"Tenho interesse, podemos conversar esta semana?"}' `
+  -ContentType "application/json"
+```
+
+Resolver handoff:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/handoffs/1/resolve" `
+  -Body '{"note":"Respondido manualmente"}' `
+  -ContentType "application/json"
+```
+
+Categorias:
+
+- `interest_meeting`
+- `question`
+- `not_interested`
+- `opt_out`
+- `out_of_office`
+- `wrong_person`
+- `ambiguous`
+
+Tabelas:
+
+- `reply_classifications`
+- `handoffs`
+
 ## Importar CSV simplificado
 
 Na tela `Importacao`, informe o caminho local de um CSV com algumas destas colunas:
@@ -488,6 +537,11 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `GET /api/priority-queue`
 - `POST /api/priority-queue/{id}/accept`
 - `POST /api/priority-queue/{id}/reject`
+- `POST /api/replies/classify`
+- `GET /api/replies`
+- `GET /api/handoffs`
+- `POST /api/handoffs/{id}/resolve`
+- `POST /api/handoffs/{id}/dismiss`
 - `POST /api/suppression`
 - `GET /api/audit`
 
@@ -509,6 +563,8 @@ python -m unittest discover -s tests
 - Rodape de compliance de templates e injetado pelo backend.
 - Sequencias exigem aprovacao humana por passo antes de simular envio.
 - Fila SDR so inclui empresas que passam pelo ICP estruturado no backend.
+- Opt-out detectado em resposta vira supressao imediata.
+- Respostas ambiguas ou quentes viram handoff humano.
 
 ## Proximas fases sugeridas
 
@@ -519,5 +575,5 @@ python -m unittest discover -s tests
 5. Canal de solicitacao de titular.
 6. Motor de score configuravel por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
-8. Classificacao de respostas, handoff humano e reunioes.
+8. Reunioes, agenda e templates de resposta manual assistida.
 9. Integracao futura com provedores de email somente com opt-out, bounce e limites.

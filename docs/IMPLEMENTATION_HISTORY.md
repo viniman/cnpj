@@ -443,3 +443,37 @@ Meta da fase:
 Documento principal:
 
 - `docs/REPLY_HANDOFF_SPEC.md`
+
+Commits:
+
+- `6f99969 docs: define reply handoff phase`
+- `4b5c861 feat: add reply classification handoff backend`
+- `4716986 feat: add reply handoff workspace UI`
+
+Implementado:
+
+- Tabelas `reply_classifications` e `handoffs`.
+- Classificador deterministico inicial para categorias fixas.
+- Opt-out por resposta grava `opt_outs` e `suppression_list`.
+- Atualizacao de status de lead conforme classificacao.
+- Parada de jornadas ativas quando resposta relevante chega.
+- Handoff humano para interesse, duvida, pessoa errada, ambiguidade,
+  autoresposta e opt-out.
+- Resolucao/dispensa de handoffs com nota.
+- Registro de classificacao, handoff e decisoes em `agent_actions`.
+- Endpoints `/api/replies/*` e `/api/handoffs/*`.
+- Aba `Respostas` no frontend local.
+- Testes cobrindo opt-out, interesse, ambiguidade, recusa e resolucao.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 34 tests
+OK
+```
