@@ -18,6 +18,7 @@ const state = {
   okrs: null,
   agentGovernance: null,
   playbooks: null,
+  notifications: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -89,6 +90,7 @@ function setView(view) {
   if (view === "dashboard") loadDashboard();
   if (view === "command") {
     loadCommandCenter();
+    loadNotifications();
     loadOkrs();
     loadPlaybooks();
     loadAgentGovernance();
@@ -225,6 +227,75 @@ function renderOkrs(data) {
     <div>${objectiveMarkup}</div>
     <div class="table-wrap">${kpiMarkup}</div>
   `;
+}
+
+async function loadNotifications() {
+  const data = await api("/api/notifications");
+  state.notifications = data;
+  renderNotifications(data);
+}
+
+function notificationSeverityTone(severity) {
+  if (severity === "critical") return "red";
+  if (severity === "high") return "amber";
+  if (severity === "success") return "green";
+  if (severity === "medium") return "purple";
+  return "";
+}
+
+function notificationStatusTone(status) {
+  if (status === "pending") return "amber";
+  if (status === "sent") return "purple";
+  if (status === "read") return "green";
+  if (status === "dismissed") return "";
+  return "";
+}
+
+function renderNotifications(data) {
+  const summary = data?.summary || {};
+  const items = data?.items || [];
+  $("#notificationSummary").innerHTML = [
+    metric("Pendentes", summary.pending || 0, summary.pending ? "amber" : ""),
+    metric("Lidas", summary.read || 0),
+    metric("Dispensadas", summary.dismissed || 0),
+    metric("Total", summary.total || 0),
+    metric("Criticas", (summary.pending_by_severity || {}).critical || 0, (summary.pending_by_severity || {}).critical ? "red" : ""),
+  ].join("");
+
+  $("#notificationsTable").innerHTML = items.length
+    ? table(
+        ["Tipo", "Severidade", "Status", "Titulo", "Origem", "Criada", ""],
+        items.map((item) => [
+          escapeHtml(item.notification_type),
+          badge(item.severity, notificationSeverityTone(item.severity)),
+          badge(item.status, notificationStatusTone(item.status)),
+          `<span class="truncate" title="${escapeHtml(item.body || "")}">${escapeHtml(item.title || "-")}</span>`,
+          escapeHtml(`${item.source_type} #${item.source_id}`),
+          escapeHtml(item.created_at || "-"),
+          item.status === "dismissed"
+            ? ""
+            : `<button class="row-action" data-notification-read="${escapeHtml(item.id)}">Lida</button><button class="row-action" data-notification-dismiss="${escapeHtml(item.id)}">Dispensar</button>`,
+        ]),
+      )
+    : `<div class="empty-state">Nenhuma notificacao gerada.</div>`;
+  $$("[data-notification-read]").forEach((button) => {
+    button.addEventListener("click", () => updateNotificationStatus(button.dataset.notificationRead, "mark-read"));
+  });
+  $$("[data-notification-dismiss]").forEach((button) => {
+    button.addEventListener("click", () => updateNotificationStatus(button.dataset.notificationDismiss, "dismiss"));
+  });
+}
+
+async function generateNotificationsFromSignals() {
+  const result = await api("/api/notifications/generate", { method: "POST", body: "{}" });
+  showStatus(`${result.created || 0} notificacoes novas geradas.`);
+  await loadNotifications();
+}
+
+async function updateNotificationStatus(notificationId, action) {
+  await api(`/api/notifications/${notificationId}/${action}`, { method: "POST", body: "{}" });
+  showStatus(action === "dismiss" ? "Notificacao dispensada." : "Notificacao marcada como lida.");
+  await loadNotifications();
 }
 
 async function loadPlaybooks() {
@@ -2134,6 +2205,8 @@ function wireEvents() {
   $("#refreshJourneysBtn").addEventListener("click", loadJourneys);
   $("#refreshAgentActionsBtn").addEventListener("click", loadAgentActions);
   $("#refreshCommandBtn").addEventListener("click", loadCommandCenter);
+  $("#generateNotificationsBtn").addEventListener("click", generateNotificationsFromSignals);
+  $("#refreshNotificationsBtn").addEventListener("click", loadNotifications);
   $("#refreshOkrsBtn").addEventListener("click", loadOkrs);
   $("#refreshPlaybooksBtn").addEventListener("click", loadPlaybooks);
   $("#playbookSelect").addEventListener("change", () => {

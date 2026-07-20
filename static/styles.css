@@ -277,6 +277,11 @@ h3 {
   border-color: #8bd9bd;
 }
 
+.metric.red {
+  border-color: #f3a7ad;
+  background: #fff5f6;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
