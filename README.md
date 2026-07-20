@@ -774,6 +774,8 @@ python -m unittest discover -s tests
 - A topbar permite trocar o workspace operacional ativo. Nesta fase, dashboard,
   listas, notificacoes e OKRs ja respeitam esse contexto; os demais dominios
   seguem em migracao gradual.
+- Experimentos/campanhas simuladas tambem respeitam o workspace ativo: leads,
+  campanhas, simulacoes, eventos e funil sao filtrados por contexto.
 
 ## Proximas fases sugeridas
 

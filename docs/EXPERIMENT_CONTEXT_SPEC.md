@@ -34,7 +34,7 @@ sem implementar envio real de e-mail.
 - Envio real via SES.
 - Filas serverless/QStash.
 - Recebimento real de webhook SNS.
-- Migrar sequencias/ICP/respostas/reunioes.
+- Migrar templates, sequencias, ICP, respostas/reunioes.
 - Contexto por usuario/sessao web.
 
 ## Decisao central
@@ -54,3 +54,18 @@ backend contra `current_org_id(conn)`.
 - Evento de campanha recusa envio/campanha fora do workspace ativo.
 - Funil de campanha e calculado apenas para campanha do workspace ativo.
 - Testes automatizados provam isolamento entre dois workspaces.
+
+## Implementado nesta fase
+
+- `suppression_sets` passou a consultar supressoes e opt-outs de forma global,
+  respeitando o desenho atual de e-mail unico e privilegiando compliance.
+- `add_suppression` audita no workspace ativo.
+- `create_leads_from_list` valida a lista contra o workspace ativo e grava
+  leads com esse `org_id`.
+- `list_experiment_leads` filtra pelo workspace ativo.
+- `create_campaign`, `list_campaigns` e `get_campaign` usam o workspace ativo.
+- `simulate_campaign` recusa campanha/lista fora do workspace ativo.
+- `record_campaign_event` recusa envio que nao pertence ao workspace ativo.
+- Funil de campanha conta `sends` e `events` apenas da campanha no workspace
+  ativo.
+- A aba `Experimentos` recarrega listas ao trocar workspace.

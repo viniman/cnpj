@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 18 iniciada em `feature/18-experiment-context-foundation`.
+Status: fase 18 implementada localmente em `feature/18-experiment-context-foundation`.
 
 Fases:
 

@@ -128,8 +128,12 @@ Tabelas principais:
   por tenant.
 - Contexto operacional ativo e salvo em `workspace_context`; dashboard, listas,
   notificacoes e OKRs ja migrados leem `current_org_id(conn)`.
+- Experimentos comerciais simulados tambem leem `current_org_id(conn)` para
+  leads, campanhas, funil e eventos.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo
   vinculo com listas do workspace ativo.
+- Supressao e opt-out sao consultados globalmente pelo modulo de higiene,
+  seguindo o schema atual de e-mail unico e priorizando seguranca de contato.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

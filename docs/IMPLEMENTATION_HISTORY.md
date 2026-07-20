@@ -1268,4 +1268,33 @@ Documento principal:
 
 Commits:
 
-- `pending docs: define experiment context phase`
+- `475281d docs: define experiment context phase`
+- `7f6accf feat: scope experiments to active workspace`
+
+Implementado:
+
+- Supressoes e opt-outs consultados globalmente por seguranca.
+- `add_suppression` auditando no workspace ativo.
+- Leads de experimento criados a partir de listas do workspace ativo.
+- Listagem de leads de experimento filtrada por workspace ativo.
+- Campanhas criadas, listadas e detalhadas por workspace ativo.
+- Simulacao recusando campanha/lista fora do workspace ativo.
+- Eventos recusando envio fora do workspace ativo.
+- Funil de campanha contado pelo workspace ativo.
+- Aba `Experimentos` recarregando listas ao trocar workspace.
+- Teste de isolamento multi-workspace em `tests/test_email_experiments.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_email_experiments
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 65 tests
+OK
+```
