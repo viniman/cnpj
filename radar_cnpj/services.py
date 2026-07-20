@@ -26,6 +26,14 @@ from .email_experiments import (
 )
 from .email_hygiene import classify_email, normalize_email
 from .email_scoring import score_email
+from .email_templates import (
+    COMPLIANCE_FOOTER_TEMPLATE,
+    SUPPORTED_VARIABLES,
+    build_company_template_context,
+    extract_variables,
+    render_template,
+    validate_editable_template,
+)
 from .exporter import rows_to_csv_bytes, rows_to_xlsx_bytes
 from .receita_importer import parse_receita_directory, parse_receita_zip_directory
 from .scoring import estimate_market_value, infer_sector, score_company
@@ -1520,6 +1528,240 @@ def record_campaign_event(conn, payload):
         )
     audit(conn, "record_campaign_event", "send", send_id, {"event_type": event_type})
     return get_campaign(conn, row["campaign_id"])
+
+
+TEMPLATE_PURPOSES = {"first_contact", "follow_up", "final_follow_up", "reply_to_question", "other"}
+
+
+def template_version_dict(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["variables"] = json.loads(data.pop("variables_json") or "[]")
+    return data
+
+
+def get_active_template_version(conn, template_id):
+    row = conn.execute(
+        """
+        SELECT *
+        FROM email_template_versions
+        WHERE template_id = ? AND is_active = 1
+        ORDER BY version_number DESC
+        LIMIT 1
+        """,
+        (template_id,),
+    ).fetchone()
+    return template_version_dict(row)
+
+
+def get_email_template(conn, template_id):
+    template = conn.execute(
+        "SELECT * FROM email_templates WHERE id = ? AND org_id = ?",
+        (template_id, ORG_ID),
+    ).fetchone()
+    if not template:
+        return None
+    data = dict_row(template)
+    versions = [
+        template_version_dict(row)
+        for row in conn.execute(
+            """
+            SELECT *
+            FROM email_template_versions
+            WHERE template_id = ?
+            ORDER BY version_number DESC
+            """,
+            (template_id,),
+        ).fetchall()
+    ]
+    data["versions"] = versions
+    data["active_version"] = next((version for version in versions if version["is_active"]), versions[0] if versions else None)
+    return data
+
+
+def list_email_templates(conn):
+    rows = conn.execute(
+        """
+        SELECT *
+        FROM email_templates
+        WHERE org_id = ?
+        ORDER BY updated_at DESC, id DESC
+        """,
+        (ORG_ID,),
+    ).fetchall()
+    return {"items": [get_email_template(conn, row["id"]) for row in rows]}
+
+
+def normalize_template_purpose(value):
+    purpose = (value or "other").strip()
+    return purpose if purpose in TEMPLATE_PURPOSES else "other"
+
+
+def create_email_template(conn, payload):
+    name = (payload.get("name") or "").strip()
+    subject = (payload.get("subject") or "").strip()
+    body = (payload.get("body") or "").strip()
+    if not name:
+        raise ValueError("Nome do template e obrigatorio")
+    if not subject:
+        raise ValueError("Assunto do template e obrigatorio")
+    if not body:
+        raise ValueError("Corpo do template e obrigatorio")
+    validate_editable_template(subject, body)
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO email_templates (org_id, name, purpose, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (ORG_ID, name, normalize_template_purpose(payload.get("purpose")), "active", timestamp, timestamp),
+    )
+    template_id = cursor.lastrowid
+    variables = extract_variables(subject, body)
+    conn.execute(
+        """
+        INSERT INTO email_template_versions (
+            template_id, version_number, subject, body, variables_json,
+            compliance_footer, is_active, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            template_id,
+            1,
+            subject,
+            body,
+            json.dumps(variables, ensure_ascii=True),
+            COMPLIANCE_FOOTER_TEMPLATE,
+            1,
+            timestamp,
+        ),
+    )
+    audit(conn, "create_email_template", "email_template", template_id, {"name": name, "variables": variables})
+    return get_email_template(conn, template_id)
+
+
+def create_email_template_version(conn, template_id, payload):
+    template = get_email_template(conn, template_id)
+    if not template:
+        raise ValueError("Template nao encontrado")
+    active = template.get("active_version") or {}
+    subject = (payload.get("subject") if payload.get("subject") is not None else active.get("subject") or "").strip()
+    body = (payload.get("body") if payload.get("body") is not None else active.get("body") or "").strip()
+    if not subject:
+        raise ValueError("Assunto do template e obrigatorio")
+    if not body:
+        raise ValueError("Corpo do template e obrigatorio")
+    validate_editable_template(subject, body)
+    version_number = int(active.get("version_number") or 0) + 1
+    variables = extract_variables(subject, body)
+    timestamp = now_iso()
+    conn.execute("UPDATE email_template_versions SET is_active = 0 WHERE template_id = ?", (template_id,))
+    conn.execute(
+        """
+        INSERT INTO email_template_versions (
+            template_id, version_number, subject, body, variables_json,
+            compliance_footer, is_active, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            template_id,
+            version_number,
+            subject,
+            body,
+            json.dumps(variables, ensure_ascii=True),
+            COMPLIANCE_FOOTER_TEMPLATE,
+            1,
+            timestamp,
+        ),
+    )
+    conn.execute("UPDATE email_templates SET updated_at = ? WHERE id = ?", (timestamp, template_id))
+    audit(
+        conn,
+        "create_email_template_version",
+        "email_template",
+        template_id,
+        {"version_number": version_number, "variables": variables},
+    )
+    return get_email_template(conn, template_id)
+
+
+def template_version_for_render(conn, template_id=None, template_version_id=None):
+    if template_version_id:
+        row = conn.execute(
+            """
+            SELECT v.*, t.name, t.purpose, t.org_id
+            FROM email_template_versions v
+            JOIN email_templates t ON t.id = v.template_id
+            WHERE v.id = ? AND t.org_id = ?
+            """,
+            (int(template_version_id), ORG_ID),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            """
+            SELECT v.*, t.name, t.purpose, t.org_id
+            FROM email_template_versions v
+            JOIN email_templates t ON t.id = v.template_id
+            WHERE v.template_id = ? AND t.org_id = ? AND v.is_active = 1
+            ORDER BY v.version_number DESC
+            LIMIT 1
+            """,
+            (int(template_id or 0), ORG_ID),
+        ).fetchone()
+    return row
+
+
+def render_email_template(conn, payload):
+    version = template_version_for_render(
+        conn,
+        template_id=payload.get("template_id"),
+        template_version_id=payload.get("template_version_id"),
+    )
+    if not version:
+        raise ValueError("Versao de template nao encontrada")
+    company_id = payload.get("company_id")
+    context = {}
+    context_source = "manual"
+    if company_id:
+        company = get_company(conn, int(company_id))
+        if not company:
+            raise ValueError("Empresa nao encontrada")
+        context = build_company_template_context(company, company.get("partners") or [], payload.get("cta_url") or "")
+        context_source = "company"
+    context.update(payload.get("context") or {})
+    if payload.get("cta_url"):
+        context["cta_url"] = payload.get("cta_url")
+    rendered = render_template(
+        version["subject"],
+        version["body"],
+        company_context=context,
+        unsubscribe_url=payload.get("unsubscribe_url"),
+        privacy_url=payload.get("privacy_url"),
+    )
+    variables = json.loads(version["variables_json"] or "[]")
+    unsupported = [variable for variable in variables if variable not in SUPPORTED_VARIABLES]
+    result = {
+        "template_id": version["template_id"],
+        "template_version_id": version["id"],
+        "version_number": version["version_number"],
+        "name": version["name"],
+        "purpose": version["purpose"],
+        "context_source": context_source,
+        "supported_variables": sorted(SUPPORTED_VARIABLES),
+        "unsupported_variables": unsupported,
+    }
+    result.update(rendered)
+    audit(
+        conn,
+        "render_email_template",
+        "email_template",
+        version["template_id"],
+        {"version_id": version["id"], "company_id": company_id, "missing": rendered["missing_variables"]},
+    )
+    return result
 
 
 def audit_events(conn, limit=100):

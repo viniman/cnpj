@@ -11,6 +11,8 @@ from .services import (
     audit_events,
     create_list,
     create_campaign,
+    create_email_template,
+    create_email_template_version,
     create_leads_from_list,
     dashboard,
     enrich_company,
@@ -18,13 +20,16 @@ from .services import (
     get_campaign,
     get_company,
     get_company_enrichment,
+    get_email_template,
     get_list,
     import_source,
     list_campaigns,
+    list_email_templates,
     list_experiment_leads,
     list_lists,
     remove_company_from_list,
     record_campaign_event,
+    render_email_template,
     score_emails,
     search_companies,
     seed_sample,
@@ -166,6 +171,14 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         self.send_error_json("Campanha nao encontrada", 404)
                     else:
                         self.send_json(campaign)
+                elif parsed.path == "/api/templates":
+                    self.send_json(list_email_templates(conn))
+                elif len(parts) == 3 and parts[1] == "templates":
+                    template = get_email_template(conn, int(parts[2]))
+                    if not template:
+                        self.send_error_json("Template nao encontrado", 404)
+                    else:
+                        self.send_json(template)
                 elif parsed.path == "/api/sources/official":
                     self.send_json(catalog())
                 elif len(parts) == 5 and parts[1] == "sources" and parts[2] == "official" and parts[3] == "snapshots":
@@ -244,6 +257,12 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     )
                 elif parsed.path == "/api/experiments/events":
                     self.send_json_commit(conn, record_campaign_event(conn, data))
+                elif parsed.path == "/api/templates":
+                    self.send_json_commit(conn, create_email_template(conn, data), 201)
+                elif len(parts) == 4 and parts[1] == "templates" and parts[3] == "versions":
+                    self.send_json_commit(conn, create_email_template_version(conn, int(parts[2]), data))
+                elif parsed.path == "/api/templates/render":
+                    self.send_json_commit(conn, render_email_template(conn, data))
                 elif parsed.path == "/api/suppression":
                     self.send_json_commit(conn, add_suppression(conn, data.get("email"), data.get("reason") or "manual"))
                 elif parsed.path == "/api/sources/official/download":

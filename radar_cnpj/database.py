@@ -405,6 +405,31 @@ def init_db():
                 FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS email_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                purpose TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS email_template_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_id INTEGER NOT NULL,
+                version_number INTEGER NOT NULL,
+                subject TEXT NOT NULL,
+                body TEXT NOT NULL,
+                variables_json TEXT NOT NULL,
+                compliance_footer TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                UNIQUE (template_id, version_number),
+                FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE CASCADE
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -491,6 +516,8 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_sends_campaign ON sends(campaign_id);
             CREATE INDEX IF NOT EXISTS idx_sends_status ON sends(status);
             CREATE INDEX IF NOT EXISTS idx_events_campaign_type ON events(campaign_id, event_type);
+            CREATE INDEX IF NOT EXISTS idx_email_templates_status ON email_templates(status);
+            CREATE INDEX IF NOT EXISTS idx_email_template_versions_active ON email_template_versions(template_id, is_active);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);
