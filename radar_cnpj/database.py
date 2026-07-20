@@ -286,6 +286,125 @@ def init_db():
                 expires_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS leads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                company_id INTEGER,
+                list_id INTEGER,
+                email TEXT NOT NULL DEFAULT '',
+                segment TEXT,
+                source TEXT NOT NULL,
+                score INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'new',
+                block_reason TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE (org_id, company_id, list_id, email),
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL,
+                FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS campaigns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                niche TEXT,
+                status TEXT NOT NULL DEFAULT 'draft',
+                subject TEXT NOT NULL,
+                body TEXT NOT NULL,
+                cta_url TEXT,
+                daily_limit INTEGER NOT NULL DEFAULT 50,
+                interval_seconds INTEGER NOT NULL DEFAULT 300,
+                bounce_pause_threshold REAL NOT NULL DEFAULT 0.02,
+                complaint_pause_threshold REAL NOT NULL DEFAULT 0.0005,
+                mode TEXT NOT NULL DEFAULT 'simulated',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS campaign_variants (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                campaign_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                body TEXT NOT NULL,
+                cta_url TEXT,
+                utm_content TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS sends (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lead_id INTEGER NOT NULL,
+                campaign_id INTEGER NOT NULL,
+                variant_id INTEGER NOT NULL,
+                email TEXT NOT NULL,
+                status TEXT NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'simulated',
+                provider_message_id TEXT,
+                block_reason TEXT,
+                scheduled_at TEXT,
+                sent_at TEXT,
+                utm_url TEXT,
+                created_at TEXT NOT NULL,
+                UNIQUE (lead_id, campaign_id, variant_id),
+                FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE,
+                FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE,
+                FOREIGN KEY (variant_id) REFERENCES campaign_variants(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                send_id INTEGER,
+                lead_id INTEGER,
+                campaign_id INTEGER,
+                event_type TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT 'simulated',
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (send_id) REFERENCES sends(id) ON DELETE SET NULL,
+                FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL,
+                FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS conversions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lead_id INTEGER,
+                campaign_id INTEGER,
+                conversion_type TEXT NOT NULL,
+                utm_json TEXT NOT NULL,
+                notes TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL,
+                FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS throttle_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL UNIQUE,
+                daily_limit INTEGER NOT NULL DEFAULT 50,
+                interval_seconds INTEGER NOT NULL DEFAULT 300,
+                bounce_pause_threshold REAL NOT NULL DEFAULT 0.02,
+                complaint_pause_threshold REAL NOT NULL DEFAULT 0.0005,
+                warmup_day INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS pause_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                campaign_id INTEGER,
+                pause_type TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -366,6 +485,12 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_company_enrichment_score ON company_enrichment(digital_maturity_score);
             CREATE INDEX IF NOT EXISTS idx_scraping_jobs_status ON scraping_jobs(status);
             CREATE INDEX IF NOT EXISTS idx_scraping_cache_expires ON scraping_cache(expires_at);
+            CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
+            CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email);
+            CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);
+            CREATE INDEX IF NOT EXISTS idx_sends_campaign ON sends(campaign_id);
+            CREATE INDEX IF NOT EXISTS idx_sends_status ON sends(status);
+            CREATE INDEX IF NOT EXISTS idx_events_campaign_type ON events(campaign_id, event_type);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);

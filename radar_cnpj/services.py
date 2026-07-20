@@ -15,6 +15,15 @@ from .company_enrichment import (
     robots_allowed,
 )
 from .database import now_iso
+from .email_experiments import (
+    CAMPAIGN_MODE,
+    EVENT_STATUS,
+    PROVIDER,
+    append_utm,
+    email_eligibility,
+    empty_funnel,
+    lead_score,
+)
 from .email_hygiene import classify_email, normalize_email
 from .email_scoring import score_email
 from .exporter import rows_to_csv_bytes, rows_to_xlsx_bytes
@@ -1068,6 +1077,449 @@ def add_suppression(conn, email, reason, source="manual"):
     )
     audit(conn, "add_suppression", "suppression", email, {"reason": reason, "source": source})
     return {"email": email, "reason": reason, "source": source}
+
+
+def assess_lead_eligibility(conn, email, company_id=None):
+    email = normalize_email(email)
+    if not email:
+        return {
+            "eligible": False,
+            "block_reason": "Lead sem e-mail",
+            "hygiene": {"classification": "Invalido", "score": 0, "reasons": ["Lead sem e-mail"]},
+            "email_score": {"score": 0, "labels": ["invalid"], "reasons": ["Lead sem e-mail"]},
+        }
+    suppression, opt_out = suppression_sets(conn)
+    hygiene = classify_email(email, suppression, opt_out)
+    if hygiene["classification"] in ("Invalido", "Suprimido", "Opt-out"):
+        scoring = {
+            "email": email,
+            "score": 0,
+            "labels": ["invalid" if hygiene["classification"] == "Invalido" else "suppressed"],
+            "reasons": hygiene.get("reasons") or [],
+        }
+    else:
+        scoring = score_email_record(conn, email, company_id=company_id)
+    eligible, block_reason = email_eligibility(email, hygiene, scoring)
+    return {
+        "eligible": eligible,
+        "block_reason": block_reason,
+        "hygiene": hygiene,
+        "email_score": scoring,
+    }
+
+
+def create_leads_from_list(conn, list_id, source="lista qualificada"):
+    base = conn.execute("SELECT id FROM lists WHERE id = ? AND org_id = ?", (list_id, ORG_ID)).fetchone()
+    if not base:
+        raise ValueError("Lista nao encontrada")
+    rows = conn.execute(
+        """
+        SELECT c.id AS company_id, c.email, c.segment, c.sector, c.main_cnae_code,
+               c.opportunity_score
+        FROM list_companies lc
+        JOIN companies c ON c.id = lc.company_id
+        WHERE lc.list_id = ?
+        ORDER BY c.opportunity_score DESC, c.legal_name ASC
+        """,
+        (list_id,),
+    ).fetchall()
+    created = 0
+    updated = 0
+    blocked = 0
+    eligible_count = 0
+    timestamp = now_iso()
+    for row in rows:
+        email = normalize_email(row["email"])
+        existing = conn.execute(
+            """
+            SELECT id FROM leads
+            WHERE org_id = ? AND company_id = ? AND list_id = ? AND email = ?
+            """,
+            (ORG_ID, row["company_id"], list_id, email),
+        ).fetchone()
+        eligibility = assess_lead_eligibility(conn, email, row["company_id"])
+        email_score = eligibility["email_score"].get("score") or 0
+        status = "eligible" if eligibility["eligible"] else "blocked"
+        if status == "eligible":
+            eligible_count += 1
+        else:
+            blocked += 1
+        score = lead_score(row["opportunity_score"], email_score)
+        conn.execute(
+            """
+            INSERT INTO leads (
+                org_id, company_id, list_id, email, segment, source, score,
+                status, block_reason, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(org_id, company_id, list_id, email) DO UPDATE SET
+                segment = excluded.segment,
+                source = excluded.source,
+                score = excluded.score,
+                status = excluded.status,
+                block_reason = excluded.block_reason,
+                updated_at = excluded.updated_at
+            """,
+            (
+                ORG_ID,
+                row["company_id"],
+                list_id,
+                email,
+                row["segment"] or row["sector"] or row["main_cnae_code"] or "",
+                source,
+                score,
+                status,
+                eligibility["block_reason"],
+                timestamp,
+                timestamp,
+            ),
+        )
+        if existing:
+            updated += 1
+        else:
+            created += 1
+    audit(
+        conn,
+        "create_leads_from_list",
+        "list",
+        list_id,
+        {"created": created, "updated": updated, "eligible": eligible_count, "blocked": blocked},
+    )
+    return {
+        "list_id": list_id,
+        "created": created,
+        "updated": updated,
+        "eligible": eligible_count,
+        "blocked": blocked,
+        "total": len(rows),
+    }
+
+
+def list_experiment_leads(conn, params=None):
+    params = params or {}
+    limit = min(int(params.get("limit", 100) or 100), 500)
+    where = ["l.org_id = ?"]
+    values = [ORG_ID]
+    for key, column in [("list_id", "l.list_id"), ("status", "l.status")]:
+        value = params.get(key)
+        if value:
+            where.append("%s = ?" % column)
+            values.append(value)
+    rows = conn.execute(
+        """
+        SELECT l.*, c.legal_name, c.trade_name, c.cnpj, c.city, c.state, c.main_cnae_code,
+               li.name AS list_name
+        FROM leads l
+        LEFT JOIN companies c ON c.id = l.company_id
+        LEFT JOIN lists li ON li.id = l.list_id
+        WHERE %s
+        ORDER BY l.score DESC, l.id DESC
+        LIMIT ?
+        """
+        % " AND ".join(where),
+        values + [limit],
+    ).fetchall()
+    return {"items": [dict_row(row) for row in rows]}
+
+
+def create_campaign(conn, payload):
+    name = (payload.get("name") or "").strip()
+    subject = (payload.get("subject") or "").strip()
+    body = (payload.get("body") or "").strip()
+    if not name:
+        raise ValueError("Nome da campanha e obrigatorio")
+    if not subject:
+        raise ValueError("Assunto da campanha e obrigatorio")
+    if not body:
+        raise ValueError("Corpo da campanha e obrigatorio")
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO campaigns (
+            org_id, name, niche, status, subject, body, cta_url,
+            daily_limit, interval_seconds, bounce_pause_threshold,
+            complaint_pause_threshold, mode, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            ORG_ID,
+            name,
+            payload.get("niche") or "",
+            "draft",
+            subject,
+            body,
+            payload.get("cta_url") or "",
+            int(payload.get("daily_limit") or 50),
+            int(payload.get("interval_seconds") or 300),
+            float(payload.get("bounce_pause_threshold") or 0.02),
+            float(payload.get("complaint_pause_threshold") or 0.0005),
+            CAMPAIGN_MODE,
+            timestamp,
+            timestamp,
+        ),
+    )
+    campaign_id = cursor.lastrowid
+    conn.execute(
+        """
+        INSERT INTO campaign_variants (campaign_id, name, subject, body, cta_url, utm_content, is_active, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (campaign_id, "A", subject, body, payload.get("cta_url") or "", "variant-a", 1, timestamp),
+    )
+    audit(conn, "create_campaign", "campaign", campaign_id, {"name": name, "mode": CAMPAIGN_MODE})
+    return get_campaign(conn, campaign_id)
+
+
+def campaign_funnel(conn, campaign_id):
+    funnel = empty_funnel()
+    planned = conn.execute("SELECT COUNT(*) AS total FROM sends WHERE campaign_id = ?", (campaign_id,)).fetchone()
+    funnel["planned"] = int(planned["total"] or 0)
+    rows = conn.execute(
+        """
+        SELECT event_type, COUNT(*) AS total
+        FROM events
+        WHERE campaign_id = ?
+        GROUP BY event_type
+        """,
+        (campaign_id,),
+    ).fetchall()
+    for row in rows:
+        funnel[row["event_type"]] = int(row["total"] or 0)
+    return funnel
+
+
+def get_campaign(conn, campaign_id):
+    campaign = conn.execute("SELECT * FROM campaigns WHERE id = ? AND org_id = ?", (campaign_id, ORG_ID)).fetchone()
+    if not campaign:
+        return None
+    data = dict_row(campaign)
+    data["variants"] = [
+        dict_row(row)
+        for row in conn.execute(
+            "SELECT * FROM campaign_variants WHERE campaign_id = ? ORDER BY id",
+            (campaign_id,),
+        ).fetchall()
+    ]
+    data["funnel"] = campaign_funnel(conn, campaign_id)
+    return data
+
+
+def list_campaigns(conn):
+    rows = conn.execute(
+        "SELECT * FROM campaigns WHERE org_id = ? ORDER BY id DESC",
+        (ORG_ID,),
+    ).fetchall()
+    return {"items": [get_campaign(conn, row["id"]) for row in rows]}
+
+
+def active_campaign_variant(conn, campaign_id):
+    variant = conn.execute(
+        """
+        SELECT *
+        FROM campaign_variants
+        WHERE campaign_id = ? AND is_active = 1
+        ORDER BY id
+        LIMIT 1
+        """,
+        (campaign_id,),
+    ).fetchone()
+    if not variant:
+        raise ValueError("Campanha sem variante ativa")
+    return dict_row(variant)
+
+
+def simulate_campaign(conn, campaign_id, list_id=None, limit=50):
+    campaign = conn.execute("SELECT * FROM campaigns WHERE id = ? AND org_id = ?", (campaign_id, ORG_ID)).fetchone()
+    if not campaign:
+        raise ValueError("Campanha nao encontrada")
+    if campaign["mode"] != CAMPAIGN_MODE:
+        raise ValueError("O MVP local permite apenas campanhas simuladas")
+    if list_id:
+        create_leads_from_list(conn, int(list_id), "campanha simulada")
+    variant = active_campaign_variant(conn, campaign_id)
+    limit = min(int(limit or 50), int(campaign["daily_limit"] or 50), 500)
+    where = ["l.org_id = ?"]
+    values = [ORG_ID]
+    if list_id:
+        where.append("l.list_id = ?")
+        values.append(int(list_id))
+    rows = conn.execute(
+        """
+        SELECT l.*, c.opportunity_score
+        FROM leads l
+        LEFT JOIN companies c ON c.id = l.company_id
+        WHERE %s
+          AND NOT EXISTS (
+              SELECT 1 FROM sends s
+              WHERE s.lead_id = l.id AND s.campaign_id = ?
+          )
+        ORDER BY l.score DESC, l.id ASC
+        LIMIT ?
+        """
+        % " AND ".join(where),
+        values + [campaign_id, limit],
+    ).fetchall()
+    timestamp = now_iso()
+    sent = 0
+    blocked = 0
+    for lead in rows:
+        eligibility = assess_lead_eligibility(conn, lead["email"], lead["company_id"])
+        is_eligible = eligibility["eligible"]
+        status = "simulated_sent" if is_eligible else "blocked"
+        event_type = "sent" if is_eligible else "blocked"
+        block_reason = "" if is_eligible else eligibility["block_reason"]
+        if is_eligible:
+            sent += 1
+        else:
+            blocked += 1
+        utm_url = append_utm(variant.get("cta_url"), campaign["name"], variant["utm_content"], campaign["niche"])
+        cursor = conn.execute(
+            """
+            INSERT INTO sends (
+                lead_id, campaign_id, variant_id, email, status, provider,
+                provider_message_id, block_reason, scheduled_at, sent_at, utm_url, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                lead["id"],
+                campaign_id,
+                variant["id"],
+                lead["email"],
+                status,
+                PROVIDER,
+                "",
+                block_reason,
+                timestamp,
+                timestamp if is_eligible else None,
+                utm_url,
+                timestamp,
+            ),
+        )
+        send_id = cursor.lastrowid
+        conn.execute(
+            """
+            INSERT INTO events (send_id, lead_id, campaign_id, event_type, source, payload_json, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                send_id,
+                lead["id"],
+                campaign_id,
+                event_type,
+                "simulated",
+                json.dumps({"block_reason": block_reason, "utm_url": utm_url}, ensure_ascii=True),
+                timestamp,
+            ),
+        )
+        conn.execute(
+            """
+            UPDATE leads
+            SET status = ?, block_reason = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            ("in_campaign" if is_eligible else "blocked", block_reason, timestamp, lead["id"]),
+        )
+    if rows:
+        conn.execute(
+            "UPDATE campaigns SET status = ?, updated_at = ? WHERE id = ?",
+            ("running", timestamp, campaign_id),
+        )
+    audit(
+        conn,
+        "simulate_campaign",
+        "campaign",
+        campaign_id,
+        {"list_id": list_id, "sent": sent, "blocked": blocked, "attempted": len(rows)},
+    )
+    result = get_campaign(conn, campaign_id)
+    result["simulation"] = {"attempted": len(rows), "sent": sent, "blocked": blocked}
+    return result
+
+
+def utm_from_url(url):
+    parsed = urlparse_safe(url)
+    return dict(urllib_parse_qsl(parsed.query))
+
+
+def urlparse_safe(url):
+    from urllib.parse import urlparse
+
+    return urlparse(url or "")
+
+
+def urllib_parse_qsl(query):
+    from urllib.parse import parse_qsl
+
+    return parse_qsl(query or "", keep_blank_values=True)
+
+
+def record_campaign_event(conn, payload):
+    send_id = int(payload.get("send_id") or 0)
+    event_type = (payload.get("event_type") or "").strip()
+    if event_type not in EVENT_STATUS:
+        raise ValueError("Tipo de evento invalido")
+    row = conn.execute(
+        """
+        SELECT s.*, l.company_id
+        FROM sends s
+        JOIN leads l ON l.id = s.lead_id
+        WHERE s.id = ?
+        """,
+        (send_id,),
+    ).fetchone()
+    if not row:
+        raise ValueError("Envio nao encontrado")
+    timestamp = now_iso()
+    payload_json = json.dumps(payload.get("payload") or {}, ensure_ascii=True)
+    conn.execute(
+        """
+        INSERT INTO events (send_id, lead_id, campaign_id, event_type, source, payload_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (send_id, row["lead_id"], row["campaign_id"], event_type, payload.get("source") or "manual", payload_json, timestamp),
+    )
+    conn.execute("UPDATE sends SET status = ? WHERE id = ?", (EVENT_STATUS[event_type], send_id))
+    if event_type == "replied":
+        conn.execute(
+            "UPDATE leads SET status = ?, updated_at = ? WHERE id = ?",
+            ("responded", timestamp, row["lead_id"]),
+        )
+        conn.execute(
+            """
+            INSERT INTO conversions (lead_id, campaign_id, conversion_type, utm_json, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (row["lead_id"], row["campaign_id"], "reply", json.dumps(utm_from_url(row["utm_url"]), ensure_ascii=True), payload.get("notes") or "", timestamp),
+        )
+    elif event_type == "converted":
+        conn.execute(
+            "UPDATE leads SET status = ?, updated_at = ? WHERE id = ?",
+            ("converted", timestamp, row["lead_id"]),
+        )
+        conn.execute(
+            """
+            INSERT INTO conversions (lead_id, campaign_id, conversion_type, utm_json, notes, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                row["lead_id"],
+                row["campaign_id"],
+                payload.get("conversion_type") or "signup",
+                json.dumps(utm_from_url(row["utm_url"]), ensure_ascii=True),
+                payload.get("notes") or "",
+                timestamp,
+            ),
+        )
+    elif event_type in ("bounce", "complaint"):
+        add_suppression(conn, row["email"], event_type, source="simulated_event")
+        conn.execute(
+            "UPDATE leads SET status = ?, block_reason = ?, updated_at = ? WHERE id = ?",
+            ("blocked", "Evento %s gerou supressao" % event_type, timestamp, row["lead_id"]),
+        )
+    audit(conn, "record_campaign_event", "send", send_id, {"event_type": event_type})
+    return get_campaign(conn, row["campaign_id"])
 
 
 def audit_events(conn, limit=100):

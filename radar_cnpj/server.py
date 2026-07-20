@@ -10,18 +10,25 @@ from .services import (
     add_suppression,
     audit_events,
     create_list,
+    create_campaign,
+    create_leads_from_list,
     dashboard,
     enrich_company,
     export_list,
+    get_campaign,
     get_company,
     get_company_enrichment,
     get_list,
     import_source,
+    list_campaigns,
+    list_experiment_leads,
     list_lists,
     remove_company_from_list,
+    record_campaign_event,
     score_emails,
     search_companies,
     seed_sample,
+    simulate_campaign,
     validate_emails,
 )
 from .official_sources import catalog, download_files, import_brasilapi_cnpj, list_snapshot_files, sync_official_snapshot
@@ -144,6 +151,16 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.wfile.write(data)
                 elif parsed.path == "/api/audit":
                     self.send_json({"items": audit_events(conn, params.get("limit", 100))})
+                elif parsed.path == "/api/experiments/leads":
+                    self.send_json(list_experiment_leads(conn, params))
+                elif parsed.path == "/api/experiments/campaigns":
+                    self.send_json(list_campaigns(conn))
+                elif len(parts) == 4 and parts[1] == "experiments" and parts[2] == "campaigns":
+                    campaign = get_campaign(conn, int(parts[3]))
+                    if not campaign:
+                        self.send_error_json("Campanha nao encontrada", 404)
+                    else:
+                        self.send_json(campaign)
                 elif parsed.path == "/api/sources/official":
                     self.send_json(catalog())
                 elif len(parts) == 5 and parts[1] == "sources" and parts[2] == "official" and parts[3] == "snapshots":
@@ -201,6 +218,26 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         ttl_days=data.get("ttl_days") or 30,
                     )
                     self.send_json(result)
+                elif parsed.path == "/api/experiments/leads/from-list":
+                    result = create_leads_from_list(
+                        conn,
+                        int(data.get("list_id") or 0),
+                        data.get("source") or "lista qualificada",
+                    )
+                    self.send_json(result)
+                elif parsed.path == "/api/experiments/campaigns":
+                    self.send_json(create_campaign(conn, data), 201)
+                elif len(parts) == 5 and parts[1] == "experiments" and parts[2] == "campaigns" and parts[4] == "simulate":
+                    self.send_json(
+                        simulate_campaign(
+                            conn,
+                            int(parts[3]),
+                            list_id=data.get("list_id"),
+                            limit=data.get("limit") or 50,
+                        )
+                    )
+                elif parsed.path == "/api/experiments/events":
+                    self.send_json(record_campaign_event(conn, data))
                 elif parsed.path == "/api/suppression":
                     self.send_json(add_suppression(conn, data.get("email"), data.get("reason") or "manual"))
                 elif parsed.path == "/api/sources/official/download":
