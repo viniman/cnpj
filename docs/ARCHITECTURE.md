@@ -37,6 +37,8 @@ flowchart LR
 - `radar_cnpj/company_enrichment.py`: extracao de sinais publicos de site, technology checker e maturidade digital.
 - `radar_cnpj/email_experiments.py`: regras puras de campanhas simuladas, UTM, funil e elegibilidade.
 - `radar_cnpj/email_templates.py`: renderizacao de templates versionados com variaveis e rodape de compliance.
+- `radar_cnpj/services.py`: tambem orquestra sequencias semi-supervisionadas,
+  fila de aprovacao e logs do agente no MVP local.
 - `radar_cnpj/scoring.py`: setor, segmento, score explicavel e estimativa simples.
 - `radar_cnpj/exporter.py`: geracao CSV e XLSX sem biblioteca externa.
 - `static/*`: interface operacional.
@@ -57,6 +59,9 @@ Tabelas principais:
   comercial em modo simulado.
 - `email_templates`, `email_template_versions`: biblioteca de copy
   reutilizavel, versionada e renderizada no backend.
+- `sequences`, `sequence_steps`, `lead_journey`, `approval_queue`,
+  `agent_actions`: cadencias semi-supervisionadas, estado por lead, revisao
+  humana e auditoria de decisoes.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -69,6 +74,9 @@ Tabelas principais:
   qualquer envio simulado.
 - Templates recebem rodape de compliance no backend, nao por texto editavel na
   interface.
+- Sequencias nao executam passos sem item aprovado em `approval_queue`.
+- Aprovacoes rejeitadas nao geram registros em `sends`.
+- Cada acao de sequencia registra origem e motivo em `agent_actions`.
 - Dados de socio aceitam documento mascarado, nunca CPF completo.
 - A lista de supressao deve ser tratada como append-only em producao.
 

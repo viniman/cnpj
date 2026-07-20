@@ -293,6 +293,71 @@ Tabelas:
 - `email_templates`
 - `email_template_versions`
 
+## Sequencias semi-supervisionadas
+
+A aba `Sequencias` cria cadencias multi-step usando templates versionados, mas
+mantem aprovacao humana antes de qualquer execucao. Esta fase ainda nao envia
+e-mail real: aprovacoes criam envios simulados e registros de auditoria.
+
+Fluxo:
+
+1. Crie uma lista com empresas elegiveis.
+2. Crie um template de primeiro contato e, opcionalmente, um follow-up.
+3. Va para `Sequencias`.
+4. Crie uma sequencia com os templates.
+5. Inscreva a lista na sequencia.
+6. Revise cada item em `Aprovacoes pendentes`.
+7. Aprove ou rejeite com uma nota de decisao.
+8. Quando uma jornada ficar em espera, prepare o proximo passo.
+
+Criar sequencia:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/sequences" `
+  -Body '{"name":"Cadencia inicial","steps":[{"name":"Primeiro contato","template_id":1,"wait_days":0},{"name":"Follow-up","template_id":2,"wait_days":3}]}' `
+  -ContentType "application/json"
+```
+
+Inscrever lista:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/sequences/1/enroll" `
+  -Body '{"list_id":1}' `
+  -ContentType "application/json"
+```
+
+Aprovar um passo:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/approvals/1/approve" `
+  -Body '{"note":"Aprovado para teste local"}' `
+  -ContentType "application/json"
+```
+
+Preparar proximo passo de uma jornada:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/sequences/journeys/1/prepare-next" `
+  -Body '{}' `
+  -ContentType "application/json"
+```
+
+Tabelas:
+
+- `sequences`
+- `sequence_steps`
+- `lead_journey`
+- `approval_queue`
+- `agent_actions`
+
 ## Importar CSV simplificado
 
 Na tela `Importacao`, informe o caminho local de um CSV com algumas destas colunas:
@@ -356,6 +421,16 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `GET /api/templates/{id}`
 - `POST /api/templates/{id}/versions`
 - `POST /api/templates/render`
+- `POST /api/sequences`
+- `GET /api/sequences`
+- `GET /api/sequences/{id}`
+- `POST /api/sequences/{id}/enroll`
+- `GET /api/sequences/journeys`
+- `POST /api/sequences/journeys/{id}/prepare-next`
+- `GET /api/approvals`
+- `POST /api/approvals/{id}/approve`
+- `POST /api/approvals/{id}/reject`
+- `GET /api/agent-actions`
 - `POST /api/suppression`
 - `GET /api/audit`
 
@@ -375,6 +450,7 @@ python -m unittest discover -s tests
 - Enriquecimento por site e sinal complementar; nao substitui dado oficial da Receita.
 - Campanhas locais sao simuladas e nao chamam provedor externo.
 - Rodape de compliance de templates e injetado pelo backend.
+- Sequencias exigem aprovacao humana por passo antes de simular envio.
 
 ## Proximas fases sugeridas
 
@@ -385,5 +461,6 @@ python -m unittest discover -s tests
 5. Canal de solicitacao de titular.
 6. Motor de score configuravel por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
-8. Sequencias/cadencias semi-supervisionadas com aprovacao humana.
-9. Integracao futura com provedores de email somente com opt-out, bounce e limites.
+8. ICP estruturado e priorizacao automatizada para fila SDR.
+9. Classificacao de respostas, handoff humano e reunioes.
+10. Integracao futura com provedores de email somente com opt-out, bounce e limites.

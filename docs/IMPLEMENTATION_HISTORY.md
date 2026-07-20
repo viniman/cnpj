@@ -284,3 +284,39 @@ Meta da fase:
 Documento principal:
 
 - `docs/SEQUENCE_SUPERVISION_SPEC.md`
+
+Commits:
+
+- `66e5d30 docs: define sequence supervision phase`
+- `7019dc5 feat: add semi supervised sequence backend`
+- `b371c61 feat: add sequence supervision workspace UI`
+
+Implementado:
+
+- Tabelas `sequences`, `sequence_steps`, `lead_journey`, `approval_queue` e
+  `agent_actions`.
+- Criacao de sequencias com passos baseados em templates versionados.
+- Inscricao de listas em jornadas apenas para leads elegiveis.
+- Criacao automatica de aprovacao humana para cada passo preparado.
+- Aprovacao cria envio simulado e evento `sent`; rejeicao nao cria envio.
+- Jornada avanca para espera do proximo passo ou finaliza quando nao ha mais
+  passos.
+- Preparacao manual do proximo passo para manter a fase semi-supervisionada.
+- Log de decisoes e execucoes em `agent_actions`.
+- Endpoints `/api/sequences/*`, `/api/approvals/*` e `/api/agent-actions`.
+- Aba `Sequencias` na UI local com construtor de cadencia, fila de aprovacao,
+  jornadas e logs.
+- Testes cobrindo inscricao elegivel, aprovacao, proximo passo e rejeicao.
+
+Como verificar:
+
+```powershell
+python -m unittest discover -s tests
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 27 tests
+OK
+```
