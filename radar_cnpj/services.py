@@ -2589,6 +2589,7 @@ def parse_icp_rule_row(row):
 
 
 def create_icp_rule(conn, payload):
+    org_id = current_org_id(conn)
     name = (payload.get("name") or "").strip()
     if not name:
         raise ValueError("Nome do ICP e obrigatorio")
@@ -2603,7 +2604,7 @@ def create_icp_rule(conn, payload):
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             name,
             payload.get("description") or "",
             status,
@@ -2612,22 +2613,24 @@ def create_icp_rule(conn, payload):
             timestamp,
         ),
     )
-    audit(conn, "create_icp_rule", "icp_rule", cursor.lastrowid, {"name": name, "criteria": criteria})
+    audit(conn, "create_icp_rule", "icp_rule", cursor.lastrowid, {"name": name, "criteria": criteria}, org_id=org_id)
     return get_icp_rule(conn, cursor.lastrowid)
 
 
 def get_icp_rule(conn, rule_id):
+    org_id = current_org_id(conn)
     row = conn.execute(
         "SELECT * FROM icp_rules WHERE id = ? AND org_id = ?",
-        (rule_id, ORG_ID),
+        (rule_id, org_id),
     ).fetchone()
     return parse_icp_rule_row(row)
 
 
 def list_icp_rules(conn, params=None):
+    org_id = current_org_id(conn)
     params = params or {}
     where = ["org_id = ?"]
-    values = [ORG_ID]
+    values = [org_id]
     if params.get("status"):
         where.append("status = ?")
         values.append(params.get("status"))
@@ -2766,9 +2769,10 @@ def evaluate_icp_candidate(conn, row, rule):
 
 
 def icp_candidate_rows(conn, criteria, list_id=None):
+    org_id = current_org_id(conn)
     limit = min(max(criteria["max_leads"] * 10, criteria["max_leads"]), 1000)
     if list_id:
-        base = conn.execute("SELECT id FROM lists WHERE id = ? AND org_id = ?", (list_id, ORG_ID)).fetchone()
+        base = conn.execute("SELECT id FROM lists WHERE id = ? AND org_id = ?", (list_id, org_id)).fetchone()
         if not base:
             raise ValueError("Lista nao encontrada")
         return conn.execute(
@@ -2786,7 +2790,7 @@ def icp_candidate_rows(conn, criteria, list_id=None):
             ORDER BY c.opportunity_score DESC, c.legal_name ASC
             LIMIT ?
             """,
-            (ORG_ID, int(list_id), limit),
+            (org_id, int(list_id), limit),
         ).fetchall()
     return conn.execute(
         """
@@ -2805,6 +2809,7 @@ def icp_candidate_rows(conn, criteria, list_id=None):
 
 
 def existing_priority_item(conn, rule_id, company_id, list_id=None):
+    org_id = current_org_id(conn)
     if list_id is None:
         return conn.execute(
             """
@@ -2814,7 +2819,7 @@ def existing_priority_item(conn, rule_id, company_id, list_id=None):
             ORDER BY id DESC
             LIMIT 1
             """,
-            (ORG_ID, rule_id, company_id),
+            (org_id, rule_id, company_id),
         ).fetchone()
     return conn.execute(
         """
@@ -2824,11 +2829,12 @@ def existing_priority_item(conn, rule_id, company_id, list_id=None):
         ORDER BY id DESC
         LIMIT 1
         """,
-        (ORG_ID, rule_id, company_id, int(list_id)),
+        (org_id, rule_id, company_id, int(list_id)),
     ).fetchone()
 
 
 def upsert_priority_item(conn, rule, row, evaluation, list_id=None):
+    org_id = current_org_id(conn)
     existing = existing_priority_item(conn, rule["id"], row["company_id"], list_id)
     timestamp = now_iso()
     reason_json = json.dumps(evaluation["reason"], ensure_ascii=True)
@@ -2862,7 +2868,7 @@ def upsert_priority_item(conn, rule, row, evaluation, list_id=None):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             rule["id"],
             row["lead_id"],
             row["company_id"],
@@ -2879,6 +2885,7 @@ def upsert_priority_item(conn, rule, row, evaluation, list_id=None):
 
 
 def prioritize_icp_rule(conn, rule_id, list_id=None, limit=None):
+    org_id = current_org_id(conn)
     rule = get_icp_rule(conn, rule_id)
     if not rule:
         raise ValueError("ICP nao encontrado")
@@ -2931,8 +2938,9 @@ def prioritize_icp_rule(conn, rule_id, list_id=None, limit=None):
         "system",
         "ICP %s priorizou %s leads elegiveis" % (rule["name"], suggested + updated),
         {"icp_rule_id": rule["id"], "summary": summary},
+        org_id=org_id,
     )
-    audit(conn, "prioritize_icp_rule", "icp_rule", rule["id"], summary)
+    audit(conn, "prioritize_icp_rule", "icp_rule", rule["id"], summary, org_id=org_id)
     return {"icp_rule": get_icp_rule(conn, rule["id"]), "summary": summary, "items": list_priority_queue(conn, {"icp_rule_id": rule["id"], "list_id": list_id}).get("items", [])}
 
 
@@ -2945,9 +2953,10 @@ def parse_priority_item_row(row):
 
 
 def list_priority_queue(conn, params=None):
+    org_id = current_org_id(conn)
     params = params or {}
     where = ["q.org_id = ?"]
-    values = [ORG_ID]
+    values = [org_id]
     if params.get("icp_rule_id"):
         where.append("q.icp_rule_id = ?")
         values.append(int(params.get("icp_rule_id")))
@@ -2963,7 +2972,7 @@ def list_priority_queue(conn, params=None):
                c.legal_name, c.trade_name, c.email AS company_email,
                c.city, c.state, c.main_cnae_code, c.size, c.opportunity_score
         FROM lead_priority_queue q
-        JOIN icp_rules r ON r.id = q.icp_rule_id
+        JOIN icp_rules r ON r.id = q.icp_rule_id AND r.org_id = q.org_id
         JOIN companies c ON c.id = q.company_id
         LEFT JOIN leads l ON l.id = q.lead_id
         WHERE %s
@@ -2977,11 +2986,12 @@ def list_priority_queue(conn, params=None):
 
 
 def decide_priority_queue_item(conn, item_id, decision, note=""):
+    org_id = current_org_id(conn)
     if decision not in ("accept", "reject"):
         raise ValueError("Decisao invalida")
     item = conn.execute(
         "SELECT * FROM lead_priority_queue WHERE id = ? AND org_id = ?",
-        (item_id, ORG_ID),
+        (item_id, org_id),
     ).fetchone()
     if not item:
         raise ValueError("Sugestao nao encontrada")
@@ -3005,8 +3015,9 @@ def decide_priority_queue_item(conn, item_id, decision, note=""):
         "human",
         note or ("Sugestao %s por humano" % status),
         {"priority_queue_id": item_id, "icp_rule_id": item["icp_rule_id"], "company_id": item["company_id"]},
+        org_id=org_id,
     )
-    audit(conn, "decide_priority_queue_item", "lead_priority_queue", item_id, {"status": status, "note": note})
+    audit(conn, "decide_priority_queue_item", "lead_priority_queue", item_id, {"status": status, "note": note}, org_id=org_id)
     return parse_priority_item_row(
         conn.execute(
             """
@@ -3017,9 +3028,9 @@ def decide_priority_queue_item(conn, item_id, decision, note=""):
             JOIN icp_rules r ON r.id = q.icp_rule_id
             JOIN companies c ON c.id = q.company_id
             LEFT JOIN leads l ON l.id = q.lead_id
-            WHERE q.id = ?
+            WHERE q.id = ? AND q.org_id = ?
             """,
-            (item_id,),
+            (item_id, org_id),
         ).fetchone()
     )
 

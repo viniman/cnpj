@@ -8,10 +8,14 @@ from radar_cnpj.services import (
     add_suppression,
     create_icp_rule,
     create_list,
+    create_workspace,
     decide_priority_queue_item,
+    get_icp_rule,
     list_agent_actions,
+    list_icp_rules,
     list_priority_queue,
     prioritize_icp_rule,
+    set_current_workspace,
     upsert_company,
 )
 
@@ -123,6 +127,78 @@ class IcpPrioritizationTest(unittest.TestCase):
             action_types = [action["action_type"] for action in actions]
             self.assertIn("icp_prioritized", action_types)
             self.assertIn("priority_accepted", action_types)
+        finally:
+            conn.close()
+
+    def test_icp_prioritization_follows_active_workspace(self):
+        conn = connect()
+        try:
+            internal_list_id = self.seed_icp_list(conn)
+            internal_rule = create_icp_rule(
+                conn,
+                {
+                    "name": "ICP interno",
+                    "criteria": {"states": "SP", "cnaes": "620", "max_leads": 1},
+                },
+            )
+            prioritize_icp_rule(conn, internal_rule["id"], list_id=internal_list_id)
+            internal_item = list_priority_queue(conn, {"icp_rule_id": internal_rule["id"]})["items"][0]
+
+            workspace = create_workspace(conn, {"name": "Nine ICP"})
+            set_current_workspace(conn, workspace["id"])
+
+            self.assertEqual(list_icp_rules(conn)["items"], [])
+            self.assertEqual(list_priority_queue(conn)["items"], [])
+            self.assertIsNone(get_icp_rule(conn, internal_rule["id"]))
+            with self.assertRaises(ValueError):
+                prioritize_icp_rule(conn, internal_rule["id"], list_id=internal_list_id)
+
+            scoped_rule = create_icp_rule(
+                conn,
+                {
+                    "name": "ICP Nine",
+                    "criteria": {"states": "SP", "cnaes": "620", "max_leads": 1},
+                },
+            )
+            with self.assertRaises(ValueError):
+                prioritize_icp_rule(conn, scoped_rule["id"], list_id=internal_list_id)
+
+            scoped_list_id = self.seed_icp_list(conn)
+            result = prioritize_icp_rule(conn, scoped_rule["id"], list_id=scoped_list_id)
+            self.assertEqual(result["summary"]["suggested"], 1)
+            self.assertEqual(result["items"][0]["icp_rule_id"], scoped_rule["id"])
+
+            rule_org = conn.execute("SELECT org_id FROM icp_rules WHERE id = ?", (scoped_rule["id"],)).fetchone()
+            queue_org = conn.execute(
+                "SELECT org_id FROM lead_priority_queue WHERE icp_rule_id = ?",
+                (scoped_rule["id"],),
+            ).fetchone()
+            lead_orgs = {
+                row["org_id"]
+                for row in conn.execute("SELECT org_id FROM leads WHERE list_id = ?", (scoped_list_id,)).fetchall()
+            }
+            action_orgs = {
+                row["org_id"]
+                for row in conn.execute(
+                    "SELECT org_id FROM agent_actions WHERE action_type = 'icp_prioritized'",
+                ).fetchall()
+            }
+            self.assertEqual(rule_org["org_id"], workspace["id"])
+            self.assertEqual(queue_org["org_id"], workspace["id"])
+            self.assertEqual(lead_orgs, {workspace["id"]})
+            self.assertIn(workspace["id"], action_orgs)
+
+            scoped_item = list_priority_queue(conn, {"icp_rule_id": scoped_rule["id"]})["items"][0]
+
+            set_current_workspace(conn, 1)
+            self.assertIsNotNone(get_icp_rule(conn, internal_rule["id"]))
+            self.assertIsNone(get_icp_rule(conn, scoped_rule["id"]))
+            self.assertEqual(list_priority_queue(conn, {"icp_rule_id": scoped_rule["id"]})["items"], [])
+            with self.assertRaises(ValueError):
+                decide_priority_queue_item(conn, scoped_item["id"], "accept", "Nao deveria cruzar workspace")
+
+            decided = decide_priority_queue_item(conn, internal_item["id"], "accept", "Lead interno aprovado")
+            self.assertEqual(decided["status"], "accepted")
         finally:
             conn.close()
 
