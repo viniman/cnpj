@@ -8,6 +8,8 @@ const state = {
   selectedTemplateId: null,
   lastRenderedTemplate: null,
   sequences: [],
+  icpRules: [],
+  priorityQueue: [],
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -69,6 +71,7 @@ function setView(view) {
     experiments: "Experimentos",
     templates: "Templates",
     sequences: "Sequencias",
+    icp: "ICP SDR",
     hygiene: "Higiene de emails",
     audit: "Auditoria",
   };
@@ -83,6 +86,7 @@ function setView(view) {
   if (view === "experiments") loadExperiments();
   if (view === "templates") loadTemplates();
   if (view === "sequences") loadSequenceWorkspace();
+  if (view === "icp") loadIcpWorkspace();
   if (view === "audit") loadAudit();
 }
 
@@ -294,6 +298,8 @@ function renderListSelector() {
   if (experimentSelect) experimentSelect.innerHTML = markup;
   const sequenceSelect = $("#sequenceList");
   if (sequenceSelect) sequenceSelect.innerHTML = markup;
+  const icpSelect = $("#icpList");
+  if (icpSelect) icpSelect.innerHTML = markup;
 }
 
 function renderListsIndex() {
@@ -1036,6 +1042,166 @@ function renderAgentActions(items) {
   );
 }
 
+async function loadIcpWorkspace() {
+  await loadLists();
+  await Promise.all([loadIcpRules(), loadPriorityQueue()]);
+}
+
+function commaValues(selector) {
+  return $(selector).value
+    .split(/,|;|\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function icpPayloadFromForm() {
+  return {
+    name: $("#icpName").value.trim(),
+    description: $("#icpDescription").value.trim(),
+    criteria: {
+      states: commaValues("#icpStates"),
+      cities: commaValues("#icpCities"),
+      cnaes: commaValues("#icpCnaes"),
+      sectors: commaValues("#icpSectors"),
+      sizes: commaValues("#icpSizes"),
+      min_opportunity_score: Number($("#icpMinCompanyScore").value || 0),
+      min_email_score: Number($("#icpMinEmailScore").value || 30),
+      require_email: $("#icpRequireEmail").checked,
+      require_corporate_email: $("#icpRequireCorporate").checked,
+      exclude_shared_email: $("#icpExcludeShared").checked,
+      exclude_suppressed: $("#icpExcludeSuppressed").checked,
+      max_leads: Number($("#icpMaxLeads").value || 50),
+    },
+  };
+}
+
+async function createIcpRuleFromForm() {
+  const payload = icpPayloadFromForm();
+  if (!payload.name) return showStatus("Informe o nome do ICP.", "warn");
+  await api("/api/icp-rules", { method: "POST", body: JSON.stringify(payload) });
+  $("#icpName").value = "";
+  $("#icpDescription").value = "";
+  showStatus("ICP estruturado criado.");
+  await loadIcpRules();
+}
+
+async function loadIcpRules() {
+  const data = await api("/api/icp-rules");
+  state.icpRules = data.items || [];
+  renderIcpRules(state.icpRules);
+}
+
+function criteriaSummary(criteria) {
+  const parts = [];
+  if ((criteria.states || []).length) parts.push(`UF ${criteria.states.join(",")}`);
+  if ((criteria.cities || []).length) parts.push(`Cidade ${criteria.cities.join(",")}`);
+  if ((criteria.cnaes || []).length) parts.push(`CNAE ${criteria.cnaes.join(",")}`);
+  if ((criteria.sectors || []).length) parts.push(`Setor ${criteria.sectors.join(",")}`);
+  if ((criteria.sizes || []).length) parts.push(`Porte ${criteria.sizes.join(",")}`);
+  if (criteria.min_opportunity_score) parts.push(`Empresa >= ${criteria.min_opportunity_score}`);
+  if (criteria.min_email_score) parts.push(`Email >= ${criteria.min_email_score}`);
+  if (criteria.require_email) parts.push("com email");
+  if (criteria.require_corporate_email) parts.push("corporativo");
+  if (criteria.exclude_shared_email) parts.push("sem terceirizado");
+  if (criteria.exclude_suppressed) parts.push("sem supressao");
+  return parts.join(" / ") || "Sem filtros";
+}
+
+function renderIcpRules(items) {
+  const container = $("#icpRulesTable");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhum ICP criado ainda.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["ID", "ICP", "Status", "Criterios", "Max", ""],
+    items.map((rule) => [
+      rule.id,
+      `<span class="truncate" title="${escapeHtml(rule.name)}">${escapeHtml(rule.name)}</span>`,
+      badge(rule.status, rule.status === "active" ? "green" : "amber"),
+      `<span class="truncate" title="${escapeHtml(criteriaSummary(rule.criteria || {}))}">${escapeHtml(criteriaSummary(rule.criteria || {}))}</span>`,
+      escapeHtml(fmt((rule.criteria || {}).max_leads)),
+      `<button class="row-action" data-prioritize-icp="${rule.id}">Priorizar</button>`,
+    ]),
+  );
+  $$("[data-prioritize-icp]").forEach((button) => {
+    button.addEventListener("click", () => prioritizeIcpRule(button.dataset.prioritizeIcp));
+  });
+}
+
+async function prioritizeIcpRule(ruleId) {
+  const listId = Number($("#icpList").value || 0);
+  const payload = listId ? { list_id: listId } : {};
+  const result = await api(`/api/icp-rules/${ruleId}/prioritize`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  const summary = result.summary || {};
+  showStatus(`${summary.suggested || 0} novas sugestoes / ${summary.updated || 0} atualizadas / ${summary.blocked || 0} bloqueadas.`);
+  await Promise.all([loadIcpRules(), loadPriorityQueue()]);
+}
+
+async function loadPriorityQueue() {
+  const data = await api("/api/priority-queue?limit=200");
+  state.priorityQueue = data.items || [];
+  renderPriorityQueue(state.priorityQueue);
+}
+
+function priorityReason(reason) {
+  const matched = (reason?.matched || []).map((item) => `+ ${item}`);
+  const blocked = (reason?.blocked || []).map((item) => `- ${item}`);
+  const scores = [
+    `empresa: ${fmt(reason?.company_score)}`,
+    `email: ${fmt(reason?.email_score)}`,
+    `fit: ${fmt(reason?.fit_score)}`,
+    `prioridade: ${fmt(reason?.priority_score)}`,
+  ];
+  return [...scores, ...matched, ...blocked].join("\n");
+}
+
+function renderPriorityQueue(items) {
+  const container = $("#priorityQueueTable");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhuma sugestao priorizada ainda.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["ID", "ICP", "Empresa", "Email", "Cidade/UF", "CNAE", "Status", "Score", "Motivo", ""],
+    items.map((item) => [
+      item.id,
+      escapeHtml(item.icp_name),
+      `<span class="truncate" title="${escapeHtml(item.trade_name || item.legal_name)}">${escapeHtml(item.trade_name || item.legal_name)}</span>`,
+      escapeHtml(item.lead_email || item.company_email || "-"),
+      escapeHtml(`${fmt(item.city)} / ${fmt(item.state)}`),
+      escapeHtml(fmt(item.main_cnae_code)),
+      badge(item.status, item.status === "suggested" ? "amber" : item.status === "accepted" ? "green" : "red"),
+      badge(item.priority_score, scoreTone(item.priority_score || 0)),
+      previewHtml(priorityReason(item.reason || {})),
+      item.status === "suggested"
+        ? `<button class="row-action" data-priority-accept="${item.id}">Aceitar</button> <button class="row-action" data-priority-reject="${item.id}">Rejeitar</button>`
+        : "",
+    ]),
+  );
+  $$("[data-priority-accept]").forEach((button) => {
+    button.addEventListener("click", () => decidePriorityItem(button.dataset.priorityAccept, "accept"));
+  });
+  $$("[data-priority-reject]").forEach((button) => {
+    button.addEventListener("click", () => decidePriorityItem(button.dataset.priorityReject, "reject"));
+  });
+}
+
+async function decidePriorityItem(itemId, decision) {
+  const note = $("#priorityDecisionNote").value.trim();
+  await api(`/api/priority-queue/${itemId}/${decision}`, {
+    method: "POST",
+    body: JSON.stringify({ note }),
+  });
+  showStatus(decision === "accept" ? "Sugestao aceita para proxima acao." : "Sugestao rejeitada.");
+  await Promise.all([loadPriorityQueue(), loadAgentActions()]);
+}
+
 async function seed() {
   const result = await api("/api/seed", { method: "POST", body: "{}" });
   showStatus(result.message || "Amostra carregada.");
@@ -1148,6 +1314,9 @@ function wireEvents() {
   $("#refreshApprovalsBtn").addEventListener("click", loadApprovals);
   $("#refreshJourneysBtn").addEventListener("click", loadJourneys);
   $("#refreshAgentActionsBtn").addEventListener("click", loadAgentActions);
+  $("#createIcpBtn").addEventListener("click", createIcpRuleFromForm);
+  $("#refreshIcpBtn").addEventListener("click", loadIcpWorkspace);
+  $("#refreshPriorityBtn").addEventListener("click", loadPriorityQueue);
   $("#seedBtn").addEventListener("click", seed);
   $("#seedBtnImport").addEventListener("click", seed);
   $("#validateEmailsBtn").addEventListener("click", validateFreeEmails);

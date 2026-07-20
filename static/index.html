@@ -25,6 +25,7 @@
           <button class="nav-item" data-view="experiments">Experimentos</button>
           <button class="nav-item" data-view="templates">Templates</button>
           <button class="nav-item" data-view="sequences">Sequencias</button>
+          <button class="nav-item" data-view="icp">ICP SDR</button>
           <button class="nav-item" data-view="hygiene">Higiene</button>
           <button class="nav-item" data-view="audit">Auditoria</button>
         </nav>
@@ -541,6 +542,103 @@
               <button id="refreshAgentActionsBtn" class="button">Atualizar logs</button>
             </div>
             <div id="agentActionsTable" class="table-wrap"></div>
+          </section>
+        </section>
+
+        <section id="icp" class="view">
+          <div class="content-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Novo ICP estruturado</h2>
+                <button id="refreshIcpBtn" class="button">Atualizar</button>
+              </div>
+              <div class="form-grid">
+                <label>
+                  Nome
+                  <input id="icpName" class="input" placeholder="Software SP com e-mail comercial" />
+                </label>
+                <label>
+                  Lista opcional
+                  <select id="icpList" class="input"></select>
+                </label>
+                <label>
+                  UFs
+                  <input id="icpStates" class="input" placeholder="SP, RJ" />
+                </label>
+                <label>
+                  Cidades
+                  <input id="icpCities" class="input" placeholder="Sao Paulo, Campinas" />
+                </label>
+                <label>
+                  CNAEs por prefixo
+                  <input id="icpCnaes" class="input" placeholder="620, 631" />
+                </label>
+                <label>
+                  Setores
+                  <input id="icpSectors" class="input" placeholder="Tecnologia, Saude" />
+                </label>
+                <label>
+                  Portes
+                  <input id="icpSizes" class="input" placeholder="ME, EPP" />
+                </label>
+                <label>
+                  Score minimo empresa
+                  <input id="icpMinCompanyScore" class="input" type="number" min="0" max="100" value="0" />
+                </label>
+                <label>
+                  Score minimo e-mail
+                  <input id="icpMinEmailScore" class="input" type="number" min="0" max="100" value="30" />
+                </label>
+                <label>
+                  Maximo de sugestoes
+                  <input id="icpMaxLeads" class="input" type="number" min="1" max="500" value="50" />
+                </label>
+                <label>
+                  Observacao
+                  <input id="icpDescription" class="input" placeholder="Motivo comercial do ICP" />
+                </label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <label class="check-row"><input id="icpRequireEmail" type="checkbox" checked /> Exigir e-mail</label>
+                <label class="check-row"><input id="icpRequireCorporate" type="checkbox" checked /> Exigir corporativo</label>
+                <label class="check-row"><input id="icpExcludeShared" type="checkbox" checked /> Bloquear terceirizado</label>
+                <label class="check-row"><input id="icpExcludeSuppressed" type="checkbox" checked /> Bloquear supressao</label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <button id="createIcpBtn" class="button primary">Criar ICP</button>
+                <p class="muted">O agente so prioriza dentro destes criterios estruturados.</p>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Decisao da fila SDR</h2>
+              </div>
+              <div class="form-grid one">
+                <label>
+                  Nota da decisao
+                  <input id="priorityDecisionNote" class="input" placeholder="Bom fit / fora do momento" />
+                </label>
+              </div>
+              <div class="toolbar panel-toolbar">
+                <button id="refreshPriorityBtn" class="button">Atualizar fila</button>
+                <p class="muted">Aceitar ou rejeitar apenas muda a fila; nao envia e-mail.</p>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Regras ICP</h2>
+            </div>
+            <div id="icpRulesTable" class="table-wrap"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Fila SDR priorizada</h2>
+            </div>
+            <div id="priorityQueueTable" class="table-wrap"></div>
           </section>
         </section>
 
