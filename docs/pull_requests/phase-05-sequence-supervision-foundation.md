@@ -57,7 +57,8 @@ humana antes de qualquer execucao simulada.
 - [x] Jornada com proximo passo fica em espera e pode preparar nova aprovacao.
 - [x] Toda decisao relevante registra `agent_actions`.
 - [x] Testes automatizados cobrem inscricao, aprovacao, rejeicao e proximo passo.
-- [ ] Smoke test HTTP final executado apos reiniciar servidor.
+- [x] Rota `/api/sequences/journeys` nao colide com `/api/sequences/{id}`.
+- [x] Smoke test HTTP final executado apos reiniciar servidor.
 
 ## Como testar localmente
 
@@ -68,7 +69,7 @@ python -m unittest discover -s tests
 Resultado esperado:
 
 ```text
-Ran 27 tests
+Ran 28 tests
 OK
 ```
 
@@ -92,3 +93,18 @@ python -m radar_cnpj.server
 - Esta fase ainda opera em modo `simulated`.
 - Autonomia real de SDR continua bloqueada ate ICP estruturado, resposta
   recebida, opt-out automatico e limites de envio real estarem implementados.
+
+## Smoke HTTP
+
+```text
+health=True
+company_email=comercial@prismafin.com.br
+companies_added=1
+enrolled=1
+approvals_created=1
+approval_status=approved
+send_id=8
+journey_status_after_approval=waiting
+prepared_next=True
+agent_actions_total=5
+```

@@ -290,6 +290,8 @@ Commits:
 - `66e5d30 docs: define sequence supervision phase`
 - `7019dc5 feat: add semi supervised sequence backend`
 - `b371c61 feat: add sequence supervision workspace UI`
+- `fffe766 docs: add phase 05 sequence supervision notes`
+- `a3ca242 fix: route sequence journeys before sequence detail`
 
 Implementado:
 
@@ -307,6 +309,8 @@ Implementado:
 - Aba `Sequencias` na UI local com construtor de cadencia, fila de aprovacao,
   jornadas e logs.
 - Testes cobrindo inscricao elegivel, aprovacao, proximo passo e rejeicao.
+- Teste HTTP de regressao garantindo que `/api/sequences/journeys` nao seja
+  interpretado como `/api/sequences/{id}`.
 
 Como verificar:
 
@@ -317,6 +321,26 @@ python -m unittest discover -s tests
 Resultado esperado nesta etapa:
 
 ```text
-Ran 27 tests
+Ran 28 tests
 OK
+```
+
+Smoke test HTTP apos reiniciar servidor:
+
+```text
+health=True
+company_id=7
+company_email=comercial@prismafin.com.br
+list_id=7
+companies_added=1
+template_ids=4,5
+sequence_id=2
+enrolled=1
+approvals_created=1
+approval_id=2
+approval_status=approved
+send_id=8
+journey_status_after_approval=waiting
+prepared_next=True
+agent_actions_total=5
 ```
