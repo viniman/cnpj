@@ -89,6 +89,67 @@
 
           <section class="panel">
             <div class="panel-head">
+              <h2>Playbooks</h2>
+              <button id="refreshPlaybooksBtn" class="button">Atualizar playbooks</button>
+            </div>
+            <div id="playbookSummary" class="metric-grid compact-metrics"></div>
+            <div class="governance-grid playbook-grid">
+              <section>
+                <h3>Novo playbook</h3>
+                <div class="form-grid one">
+                  <label>
+                    Nome
+                    <input id="playbookName" class="input" placeholder="Outbound B2B Servicos Locais" />
+                  </label>
+                  <label>
+                    Descricao
+                    <input id="playbookDescription" class="input" placeholder="Pacote de ICP, copy, cadencia e meta" />
+                  </label>
+                  <label>
+                    Conteudo JSON
+                    <textarea id="playbookContent" class="textarea small-textarea">{"icp":{"states":["SP"],"target_cnaes":["620"],"min_email_score":30},"copy":{"tone":"direto, B2B, consultivo"},"cadence":{"steps":[{"name":"Primeiro contato","wait_days":0},{"name":"Follow-up curto","wait_days":3}]},"okr":{"objective":"Validar nicho outbound","key_results":[{"kpi_key":"replies_received","target_value":10}]},"governance":{"requires_human_approval":true}}</textarea>
+                  </label>
+                  <button id="createPlaybookBtn" class="button primary">Criar playbook</button>
+                </div>
+              </section>
+              <section>
+                <h3>Versao e aplicacao</h3>
+                <div class="form-grid one">
+                  <label>
+                    Playbook
+                    <select id="playbookSelect" class="input"></select>
+                  </label>
+                  <label>
+                    Descricao da nova versao
+                    <input id="playbookVersionDescription" class="input" placeholder="Ajuste de ICP ou cadencia" />
+                  </label>
+                  <label>
+                    Conteudo da nova versao
+                    <textarea id="playbookVersionContent" class="textarea small-textarea"></textarea>
+                  </label>
+                  <button id="createPlaybookVersionBtn" class="button">Criar nova versao</button>
+                  <label>
+                    Nota de aplicacao
+                    <input id="playbookApplyNote" class="input" placeholder="Por que este playbook sera usado neste workspace" />
+                  </label>
+                  <button id="applyPlaybookBtn" class="button primary">Aplicar ao workspace</button>
+                </div>
+              </section>
+            </div>
+            <div class="content-grid playbook-tables">
+              <section>
+                <h3>Biblioteca</h3>
+                <div id="playbooksTable" class="table-wrap"></div>
+              </section>
+              <section>
+                <h3>Versoes do selecionado</h3>
+                <div id="playbookVersionsTable" class="table-wrap"></div>
+              </section>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
               <h2>Governanca do agente</h2>
               <button id="refreshAgentGovernanceBtn" class="button">Atualizar governanca</button>
             </div>

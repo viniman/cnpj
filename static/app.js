@@ -17,6 +17,7 @@ const state = {
   leadTimeline: null,
   okrs: null,
   agentGovernance: null,
+  playbooks: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -89,6 +90,7 @@ function setView(view) {
   if (view === "command") {
     loadCommandCenter();
     loadOkrs();
+    loadPlaybooks();
     loadAgentGovernance();
   }
   if (view === "companies") {
@@ -223,6 +225,149 @@ function renderOkrs(data) {
     <div>${objectiveMarkup}</div>
     <div class="table-wrap">${kpiMarkup}</div>
   `;
+}
+
+async function loadPlaybooks() {
+  const data = await api("/api/playbooks");
+  state.playbooks = data;
+  renderPlaybooks(data);
+}
+
+function playbookOptionLabel(playbook) {
+  const active = playbook.active_version;
+  return `${playbook.name} ${active ? `(v${active.version_number})` : ""}`;
+}
+
+function selectedPlaybook() {
+  const id = Number($("#playbookSelect").value || 0);
+  return (state.playbooks?.playbooks || []).find((item) => item.id === id) || null;
+}
+
+function syncPlaybookVersionForm(playbook) {
+  const active = playbook?.active_version;
+  $("#playbookVersionContent").value = active ? JSON.stringify(active.content || {}, null, 2) : "{}";
+}
+
+function renderSelectedPlaybookVersions(playbook) {
+  const versions = playbook?.versions || [];
+  $("#playbookVersionsTable").innerHTML = versions.length
+    ? table(
+        ["Versao", "Status", "Descricao", "Criada", ""],
+        versions.map((version) => [
+          `v${version.version_number}`,
+          badge(version.status, version.status === "active" ? "green" : "purple"),
+          escapeHtml(version.description || "-"),
+          escapeHtml(version.created_at || "-"),
+          `<button class="row-action" data-playbook-apply="${escapeHtml(playbook.id)}" data-playbook-version="${escapeHtml(version.id)}">Aplicar</button>`,
+        ]),
+      )
+    : `<div class="empty-state">Nenhuma versao registrada.</div>`;
+  $$("[data-playbook-apply]").forEach((button) => {
+    button.addEventListener("click", () => applyPlaybookFromForm(button.dataset.playbookApply, button.dataset.playbookVersion));
+  });
+}
+
+function renderPlaybooks(data) {
+  const playbooks = data?.playbooks || [];
+  const active = data?.active_application;
+  const profile = data?.company_profile || {};
+  const versionCount = playbooks.reduce((total, item) => total + (item.versions || []).length, 0);
+  $("#playbookSummary").innerHTML = [
+    metric("Workspace", profile.display_name || "-"),
+    metric("Playbook ativo", active ? active.playbook_name : "-"),
+    metric("Versao ativa", active ? `v${active.version_number}` : "-"),
+    metric("Biblioteca", playbooks.length),
+    metric("Versoes", versionCount),
+  ].join("");
+
+  const previousSelection = Number($("#playbookSelect").value || 0);
+  $("#playbookSelect").innerHTML = playbooks
+    .map((playbook) => `<option value="${escapeHtml(playbook.id)}">${escapeHtml(playbookOptionLabel(playbook))}</option>`)
+    .join("");
+  const selectedId = playbooks.some((item) => item.id === previousSelection)
+    ? previousSelection
+    : active?.playbook_id || playbooks[0]?.id || "";
+  $("#playbookSelect").value = selectedId;
+  const selected = selectedPlaybook();
+  syncPlaybookVersionForm(selected);
+  renderSelectedPlaybookVersions(selected);
+
+  $("#playbooksTable").innerHTML = playbooks.length
+    ? table(
+        ["Nome", "Status", "Versao ativa", "Origem", "Atualizado", ""],
+        playbooks.map((playbook) => [
+          escapeHtml(playbook.name),
+          badge(playbook.status, playbook.status === "active" ? "green" : "purple"),
+          playbook.active_version ? `v${playbook.active_version.version_number}` : "-",
+          escapeHtml(playbook.source || "-"),
+          escapeHtml(playbook.updated_at || "-"),
+          `<button class="row-action" data-playbook-select="${escapeHtml(playbook.id)}">Selecionar</button>`,
+        ]),
+      )
+    : `<div class="empty-state">Nenhum playbook registrado.</div>`;
+  $$("[data-playbook-select]").forEach((button) => {
+    button.addEventListener("click", () => {
+      $("#playbookSelect").value = button.dataset.playbookSelect;
+      const playbook = selectedPlaybook();
+      syncPlaybookVersionForm(playbook);
+      renderSelectedPlaybookVersions(playbook);
+    });
+  });
+}
+
+function parseJsonField(selector, message) {
+  try {
+    return JSON.parse($(selector).value || "{}");
+  } catch (err) {
+    showStatus(message, "warn");
+    return null;
+  }
+}
+
+async function createPlaybookFromForm() {
+  const content = parseJsonField("#playbookContent", "Conteudo JSON do playbook invalido.");
+  if (!content) return;
+  await api("/api/playbooks", {
+    method: "POST",
+    body: JSON.stringify({
+      name: $("#playbookName").value.trim(),
+      description: $("#playbookDescription").value.trim(),
+      content,
+    }),
+  });
+  showStatus("Playbook criado com versao 1 ativa.");
+  await loadPlaybooks();
+}
+
+async function createPlaybookVersionFromForm() {
+  const playbook = selectedPlaybook();
+  if (!playbook) return showStatus("Selecione um playbook.", "warn");
+  const content = parseJsonField("#playbookVersionContent", "Conteudo JSON da nova versao invalido.");
+  if (!content) return;
+  await api(`/api/playbooks/${playbook.id}/versions`, {
+    method: "POST",
+    body: JSON.stringify({
+      description: $("#playbookVersionDescription").value.trim(),
+      content,
+    }),
+  });
+  showStatus("Nova versao de playbook criada.");
+  await loadPlaybooks();
+}
+
+async function applyPlaybookFromForm(playbookId = null, versionId = null) {
+  const playbook = playbookId ? (state.playbooks?.playbooks || []).find((item) => item.id === Number(playbookId)) : selectedPlaybook();
+  if (!playbook) return showStatus("Selecione um playbook.", "warn");
+  const activeVersionId = versionId || playbook.active_version?.id;
+  await api(`/api/playbooks/${playbook.id}/apply`, {
+    method: "POST",
+    body: JSON.stringify({
+      version_id: Number(activeVersionId || 0) || undefined,
+      note: $("#playbookApplyNote").value.trim(),
+    }),
+  });
+  showStatus("Playbook aplicado ao workspace.");
+  await loadPlaybooks();
 }
 
 async function loadAgentGovernance() {
@@ -1990,6 +2135,15 @@ function wireEvents() {
   $("#refreshAgentActionsBtn").addEventListener("click", loadAgentActions);
   $("#refreshCommandBtn").addEventListener("click", loadCommandCenter);
   $("#refreshOkrsBtn").addEventListener("click", loadOkrs);
+  $("#refreshPlaybooksBtn").addEventListener("click", loadPlaybooks);
+  $("#playbookSelect").addEventListener("change", () => {
+    const playbook = selectedPlaybook();
+    syncPlaybookVersionForm(playbook);
+    renderSelectedPlaybookVersions(playbook);
+  });
+  $("#createPlaybookBtn").addEventListener("click", createPlaybookFromForm);
+  $("#createPlaybookVersionBtn").addEventListener("click", createPlaybookVersionFromForm);
+  $("#applyPlaybookBtn").addEventListener("click", () => applyPlaybookFromForm());
   $("#refreshAgentGovernanceBtn").addEventListener("click", loadAgentGovernance);
   $("#createAgentConfigBtn").addEventListener("click", createAgentConfigFromForm);
   $("#createAgentSimulationBtn").addEventListener("click", createAgentSimulationFromForm);

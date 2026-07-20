@@ -678,6 +678,10 @@ tr:hover td {
   margin-top: 14px;
 }
 
+.playbook-tables {
+  margin-top: 14px;
+}
+
 .okr-objective,
 .okr-kr-list {
   display: grid;
