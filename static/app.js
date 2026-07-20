@@ -15,6 +15,7 @@ const state = {
   meetings: [],
   commandCenter: null,
   leadTimeline: null,
+  okrs: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -84,7 +85,10 @@ function setView(view) {
   };
   $("#pageTitle").textContent = titles[view] || "Radar CNPJ";
   if (view === "dashboard") loadDashboard();
-  if (view === "command") loadCommandCenter();
+  if (view === "command") {
+    loadCommandCenter();
+    loadOkrs();
+  }
   if (view === "companies") {
     loadLists();
     loadCompanies();
@@ -150,6 +154,73 @@ function renderCommandMetrics(metrics) {
     metric("Leads ativos", metrics.active_leads || 0),
     metric("Acoes logadas", metrics.recent_actions || 0),
   ].join("");
+}
+
+async function loadOkrs() {
+  const data = await api("/api/okrs");
+  state.okrs = data;
+  renderOkrs(data);
+}
+
+function renderOkrs(data) {
+  const container = $("#okrPanel");
+  if (!container) return;
+  const objectives = data?.objectives || [];
+  const kpis = data?.kpis || [];
+  const objectiveMarkup = objectives.length
+    ? objectives
+        .map(
+          (objective) => `
+            <section class="okr-objective">
+              <div class="okr-title">
+                <div>
+                  <h3>${escapeHtml(objective.title || "-")}</h3>
+                  <p class="muted">${escapeHtml(objective.description || [objective.period_start, objective.period_end].filter(Boolean).join(" ate ") || "-")}</p>
+                </div>
+                ${badge(objective.status || "-", objective.status === "active" ? "green" : "purple")}
+              </div>
+              <div class="okr-kr-list">
+                ${(objective.key_results || [])
+                  .map((kr) => {
+                    const progress = Math.max(0, Math.min(100, Number(kr.progress || 0)));
+                    const formula = kr.kpi?.formula || "";
+                    return `
+                      <article class="okr-kr">
+                        <div class="okr-kr-head">
+                          <strong>${escapeHtml(kr.title || "-")}</strong>
+                          ${badge(`${progress}%`, progress >= 100 ? "green" : progress >= 50 ? "amber" : "purple")}
+                        </div>
+                        <div class="bar-track"><div class="bar-fill" style="width:${progress}%"></div></div>
+                        <div class="stat-line compact-line">
+                          ${badge(`${fmt(kr.current_value)} / ${fmt(kr.target_value)}`)}
+                          ${badge(kr.kpi_key || "-", "purple")}
+                        </div>
+                        <small>${escapeHtml(formula || "-")}</small>
+                      </article>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            </section>
+          `,
+        )
+        .join("")
+    : `<div class="empty-state">Nenhum OKR configurado.</div>`;
+  const kpiMarkup = kpis.length
+    ? table(
+        ["KPI", "Valor", "Formula", "Origem"],
+        kpis.map((kpi) => [
+          escapeHtml(kpi.name || kpi.kpi_key),
+          badge(kpi.current_value ?? 0, kpi.direction === "decrease" && kpi.current_value ? "amber" : "green"),
+          `<span class="truncate" title="${escapeHtml(kpi.formula || "")}">${escapeHtml(kpi.formula || "-")}</span>`,
+          escapeHtml((kpi.source_tables || []).join(", ") || "-"),
+        ]),
+      )
+    : `<div class="empty-state">Catalogo de KPIs vazio.</div>`;
+  container.innerHTML = `
+    <div>${objectiveMarkup}</div>
+    <div class="table-wrap">${kpiMarkup}</div>
+  `;
 }
 
 function commandTypeTone(type) {
@@ -1781,6 +1852,7 @@ function wireEvents() {
   $("#refreshJourneysBtn").addEventListener("click", loadJourneys);
   $("#refreshAgentActionsBtn").addEventListener("click", loadAgentActions);
   $("#refreshCommandBtn").addEventListener("click", loadCommandCenter);
+  $("#refreshOkrsBtn").addEventListener("click", loadOkrs);
   $("#loadLeadTimelineBtn").addEventListener("click", () => loadLeadTimeline());
   $("#createIcpBtn").addEventListener("click", createIcpRuleFromForm);
   $("#refreshIcpBtn").addEventListener("click", loadIcpWorkspace);

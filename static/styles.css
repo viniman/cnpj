@@ -635,6 +635,43 @@ tr:hover td {
   padding: 10px;
 }
 
+.okr-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.okr-objective,
+.okr-kr-list {
+  display: grid;
+  gap: 10px;
+}
+
+.okr-title,
+.okr-kr-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.okr-title h3 {
+  margin-bottom: 4px;
+}
+
+.okr-kr {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.okr-kr small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 .timeline-wrap {
   display: grid;
   gap: 12px;
@@ -741,6 +778,7 @@ tr:hover td {
 
   .split,
   .content-grid,
+  .okr-grid,
   .kanban-grid {
     grid-template-columns: 1fr;
   }
