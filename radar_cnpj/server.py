@@ -19,6 +19,7 @@ from .services import (
     create_meeting,
     create_meeting_from_handoff,
     create_sequence,
+    command_center,
     dashboard,
     decide_handoff,
     decide_priority_queue_item,
@@ -146,6 +147,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json({"ok": True, "name": "Radar CNPJ Interno"})
                 elif parsed.path == "/api/dashboard":
                     self.send_json(dashboard(conn))
+                elif parsed.path == "/api/command-center":
+                    self.send_json(command_center(conn))
                 elif parsed.path == "/api/companies":
                     self.send_json(search_companies(conn, params))
                 elif len(parts) == 3 and parts[1] == "companies":

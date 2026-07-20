@@ -1,0 +1,121 @@
+import os
+import tempfile
+import unittest
+
+from radar_cnpj.database import connect, init_db
+from radar_cnpj.services import (
+    add_companies_to_list,
+    command_center,
+    create_email_template,
+    create_leads_from_list,
+    create_list,
+    create_meeting,
+    create_sequence,
+    enroll_sequence_from_list,
+    record_inbound_reply,
+    upsert_company,
+)
+
+
+class CommandCenterTest(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.old_db = os.environ.get("RADAR_CNPJ_DB")
+        os.environ["RADAR_CNPJ_DB"] = os.path.join(self.temp_dir.name, "test.sqlite")
+        init_db()
+
+    def tearDown(self):
+        if self.old_db is None:
+            os.environ.pop("RADAR_CNPJ_DB", None)
+        else:
+            os.environ["RADAR_CNPJ_DB"] = self.old_db
+        self.temp_dir.cleanup()
+
+    def seed_command_center_context(self, conn):
+        company_id = upsert_company(
+            conn,
+            {
+                "cnpj": "33.444.555/0001-66",
+                "legal_name": "GAMA OPS LTDA",
+                "trade_name": "Gama Ops",
+                "status": "Ativa",
+                "email": "comercial@gamaops.com.br",
+                "main_cnae_code": "6201501",
+                "main_cnae_description": "Software",
+                "city": "Curitiba",
+                "state": "PR",
+                "capital_social": 300000,
+            },
+            "Teste",
+            "fixture",
+            "Teste automatizado",
+        )
+        lead_list = create_list(conn, "Lista Command Center", "Teste")
+        add_companies_to_list(conn, lead_list["id"], [company_id])
+        create_leads_from_list(conn, lead_list["id"], "teste command center")
+        lead = conn.execute("SELECT * FROM leads WHERE company_id = ?", (company_id,)).fetchone()
+        template = create_email_template(
+            conn,
+            {
+                "name": "Primeiro contato comando",
+                "purpose": "first_contact",
+                "subject": "Ideia para {{nome_empresa}}",
+                "body": "Mensagem para {{nome_empresa}}.",
+            },
+        )
+        sequence = create_sequence(
+            conn,
+            {
+                "name": "Cadencia comando",
+                "steps": [{"name": "Primeiro contato", "template_id": template["id"]}],
+            },
+        )
+        enroll_sequence_from_list(conn, sequence["id"], lead_list["id"])
+        record_inbound_reply(
+            conn,
+            {
+                "lead_id": lead["id"],
+                "email": lead["email"],
+                "subject": "Re: ideia",
+                "body": "Tenho interesse, podemos conversar esta semana?",
+            },
+        )
+        create_meeting(
+            conn,
+            {
+                "lead_id": lead["id"],
+                "scheduled_at": "2026-07-21T15:00",
+                "notes": "Reuniao aberta para Command Center.",
+            },
+        )
+        return lead["id"]
+
+    def test_command_center_aggregates_inbox_kanban_and_activity(self):
+        conn = connect()
+        try:
+            lead_id = self.seed_command_center_context(conn)
+            data = command_center(conn)
+            self.assertGreaterEqual(data["metrics"]["pending_approvals"], 1)
+            self.assertGreaterEqual(data["metrics"]["pending_handoffs"], 1)
+            self.assertGreaterEqual(data["metrics"]["open_meetings"], 1)
+
+            source_types = {item["source_type"] for item in data["inbox"]["items"]}
+            self.assertTrue({"approval", "handoff", "meeting"}.issubset(source_types))
+            self.assertTrue(all(item.get("source_id") for item in data["inbox"]["items"]))
+            self.assertTrue(all(item.get("origin_label") for item in data["inbox"]["items"]))
+
+            cards = [card for column in data["kanban"]["columns"] for card in column["items"]]
+            self.assertIn(lead_id, [card["lead_id"] for card in cards])
+            meeting_column = next(column for column in data["kanban"]["columns"] if column["key"] == "meeting")
+            self.assertIn(lead_id, [card["lead_id"] for card in meeting_column["items"]])
+
+            actions = [item["action_type"] for item in data["activity"]["items"]]
+            self.assertIn("approval_requested", actions)
+            self.assertIn("reply_classified", actions)
+            self.assertIn("meeting_created", actions)
+        finally:
+            conn.close()
+
+
+if __name__ == "__main__":
+    unittest.main()

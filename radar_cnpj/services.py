@@ -3627,6 +3627,241 @@ def update_meeting_status(conn, meeting_id, status, note=""):
     return get_meeting(conn, meeting_id)
 
 
+COMMAND_CENTER_PRIORITY = {"urgent": 0, "high": 1, "medium": 2, "low": 3}
+COMMAND_CENTER_COLUMNS = [
+    ("new", "Novos", {"new", "eligible"}),
+    ("approval", "Aguardando humano", {"pending_approval"}),
+    ("sequence", "Em cadencia", {"waiting", "in_campaign"}),
+    ("reply", "Respondeu", {"responded", "waiting_reply_review", "meeting_review"}),
+    ("meeting", "Reuniao", {"meeting_scheduled"}),
+    ("qualified", "Qualificados", {"qualified", "converted"}),
+    ("closed", "Encerrados", {"disqualified", "opt_out", "blocked"}),
+]
+
+
+def command_origin_label(source):
+    labels = {
+        "approval": "Regra de negocio / aprovacao humana",
+        "handoff": "Sistema / handoff humano",
+        "meeting": "Humano / agenda operacional",
+        "system": "Regra de negocio",
+        "human": "Humano",
+        "agent": "Agente SDR",
+        "manual": "Humano",
+    }
+    return labels.get(source or "", source or "Origem nao informada")
+
+
+def command_center_metrics(conn):
+    pending_approvals = conn.execute(
+        "SELECT COUNT(*) AS total FROM approval_queue WHERE org_id = ? AND status = 'pending'",
+        (ORG_ID,),
+    ).fetchone()["total"]
+    pending_handoffs = conn.execute(
+        "SELECT COUNT(*) AS total FROM handoffs WHERE org_id = ? AND status = 'pending'",
+        (ORG_ID,),
+    ).fetchone()["total"]
+    open_meetings = conn.execute(
+        "SELECT COUNT(*) AS total FROM meetings WHERE org_id = ? AND status IN ('proposed', 'scheduled')",
+        (ORG_ID,),
+    ).fetchone()["total"]
+    active_leads = conn.execute(
+        """
+        SELECT COUNT(*) AS total
+        FROM leads
+        WHERE org_id = ?
+          AND status NOT IN ('disqualified', 'opt_out', 'blocked')
+        """,
+        (ORG_ID,),
+    ).fetchone()["total"]
+    recent_actions = conn.execute(
+        "SELECT COUNT(*) AS total FROM agent_actions WHERE org_id = ?",
+        (ORG_ID,),
+    ).fetchone()["total"]
+    return {
+        "pending_approvals": int(pending_approvals or 0),
+        "pending_handoffs": int(pending_handoffs or 0),
+        "open_meetings": int(open_meetings or 0),
+        "active_leads": int(active_leads or 0),
+        "recent_actions": int(recent_actions or 0),
+    }
+
+
+def command_center_inbox(conn, limit=50):
+    items = []
+    for approval in list_approvals(conn, {"status": "pending", "limit": limit})["items"]:
+        context = approval.get("context") or {}
+        items.append(
+            {
+                "source_type": "approval",
+                "source_id": approval["id"],
+                "priority": "medium",
+                "title": approval["title"],
+                "company_name": context.get("company_name") or "",
+                "email": context.get("email") or "",
+                "status": approval["status"],
+                "reason": "Passo de sequencia aguarda aprovacao humana",
+                "origin_label": command_origin_label("approval"),
+                "created_at": approval["created_at"],
+                "context": context,
+            }
+        )
+    for handoff in list_handoffs(conn, {"status": "pending", "limit": limit})["items"]:
+        context = handoff.get("context") or {}
+        items.append(
+            {
+                "source_type": "handoff",
+                "source_id": handoff["id"],
+                "priority": handoff["priority"],
+                "title": handoff["reason"],
+                "company_name": handoff.get("trade_name") or handoff.get("legal_name") or "",
+                "email": handoff.get("lead_email") or context.get("email") or "",
+                "status": handoff["status"],
+                "reason": handoff["reason"],
+                "origin_label": command_origin_label("handoff"),
+                "created_at": handoff["created_at"],
+                "context": context,
+            }
+        )
+    meeting_rows = conn.execute(
+        """
+        SELECT m.*, l.email AS lead_email, c.legal_name, c.trade_name
+        FROM meetings m
+        JOIN leads l ON l.id = m.lead_id
+        LEFT JOIN companies c ON c.id = m.company_id
+        WHERE m.org_id = ? AND m.status IN ('proposed', 'scheduled')
+        ORDER BY COALESCE(NULLIF(m.scheduled_at, ''), m.created_at) ASC, m.id ASC
+        LIMIT ?
+        """,
+        (ORG_ID, min(int(limit), 500)),
+    ).fetchall()
+    for row in meeting_rows:
+        meeting = dict_row(row)
+        items.append(
+            {
+                "source_type": "meeting",
+                "source_id": meeting["id"],
+                "priority": "high" if meeting["status"] == "scheduled" else "medium",
+                "title": meeting["title"],
+                "company_name": meeting.get("trade_name") or meeting.get("legal_name") or "",
+                "email": meeting.get("attendee_email") or meeting.get("lead_email") or "",
+                "status": meeting["status"],
+                "reason": meeting.get("notes") or "Reuniao aberta para acompanhamento",
+                "origin_label": command_origin_label("meeting"),
+                "created_at": meeting["created_at"],
+                "context": {
+                    "lead_id": meeting["lead_id"],
+                    "scheduled_at": meeting.get("scheduled_at") or "",
+                    "meeting_url": meeting.get("meeting_url") or "",
+                    "handoff_id": meeting.get("handoff_id"),
+                },
+            }
+        )
+    items.sort(key=lambda item: item.get("created_at") or "", reverse=True)
+    items.sort(key=lambda item: COMMAND_CENTER_PRIORITY.get(item.get("priority"), 9))
+    return {"items": items[:limit]}
+
+
+def lead_command_status(lead_status, journey_status):
+    if journey_status in ("pending_approval", "waiting") and lead_status not in ("responded", "meeting_scheduled", "qualified", "disqualified", "opt_out", "blocked"):
+        return journey_status
+    return lead_status or "new"
+
+
+def command_column_key(status):
+    for key, _label, statuses in COMMAND_CENTER_COLUMNS:
+        if status in statuses:
+            return key
+    return "reply"
+
+
+def command_center_kanban(conn, limit=200):
+    rows = conn.execute(
+        """
+        SELECT l.id, l.email, l.score, l.status AS lead_status, l.updated_at,
+               c.legal_name, c.trade_name, c.city, c.state,
+               lj.status AS journey_status, lj.next_action_at,
+               s.name AS sequence_name
+        FROM leads l
+        LEFT JOIN companies c ON c.id = l.company_id
+        LEFT JOIN lead_journey lj ON lj.id = (
+            SELECT latest.id
+            FROM lead_journey latest
+            WHERE latest.lead_id = l.id AND latest.org_id = l.org_id
+            ORDER BY latest.id DESC
+            LIMIT 1
+        )
+        LEFT JOIN sequences s ON s.id = lj.sequence_id
+        WHERE l.org_id = ?
+        ORDER BY l.updated_at DESC, l.id DESC
+        LIMIT ?
+        """,
+        (ORG_ID, min(int(limit), 500)),
+    ).fetchall()
+    columns = [{"key": key, "label": label, "items": []} for key, label, _statuses in COMMAND_CENTER_COLUMNS]
+    by_key = {column["key"]: column for column in columns}
+    for row in rows:
+        lead = dict_row(row)
+        status = lead_command_status(lead.get("lead_status"), lead.get("journey_status"))
+        item = {
+            "lead_id": lead["id"],
+            "company_name": lead.get("trade_name") or lead.get("legal_name") or lead.get("email") or "",
+            "email": lead.get("email") or "",
+            "status": status,
+            "lead_status": lead.get("lead_status") or "",
+            "journey_status": lead.get("journey_status") or "",
+            "score": lead.get("score") or 0,
+            "city": lead.get("city") or "",
+            "state": lead.get("state") or "",
+            "next_action_at": lead.get("next_action_at") or "",
+            "sequence_name": lead.get("sequence_name") or "",
+            "origin_label": "CRM interno",
+        }
+        by_key[command_column_key(status)]["items"].append(item)
+    return {"columns": columns}
+
+
+def command_center_activity(conn, limit=100):
+    rows = conn.execute(
+        """
+        SELECT aa.*, l.email AS lead_email, c.legal_name, c.trade_name
+        FROM agent_actions aa
+        LEFT JOIN leads l ON l.id = aa.lead_id
+        LEFT JOIN companies c ON c.id = l.company_id
+        WHERE aa.org_id = ?
+        ORDER BY aa.id DESC
+        LIMIT ?
+        """,
+        (ORG_ID, min(int(limit), 500)),
+    ).fetchall()
+    items = []
+    for row in rows:
+        action = dict_row(row)
+        items.append(
+            {
+                "id": action["id"],
+                "action_type": action["action_type"],
+                "source": action["source"],
+                "origin_label": command_origin_label(action["source"]),
+                "reason": action["reason"],
+                "lead_email": action.get("lead_email") or "",
+                "company_name": action.get("trade_name") or action.get("legal_name") or "",
+                "created_at": action["created_at"],
+                "payload": json.loads(action.pop("payload_json") or "{}"),
+            }
+        )
+    return {"items": items}
+
+
+def command_center(conn):
+    return {
+        "metrics": command_center_metrics(conn),
+        "inbox": command_center_inbox(conn, 50),
+        "kanban": command_center_kanban(conn, 200),
+        "activity": command_center_activity(conn, 100),
+    }
+
+
 def audit_events(conn, limit=100):
     rows = conn.execute(
         "SELECT * FROM audit_logs WHERE org_id = ? ORDER BY id DESC LIMIT ?",
