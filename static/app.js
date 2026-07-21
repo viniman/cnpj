@@ -26,6 +26,7 @@ const state = {
   saasAccount: null,
   scoringConfig: null,
   companyScoringConfig: null,
+  scoreConfigVersions: [],
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -126,7 +127,7 @@ async function loadViewData(view = state.view) {
   if (view === "sequences") await loadSequenceWorkspace();
   if (view === "icp") await loadIcpWorkspace();
   if (view === "replies") await loadReplyWorkspace();
-  if (view === "hygiene") await Promise.all([loadScoringConfig(), loadCompanyScoringConfig()]);
+  if (view === "hygiene") await Promise.all([loadScoringConfig(), loadCompanyScoringConfig(), loadScoreConfigVersions()]);
   if (view === "audit") await loadAudit();
 }
 
@@ -2862,6 +2863,7 @@ async function saveScoringConfigFromForm() {
     });
     state.scoringConfig = config;
     renderScoringConfig(config);
+    await loadScoreConfigVersions();
     showStatus("Config de scoring salva.");
   } catch (err) {
     showStatus(err.message, "warn");
@@ -2909,6 +2911,7 @@ async function saveCompanyScoringConfigFromForm() {
     });
     state.companyScoringConfig = config;
     renderCompanyScoringConfig(config);
+    await loadScoreConfigVersions();
     showStatus("Config de score de empresa salva.");
   } catch (err) {
     showStatus(err.message, "warn");
@@ -2928,6 +2931,69 @@ async function rescoreCompaniesFromForm() {
   } catch (err) {
     showStatus(err.message, "warn");
   }
+}
+
+function scoreConfigTypeLabel(type) {
+  if (type === "email") return "Email";
+  if (type === "company") return "Empresa";
+  return type || "-";
+}
+
+function scoreVersionSummary(item) {
+  if (item.config_type === "email") {
+    return `${item.prefix_count || 0} prefixos / ${item.threshold_count || 0} thresholds`;
+  }
+  if (item.config_type === "company") {
+    return `${item.sector_count || 0} setores / ${item.capital_band_count || 0} faixas`;
+  }
+  return "-";
+}
+
+async function loadScoreConfigVersions() {
+  const selector = $("#scoreVersionType");
+  const type = selector ? selector.value : "all";
+  const suffix = type && type !== "all" ? `?type=${encodeURIComponent(type)}` : "";
+  const data = await api(`/api/scoring/config-versions${suffix}`);
+  state.scoreConfigVersions = data.items || [];
+  renderScoreConfigVersions(state.scoreConfigVersions);
+}
+
+function renderScoreConfigVersions(items) {
+  $("#scoreVersionsSummary").textContent = `${items.length || 0} versoes registradas`;
+  if (!items.length) {
+    $("#scoreConfigVersionsTable").innerHTML = `<div class="empty-state">Nenhuma versao registrada.</div>`;
+    return;
+  }
+  $("#scoreConfigVersionsTable").innerHTML = table(
+    ["Tipo", "Versao", "Status", "Nome", "Resumo", "Nota", "Ativada", "Acao"],
+    items.map((item) => [
+      badge(scoreConfigTypeLabel(item.config_type), item.config_type === "company" ? "purple" : "blue"),
+      `v${escapeHtml(item.version_number || "-")}`,
+      badge(item.status || "-", item.status === "active" ? "green" : "amber"),
+      escapeHtml(item.name || "-"),
+      escapeHtml(scoreVersionSummary(item)),
+      escapeHtml(item.change_note || "-"),
+      escapeHtml(fmt(item.activated_at || item.created_at)),
+      item.status === "active"
+        ? `<span class="muted">ativa</span>`
+        : `<button class="row-action" data-score-version-rollback="${escapeHtml(item.id)}">Restaurar</button>`,
+    ]),
+  );
+}
+
+async function rollbackScoreConfigVersion(versionId) {
+  const version = state.scoreConfigVersions.find((item) => String(item.id) === String(versionId));
+  const label = version ? `${scoreConfigTypeLabel(version.config_type)} v${version.version_number}` : "esta versao";
+  if (!window.confirm(`Restaurar ${label}?`)) return;
+  const result = await api(`/api/scoring/config-versions/${versionId}/rollback`, {
+    method: "POST",
+    body: JSON.stringify({ change_note: `Rollback via UI para ${label}` }),
+  });
+  await Promise.all([loadScoringConfig(), loadCompanyScoringConfig(), loadScoreConfigVersions()]);
+  if (result.config_type === "company") {
+    $("#companyRescoreSummary").textContent = "Config restaurada. Recalcule empresas para atualizar o overlay.";
+  }
+  showStatus("Versao de scoring restaurada.");
 }
 
 function renderEmailResults(items) {
@@ -3072,6 +3138,13 @@ function wireEvents() {
   $("#refreshCompanyScoringConfigBtn").addEventListener("click", loadCompanyScoringConfig);
   $("#saveCompanyScoringConfigBtn").addEventListener("click", saveCompanyScoringConfigFromForm);
   $("#rescoreCompaniesBtn").addEventListener("click", rescoreCompaniesFromForm);
+  $("#refreshScoreVersionsBtn").addEventListener("click", loadScoreConfigVersions);
+  $("#scoreVersionType").addEventListener("change", loadScoreConfigVersions);
+  $("#scoreConfigVersionsTable").addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-score-version-rollback]");
+    if (!button) return;
+    await rollbackScoreConfigVersion(button.dataset.scoreVersionRollback);
+  });
   $("#suppressionBtn").addEventListener("click", addSuppression);
   $("#refreshAuditBtn").addEventListener("click", loadAudit);
   $("#listDetail").addEventListener("click", async (event) => {

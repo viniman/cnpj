@@ -66,6 +66,7 @@ DEFAULT_SCORING_THRESHOLDS = {
     "shared_email_company_threshold": 3,
     "shared_domain_company_threshold": 5,
 }
+SCORE_CONFIG_TYPES = {"email", "company"}
 DEFAULT_SAAS_PLANS = [
     {
         "code": "free",
@@ -1437,6 +1438,191 @@ def scoring_prefix_rules_for_algorithm(config):
     }
 
 
+def normalize_score_config_type(config_type):
+    normalized = str(config_type or "").strip().lower()
+    if normalized not in SCORE_CONFIG_TYPES:
+        raise ValueError("Tipo de configuracao de score invalido")
+    return normalized
+
+
+def email_score_config_snapshot(config):
+    return {
+        "email_prefix_rules": config.get("email_prefix_rules") or {},
+        "thresholds": config.get("thresholds") or {},
+    }
+
+
+def company_score_config_snapshot(config):
+    return {"rules": config.get("rules") or {}}
+
+
+def score_config_snapshot(config_type, config):
+    config_type = normalize_score_config_type(config_type)
+    if config_type == "email":
+        return email_score_config_snapshot(config)
+    return company_score_config_snapshot(config)
+
+
+def score_config_version_row_to_dict(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["config"] = json.loads(data.pop("config_json") or "{}")
+    if data["config_type"] == "email":
+        data["prefix_count"] = len(data["config"].get("email_prefix_rules") or {})
+        data["threshold_count"] = len(data["config"].get("thresholds") or {})
+    elif data["config_type"] == "company":
+        data["sector_count"] = len((data["config"].get("rules") or {}).get("sector_bonus") or {})
+        data["capital_band_count"] = len((data["config"].get("rules") or {}).get("capital_bonus") or [])
+    return data
+
+
+def active_score_config_version(conn, org_id, config_type):
+    row = conn.execute(
+        """
+        SELECT *
+        FROM workspace_score_config_versions
+        WHERE org_id = ? AND config_type = ? AND status = 'active'
+        ORDER BY version_number DESC
+        LIMIT 1
+        """,
+        (int(org_id), normalize_score_config_type(config_type)),
+    ).fetchone()
+    return score_config_version_row_to_dict(row)
+
+
+def score_config_version_count(conn, org_id, config_type):
+    return int(
+        conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM workspace_score_config_versions
+            WHERE org_id = ? AND config_type = ?
+            """,
+            (int(org_id), normalize_score_config_type(config_type)),
+        ).fetchone()["total"]
+        or 0
+    )
+
+
+def next_score_config_version_number(conn, org_id, config_type):
+    row = conn.execute(
+        """
+        SELECT MAX(version_number) AS version_number
+        FROM workspace_score_config_versions
+        WHERE org_id = ? AND config_type = ?
+        """,
+        (int(org_id), normalize_score_config_type(config_type)),
+    ).fetchone()
+    return int(row["version_number"] or 0) + 1
+
+
+def attach_score_config_version_summary(conn, config_type, config, org_id=None):
+    if not config:
+        return config
+    org_id = int(org_id or config.get("org_id") or current_org_id(conn))
+    config = dict(config)
+    config["active_version"] = active_score_config_version(conn, org_id, config_type)
+    config["version_count"] = score_config_version_count(conn, org_id, config_type)
+    return config
+
+
+def create_score_config_version(conn, config_type, source_config_id, name, config_snapshot, change_note="", org_id=None):
+    config_type = normalize_score_config_type(config_type)
+    org_id = int(org_id or current_org_id(conn))
+    version_number = next_score_config_version_number(conn, org_id, config_type)
+    timestamp = now_iso()
+    conn.execute(
+        """
+        UPDATE workspace_score_config_versions
+        SET status = 'archived'
+        WHERE org_id = ? AND config_type = ? AND status = 'active'
+        """,
+        (org_id, config_type),
+    )
+    cursor = conn.execute(
+        """
+        INSERT INTO workspace_score_config_versions (
+            org_id, config_type, source_config_id, version_number, status,
+            name, config_json, change_note, created_at, activated_at
+        )
+        VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)
+        """,
+        (
+            org_id,
+            config_type,
+            int(source_config_id),
+            version_number,
+            name,
+            json.dumps(config_snapshot, ensure_ascii=True),
+            change_note or "",
+            timestamp,
+            timestamp,
+        ),
+    )
+    audit(
+        conn,
+        "create_score_config_version",
+        "workspace_score_config_version",
+        cursor.lastrowid,
+        {"config_type": config_type, "source_config_id": int(source_config_id), "version_number": version_number, "change_note": change_note or ""},
+        org_id=org_id,
+    )
+    return score_config_version_row_to_dict(
+        conn.execute("SELECT * FROM workspace_score_config_versions WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    )
+
+
+def ensure_score_config_initial_version(conn, config_type, config, change_note="Versao inicial"):
+    if not config:
+        return config
+    config_type = normalize_score_config_type(config_type)
+    org_id = int(config.get("org_id") or current_org_id(conn))
+    count = score_config_version_count(conn, org_id, config_type)
+    if not count:
+        create_score_config_version(
+            conn,
+            config_type,
+            config["id"],
+            config["name"],
+            score_config_snapshot(config_type, config),
+            change_note,
+            org_id=org_id,
+        )
+    return attach_score_config_version_summary(conn, config_type, config, org_id=org_id)
+
+
+def list_workspace_score_config_versions(conn, params=None):
+    params = params or {}
+    org_id = current_org_id(conn)
+    requested_type = (params.get("type") or params.get("config_type") or "").strip().lower()
+    if requested_type in ("", "all"):
+        ensure_workspace_scoring_config(conn, org_id)
+        ensure_workspace_company_score_config(conn, org_id)
+        where = ["org_id = ?"]
+        values = [org_id]
+    else:
+        config_type = normalize_score_config_type(requested_type)
+        if config_type == "email":
+            ensure_workspace_scoring_config(conn, org_id)
+        else:
+            ensure_workspace_company_score_config(conn, org_id)
+        where = ["org_id = ?", "config_type = ?"]
+        values = [org_id, config_type]
+    rows = conn.execute(
+        """
+        SELECT *
+        FROM workspace_score_config_versions
+        WHERE %s
+        ORDER BY config_type ASC, version_number DESC
+        LIMIT ?
+        """
+        % " AND ".join(where),
+        values + [min(int(params.get("limit", 100) or 100), 500)],
+    ).fetchall()
+    return {"items": [score_config_version_row_to_dict(row) for row in rows]}
+
+
 def ensure_workspace_scoring_config(conn, org_id=None):
     org_id = int(org_id or current_org_id(conn))
     row = conn.execute(
@@ -1444,7 +1630,7 @@ def ensure_workspace_scoring_config(conn, org_id=None):
         (org_id,),
     ).fetchone()
     if row:
-        return scoring_config_row_to_dict(row)
+        return ensure_score_config_initial_version(conn, "email", scoring_config_row_to_dict(row), "Default inicial de scoring de email")
     timestamp = now_iso()
     cursor = conn.execute(
         """
@@ -1463,8 +1649,11 @@ def ensure_workspace_scoring_config(conn, org_id=None):
         ),
     )
     audit(conn, "create_workspace_scoring_config", "workspace_scoring_config", cursor.lastrowid, {"name": "Default de scoring B2B"}, org_id=org_id)
-    return scoring_config_row_to_dict(
-        conn.execute("SELECT * FROM workspace_scoring_configs WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return ensure_score_config_initial_version(
+        conn,
+        "email",
+        scoring_config_row_to_dict(conn.execute("SELECT * FROM workspace_scoring_configs WHERE id = ?", (cursor.lastrowid,)).fetchone()),
+        "Default inicial de scoring de email",
     )
 
 
@@ -1504,6 +1693,15 @@ def update_workspace_scoring_config(conn, payload):
         "workspace_scoring_config",
         current["id"],
         {"name": name, "prefix_count": len(prefix_rules), "thresholds": thresholds},
+        org_id=org_id,
+    )
+    create_score_config_version(
+        conn,
+        "email",
+        current["id"],
+        name,
+        {"email_prefix_rules": prefix_rules, "thresholds": thresholds},
+        payload.get("change_note") or "Atualizacao manual de scoring de email",
         org_id=org_id,
     )
     return get_workspace_scoring_config(conn)
@@ -1638,7 +1836,7 @@ def ensure_workspace_company_score_config(conn, org_id=None):
         (org_id,),
     ).fetchone()
     if row:
-        return company_score_config_row_to_dict(row)
+        return ensure_score_config_initial_version(conn, "company", company_score_config_row_to_dict(row), "Default inicial de score de empresa")
     timestamp = now_iso()
     cursor = conn.execute(
         """
@@ -1656,8 +1854,11 @@ def ensure_workspace_company_score_config(conn, org_id=None):
         ),
     )
     audit(conn, "create_workspace_company_score_config", "workspace_company_score_config", cursor.lastrowid, {"name": "Default de score de empresa B2B"}, org_id=org_id)
-    return company_score_config_row_to_dict(
-        conn.execute("SELECT * FROM workspace_company_score_configs WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return ensure_score_config_initial_version(
+        conn,
+        "company",
+        company_score_config_row_to_dict(conn.execute("SELECT * FROM workspace_company_score_configs WHERE id = ?", (cursor.lastrowid,)).fetchone()),
+        "Default inicial de score de empresa",
     )
 
 
@@ -1694,7 +1895,117 @@ def update_workspace_company_score_config(conn, payload):
         {"name": name, "sector_count": len(rules.get("sector_bonus") or {})},
         org_id=org_id,
     )
+    create_score_config_version(
+        conn,
+        "company",
+        current["id"],
+        name,
+        {"rules": rules},
+        payload.get("change_note") or "Atualizacao manual de score de empresa",
+        org_id=org_id,
+    )
     return get_workspace_company_score_config(conn)
+
+
+def rollback_workspace_score_config_version(conn, version_id, payload=None):
+    payload = payload or {}
+    org_id = current_org_id(conn)
+    target = conn.execute(
+        """
+        SELECT *
+        FROM workspace_score_config_versions
+        WHERE id = ? AND org_id = ?
+        """,
+        (int(version_id), org_id),
+    ).fetchone()
+    target = score_config_version_row_to_dict(target)
+    if not target:
+        raise ValueError("Versao de score nao encontrada")
+    config_type = normalize_score_config_type(target["config_type"])
+    note = (payload.get("change_note") or "Rollback para v%s" % target["version_number"]).strip()
+    timestamp = now_iso()
+
+    if config_type == "email":
+        current = ensure_workspace_scoring_config(conn, org_id)
+        snapshot = target.get("config") or {}
+        prefix_rules = normalize_workspace_prefix_rules(
+            snapshot.get("email_prefix_rules"),
+            base_rules=prefix_rules_json_from_algorithm(),
+        )
+        thresholds = normalize_scoring_thresholds(snapshot.get("thresholds"), DEFAULT_SCORING_THRESHOLDS)
+        conn.execute(
+            """
+            UPDATE workspace_scoring_configs
+            SET name = ?, email_prefix_rules_json = ?, thresholds_json = ?, updated_at = ?
+            WHERE id = ? AND org_id = ?
+            """,
+            (
+                target["name"],
+                json.dumps(prefix_rules, ensure_ascii=True),
+                json.dumps(thresholds, ensure_ascii=True),
+                timestamp,
+                current["id"],
+                org_id,
+            ),
+        )
+        active_version = create_score_config_version(
+            conn,
+            "email",
+            current["id"],
+            target["name"],
+            {"email_prefix_rules": prefix_rules, "thresholds": thresholds},
+            note,
+            org_id=org_id,
+        )
+        config = get_workspace_scoring_config(conn)
+    else:
+        current = ensure_workspace_company_score_config(conn, org_id)
+        snapshot = target.get("config") or {}
+        rules = normalize_company_score_rules(snapshot.get("rules"), DEFAULT_COMPANY_SCORE_RULES)
+        conn.execute(
+            """
+            UPDATE workspace_company_score_configs
+            SET name = ?, rules_json = ?, updated_at = ?
+            WHERE id = ? AND org_id = ?
+            """,
+            (
+                target["name"],
+                json.dumps(rules, ensure_ascii=True),
+                timestamp,
+                current["id"],
+                org_id,
+            ),
+        )
+        active_version = create_score_config_version(
+            conn,
+            "company",
+            current["id"],
+            target["name"],
+            {"rules": rules},
+            note,
+            org_id=org_id,
+        )
+        config = get_workspace_company_score_config(conn)
+
+    audit(
+        conn,
+        "rollback_score_config_version",
+        "workspace_score_config_version",
+        active_version["id"],
+        {
+            "config_type": config_type,
+            "rollback_from_version_id": target["id"],
+            "rollback_from_version_number": target["version_number"],
+            "new_version_number": active_version["version_number"],
+        },
+        org_id=org_id,
+    )
+    return {
+        "config_type": config_type,
+        "rolled_back_from": target,
+        "active_version": active_version,
+        "config": config,
+    }
 
 
 def persist_company_workspace_score(conn, company, config=None, org_id=None):
