@@ -221,6 +221,31 @@
                 </div>
               </section>
               <section>
+                <h3>Plano do workspace</h3>
+                <div class="form-grid one">
+                  <label>
+                    Plano
+                    <select id="saasPlanSelect" class="input"></select>
+                  </label>
+                  <label>
+                    Periodo
+                    <select id="saasPlanBillingPeriod" class="input">
+                      <option value="monthly">Mensal</option>
+                      <option value="annual">Anual</option>
+                      <option value="internal">Interno</option>
+                    </select>
+                  </label>
+                  <label>
+                    Nota
+                    <input id="saasPlanNote" class="input" placeholder="Hipotese comercial ou motivo da troca" />
+                  </label>
+                  <button id="applySaasPlanBtn" class="button primary">Aplicar plano</button>
+                </div>
+                <div id="saasSubscriptionSummary" class="table-wrap">
+                  <div class="empty-state">Nenhum plano aplicado neste workspace.</div>
+                </div>
+              </section>
+              <section>
                 <h3>Carteira de creditos</h3>
                 <div class="form-grid one">
                   <label>
@@ -236,6 +261,10 @@
               </section>
             </div>
             <div class="content-grid playbook-tables">
+              <section class="wide">
+                <h3>Catalogo de planos</h3>
+                <div id="saasPlansTable" class="table-wrap"></div>
+              </section>
               <section class="wide">
                 <h3>Contrato publico</h3>
                 <div id="saasPublicApiDocs" class="table-wrap"></div>
