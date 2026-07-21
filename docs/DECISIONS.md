@@ -1049,3 +1049,30 @@ Consequencias:
 - O diff pode ser recalculado a qualquer momento a partir do historico.
 - Rollback continua sendo a unica acao que muda configuracao ativa.
 - Impacto estatistico em empresas recalculadas permanece como fase futura.
+
+## ADR-041 - Importacao oficial usa checkpoints antes de Postgres
+
+Data: 2026-07-21
+
+Decisao:
+
+- A carga automatica da Receita deve ganhar checkpoints por `snapshot + chunk`
+  ainda no MVP local.
+- O checkpoint registra offset, acumulados, status e ultimo `import_jobs.id`.
+- O offset e contado em estabelecimentos ativos processaveis, nao em linhas
+  brutas do arquivo oficial.
+
+Racional:
+
+- A base nacional completa e grande demais para tratar como uma chamada unica.
+- Retomada local reduz retrabalho e permite validar o comportamento de lote
+  antes da migracao para PostgreSQL/staging.
+- Manter o checkpoint em tabela propria evita sobrecarregar `source_files` com
+  estado de importacao e preserva `import_jobs` como log de execucao.
+
+Consequencias:
+
+- SQLite continua sendo laboratorio; cargas grandes ainda devem migrar para
+  PostgreSQL.
+- Jobs futuros podem usar o mesmo checkpoint para worker/cron.
+- O parser oficial precisa aceitar `offset` alem de `limit`.

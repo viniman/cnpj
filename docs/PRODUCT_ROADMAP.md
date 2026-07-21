@@ -20,6 +20,7 @@ Proximos hardenings:
 
 - Migrar para Postgres quando a carga real crescer.
 - Separar API e worker de importacao.
+- Importar snapshots oficiais em lotes retomaveis antes da migracao completa.
 - Criar autenticacao real e RBAC.
 - Documentar API em OpenAPI.
 
