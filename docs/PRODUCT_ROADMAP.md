@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 25 iniciada localmente em `feature/25-playbook-context-foundation`.
+Status: fase 25 implementada localmente em `feature/25-playbook-context-foundation`.
 
 Fases:
 

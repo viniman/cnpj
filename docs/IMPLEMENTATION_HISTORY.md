@@ -1636,3 +1636,36 @@ Meta da fase:
 Documento principal:
 
 - `docs/PLAYBOOK_CONTEXT_SPEC.md`
+
+Commits:
+
+- `655656b docs: define playbook context phase`
+- `70aec97 feat: scope playbooks to active workspace`
+
+Implementado:
+
+- Perfil operacional resolvido pelo workspace ativo.
+- Default de playbook criado de forma idempotente por workspace.
+- Criacao, listagem e detalhe de playbooks filtrados por workspace ativo.
+- Criacao de versao recusando playbook de outro workspace.
+- Aplicacao de playbook/versao recusando IDs de outro workspace.
+- Aplicacao ativa retornando somente o workspace ativo.
+- Auditoria de playbooks gravada no contexto ativo.
+- Teste multi-workspace em `tests/test_playbooks.py`.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_playbooks
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 73 tests
+OK
+```

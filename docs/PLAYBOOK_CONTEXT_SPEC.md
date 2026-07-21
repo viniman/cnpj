@@ -34,6 +34,17 @@ Playbook e uma referencia operacional do workspace. O reuso entre empresas deve
 ser uma acao explicita futura de clonagem/aplicacao auditavel; por enquanto,
 cada workspace ganha seus defaults e sua aplicacao ativa local.
 
+## Implementado nesta fase
+
+- `ensure_company_profile` agora resolve o perfil pelo workspace ativo.
+- Default de playbook e criado por workspace ativo e permanece idempotente.
+- Criacao, listagem e detalhe de playbooks usam `current_org_id(conn)`.
+- Criacao de versao valida que o playbook pertence ao workspace ativo.
+- Aplicacao de playbook valida o playbook/versao no workspace ativo.
+- Aplicacao ativa e historico de aplicacoes sao filtrados por `org_id`.
+- Auditoria de criacao, versao e aplicacao e registrada no workspace ativo.
+- Teste multi-workspace cobre biblioteca, defaults, versionamento e aplicacao.
+
 ## Criterios de aceite
 
 - Workspace secundario cria perfil e playbook default proprios.
