@@ -2295,3 +2295,39 @@ Resultado esperado nesta etapa:
 Ran 109 tests
 OK
 ```
+
+## 2026-07-21 - Fase 37 de historico e rollback de score
+
+Branch: `feature/37-scoring-config-version-history`
+
+Estado inicial:
+
+- Fase 36 mesclada localmente no `master`.
+- Score de e-mail e score de empresa ja sao configuraveis por workspace.
+- As configuracoes ainda sao atualizadas em linha, sem historico de snapshots
+  nem rollback pelo produto.
+
+Meta da fase:
+
+- Criar historico versionado comum para score de e-mail e empresa.
+- Criar versao inicial automaticamente para defaults existentes.
+- Criar nova versao a cada atualizacao.
+- Permitir rollback auditavel por API e UI local.
+
+Documento principal:
+
+- `docs/SCORING_CONFIG_VERSION_HISTORY_SPEC.md`
+
+Commits:
+
+- Pendente.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_scoring_config_versions tests.test_workspace_scoring_config tests.test_workspace_company_score_config
+python -m unittest discover -s tests
+node --check static\app.js
+```

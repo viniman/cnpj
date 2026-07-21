@@ -996,3 +996,29 @@ Consequencias:
 - Algumas telas antigas ainda podem mostrar o score base ate serem migradas para
   o overlay.
 - Versionamento historico completo de configuracoes fica para uma fase futura.
+
+## ADR-039 - Historico de score cria nova versao em rollback
+
+Data: 2026-07-21
+
+Decisao:
+
+- Configuracoes de score de e-mail e de empresa devem compartilhar uma tabela
+  de historico chamada `workspace_score_config_versions`.
+- Cada atualizacao de configuracao cria uma nova versao ativa e arquiva a
+  anterior do mesmo workspace/tipo.
+- Rollback nao reativa uma linha antiga; ele aplica o snapshot antigo na
+  configuracao atual e cria uma nova versao ativa.
+
+Racional:
+
+- A camada de governanca pede rollback simples e auditabilidade cronologica.
+- Reativar uma linha antiga esconderia quando o rollback foi feito.
+- Um historico unico evita duplicar fluxos para score de e-mail e empresa.
+
+Consequencias:
+
+- O numero da versao ativa sempre cresce, inclusive em rollback.
+- Comparacao visual de diffs fica para fase posterior.
+- Apos rollback de score de empresa, o operador ainda deve recalcular empresas
+  para atualizar `company_workspace_scores`.
