@@ -23,6 +23,7 @@ from .services import (
     create_leads_from_list,
     create_meeting,
     create_meeting_from_handoff,
+    clone_playbook_to_workspace,
     create_playbook,
     create_playbook_version,
     create_sequence,
@@ -387,6 +388,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, create_playbook_version(conn, int(parts[2]), data), 201)
                 elif len(parts) == 4 and parts[1] == "playbooks" and parts[3] == "apply":
                     self.send_json_commit(conn, apply_playbook(conn, int(parts[2]), data), 201)
+                elif len(parts) == 4 and parts[1] == "playbooks" and parts[3] == "clone":
+                    self.send_json_commit(conn, clone_playbook_to_workspace(conn, int(parts[2]), data), 201)
                 elif parsed.path == "/api/notifications/generate":
                     self.send_json_commit(conn, generate_notifications(conn), 201)
                 elif len(parts) == 4 and parts[1] == "notifications" and parts[3] == "mark-read":

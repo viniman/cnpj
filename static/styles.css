@@ -708,6 +708,10 @@ tr:hover td {
   margin-top: 14px;
 }
 
+.playbook-grid {
+  grid-template-columns: repeat(3, minmax(240px, 1fr));
+}
+
 .playbook-tables {
   margin-top: 14px;
 }
