@@ -27,7 +27,7 @@ Proximos hardenings:
 
 Prioridade imediata.
 
-Status: fase 36 iniciada localmente em
+Status: fase 36 implementada localmente em
 `feature/36-workspace-company-score-config`.
 
 Meta:

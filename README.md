@@ -365,6 +365,39 @@ Cada workspace tambem pode ajustar pesos de prefixos na aba `Higiene`, painel
 aplicada por `score_email_record` antes de campanhas, listas e ICPs usarem o
 score persistido.
 
+## Score de empresa por workspace
+
+O score base da empresa continua salvo em `companies.opportunity_score`, mas
+cada workspace pode criar um overlay proprio em `company_workspace_scores`.
+Isso permite ajustar pesos de setor, porte, capital, idade e sinais de contato
+sem contaminar outro workspace.
+
+Consultar e atualizar a configuracao:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/scoring/company-config"
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/scoring/company-config" `
+  -Body '{"name":"Score Saude","rules":{"sector_bonus":{"Saude":30}}}' `
+  -ContentType "application/json"
+```
+
+Recalcular um lote para o workspace ativo:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/scoring/company-rescore" `
+  -Body '{"limit":500}' `
+  -ContentType "application/json"
+```
+
+A busca de empresas, o detalhe da empresa e a priorizacao ICP usam o overlay do
+workspace quando ele existe; caso contrario, continuam usando o score base.
+Na UI local, isso fica na aba `Higiene`, painel `Score empresa`.
+
 ## Enriquecimento de empresas
 
 A aba `Enriquecimento` permite coletar sinais publicos do site de uma empresa
@@ -827,6 +860,9 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `GET /api/public/openapi.json`
 - `GET /api/scoring/config`
 - `POST /api/scoring/config`
+- `GET /api/scoring/company-config`
+- `POST /api/scoring/company-config`
+- `POST /api/scoring/company-rescore`
 - `GET /api/saved-filters`
 - `POST /api/saved-filters`
 - `POST /api/saved-filters/{id}/icp`
@@ -969,6 +1005,9 @@ python -m unittest discover -s tests
 - Configuracao de scoring tambem usa o workspace ativo; pesos de prefixo como
   `rh@`, `financeiro@` ou `comercial@` podem mudar por empresa interna sem
   alterar o algoritmo puro.
+- Score de empresa tambem usa o workspace ativo; `company_workspace_scores`
+  funciona como overlay por empresa/workspace e nao sobrescreve
+  `companies.opportunity_score`.
 - Segmentos salvos tambem usam o workspace ativo; filtros normalizados ficam em
   `saved_filters`, podem ser reaplicados na busca e podem gerar `icp_rules`
   preservando os filtros originais em `criteria.source_filters`.
@@ -980,7 +1019,7 @@ python -m unittest discover -s tests
 3. Autenticacao real e RBAC.
 4. Tags operacionais no frontend.
 5. Canal de solicitacao de titular.
-6. Motor de score configuravel por workspace.
+6. Versionamento historico de configuracoes de score por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
 8. Templates de resposta manual assistida.
 9. Troca de contexto operacional por workspace.

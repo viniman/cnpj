@@ -2261,7 +2261,23 @@ Documento principal:
 
 Commits:
 
-- Pendente.
+- `dcd83c4 docs: define workspace company score phase`
+- `058e556 feat: add workspace company score backend`
+- `440fb3f feat: add company score config UI`
+
+Implementado:
+
+- `score_company` agora aceita regras opcionais e preserva defaults sem banco.
+- Tabelas `workspace_company_score_configs` e `company_workspace_scores`.
+- Configuracao ativa idempotente por workspace.
+- Recalculo controlado por workspace, com `limit` e suporte a `list_id`.
+- Busca de empresas usando overlay de score do workspace via `COALESCE`.
+- Detalhe de empresa exibindo motivos do overlay quando ele existe.
+- Priorizacao ICP usando o score do workspace quando recalculado.
+- Endpoints `GET /api/scoring/company-config`,
+  `POST /api/scoring/company-config` e `POST /api/scoring/company-rescore`.
+- Aba `Higiene` com painel `Score empresa`, editor JSON e recalculo local.
+- Testes dedicados em `tests/test_workspace_company_score_config.py`.
 
 Como verificar:
 
@@ -2271,4 +2287,11 @@ $env:TMP=$env:TEMP
 python -m unittest tests.test_workspace_company_score_config tests.test_scoring
 python -m unittest discover -s tests
 node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 109 tests
+OK
 ```
