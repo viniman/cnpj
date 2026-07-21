@@ -7,14 +7,14 @@ convertida em ICP estruturado para o fluxo SDR.
 
 ## Implementado
 
-- [ ] Documento `docs/SAVED_SEGMENT_ICP_SPEC.md`.
-- [ ] ADR sobre segmento como fotografia de filtros.
-- [ ] Servicos para criar/listar segmentos salvos.
-- [ ] Conversao de segmento para `icp_rules`.
-- [ ] Endpoints `GET/POST /api/saved-filters`.
-- [ ] Endpoint `POST /api/saved-filters/{id}/icp`.
-- [ ] UI na tela `Empresas` para salvar/aplicar/converter.
-- [ ] Testes automatizados da fase.
+- [x] Documento `docs/SAVED_SEGMENT_ICP_SPEC.md`.
+- [x] ADR sobre segmento como fotografia de filtros.
+- [x] Servicos para criar/listar segmentos salvos.
+- [x] Conversao de segmento para `icp_rules`.
+- [x] Endpoints `GET/POST /api/saved-filters`.
+- [x] Endpoint `POST /api/saved-filters/{id}/icp`.
+- [x] UI na tela `Empresas` para salvar/aplicar/converter.
+- [x] Testes automatizados da fase.
 
 ## Como testar localmente
 
@@ -28,9 +28,24 @@ node --check static\app.js
 
 ## Checklist de aceite
 
-- [ ] Segmento salva filtros normalizados.
-- [ ] Segmento guarda contagem snapshot.
-- [ ] Segmentos sao isolados por workspace.
-- [ ] Segmento pode virar ICP.
-- [ ] ICP criado preserva `source_filters`.
-- [ ] UI permite salvar, aplicar e converter.
+- [x] Segmento salva filtros normalizados.
+- [x] Segmento guarda contagem snapshot.
+- [x] Segmentos sao isolados por workspace.
+- [x] Segmento pode virar ICP.
+- [x] ICP criado preserva `source_filters`.
+- [x] UI permite salvar, aplicar e converter.
+
+## Verificacao realizada
+
+```text
+python -m unittest tests.test_saved_segments
+Ran 4 tests
+OK
+
+python -m unittest discover -s tests
+Ran 101 tests
+OK
+
+node --check static\app.js
+OK
+```

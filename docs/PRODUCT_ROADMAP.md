@@ -27,7 +27,7 @@ Proximos hardenings:
 
 Prioridade imediata.
 
-Status: fase 34 iniciada em `feature/34-saved-segments-icp`.
+Status: fase 34 implementada localmente em `feature/34-saved-segments-icp`.
 
 Meta:
 
@@ -44,6 +44,7 @@ Fases:
 4. Tabelas `email_classifications`, `known_shared_domains` e `email_score_log`.
 5. Exposicao na UI e API.
 6. Segmentos salvos a partir de filtros combinados e conversao para ICP.
+7. Motor de score configuravel por workspace.
 
 ## Camada 2 - Enriquecimento responsavel
 

@@ -68,11 +68,11 @@ Um segmento pode virar ICP usando os mesmos servicos ja existentes:
 
 - `state` vira `states`.
 - `city` vira `cities`.
-- `cnae` vira `target_cnaes`.
+- `cnae` vira `cnaes`.
 - `size` vira `sizes`.
 - `sector` vira `sectors`.
-- `min_score` vira `min_company_score`.
-- `has_email` vira `requires_email = true`.
+- `min_score` vira `min_opportunity_score`.
+- `has_email` vira `require_email = true`.
 
 Filtros textuais como `query` e `status` sao preservados em `source_filters`,
 mas nao viram bloqueio duro na priorizacao atual quando nao ha campo

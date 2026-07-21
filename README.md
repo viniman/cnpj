@@ -189,6 +189,24 @@ Consultar contrato OpenAPI da API publica local:
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/public/openapi.json"
 ```
 
+Salvar segmento de empresas e converter para ICP:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/saved-filters" `
+  -Body '{"name":"Software SP com email","filters":{"state":"SP","cnae":"620","has_email":"1","min_score":"20"}}' `
+  -ContentType "application/json"
+
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/saved-filters"
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/saved-filters/1/icp" `
+  -Body '{"name":"ICP Software SP","max_leads":50}' `
+  -ContentType "application/json"
+```
+
 Criar workspace para comparacao:
 
 ```powershell
@@ -613,6 +631,27 @@ Tabelas:
 - `icp_rules`
 - `lead_priority_queue`
 
+## Segmentos salvos
+
+A aba `Empresas` permite salvar a combinacao atual de filtros como segmento do
+workspace ativo. O segmento guarda uma fotografia normalizada dos filtros e a
+contagem de empresas no momento da criacao, mas continua reaplicando a busca
+dinamicamente quando usado.
+
+Fluxo:
+
+1. Filtre por nome, UF, cidade, CNAE, setor, porte, situacao, email, telefone
+   ou score minimo.
+2. Informe um nome em `Segmentos salvos e ICP`.
+3. Clique em `Salvar filtros atuais`.
+4. Reaplique o segmento quando quiser refazer a busca.
+5. Crie um ICP a partir do segmento para alimentar a fila SDR.
+
+Tabelas:
+
+- `saved_filters`
+- `icp_rules`
+
 ## Respostas e handoff humano
 
 A aba `Respostas` permite simular uma resposta recebida e classificar a
@@ -768,6 +807,10 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/saas/api-keys/{id}/revoke`
 - `POST /api/saas/credits/adjust`
 - `GET /api/public/companies`
+- `GET /api/public/openapi.json`
+- `GET /api/saved-filters`
+- `POST /api/saved-filters`
+- `POST /api/saved-filters/{id}/icp`
 - `GET /api/notifications`
 - `POST /api/notifications/generate`
 - `POST /api/notifications/{id}/mark-read`
@@ -904,13 +947,16 @@ python -m unittest discover -s tests
   de agente, sem envio real.
 - Auditoria operacional tambem usa o workspace ativo; `/api/audit` mostra os
   eventos da empresa selecionada na topbar.
+- Segmentos salvos tambem usam o workspace ativo; filtros normalizados ficam em
+  `saved_filters`, podem ser reaplicados na busca e podem gerar `icp_rules`
+  preservando os filtros originais em `criteria.source_filters`.
 
 ## Proximas fases sugeridas
 
 1. PostgreSQL com `pg_trgm` e `unaccent`.
 2. Importador oficial escalavel com staging e checkpoints.
 3. Autenticacao real e RBAC.
-4. Filtros salvos e tags no frontend.
+4. Tags operacionais no frontend.
 5. Canal de solicitacao de titular.
 6. Motor de score configuravel por workspace.
 7. Descoberta assistida de dominio oficial com validacao de identidade.

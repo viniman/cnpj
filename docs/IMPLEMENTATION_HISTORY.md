@@ -2118,7 +2118,7 @@ Ran 97 tests
 OK
 ```
 
-## 2026-07-21 - Inicio da fase 34 de segmentos salvos
+## 2026-07-21 - Fase 34 de segmentos salvos e ICP
 
 Branch: `feature/34-saved-segments-icp`
 
@@ -2139,11 +2139,26 @@ Documento principal:
 
 - `docs/SAVED_SEGMENT_ICP_SPEC.md`
 
-Commits planejados:
+Commits:
 
-- `docs: define saved segment ICP phase`
-- `feat: add saved segment services`
-- `feat: add saved segment UI`
+- `124853c docs: define saved segment ICP phase`
+- `bb9ba48 feat: add saved segment services`
+- `92e8960 feat: add saved segment UI`
+
+Implementado:
+
+- Indice `idx_saved_filters_org` para leitura por workspace.
+- Servicos para normalizar filtros de empresas, criar/listar segmentos salvos
+  e preservar snapshot de contagem em `filters_json._snapshot`.
+- Conversao auditavel de segmento salvo para `icp_rules`, mantendo
+  `criteria.source_filters`, `source_filter_id` e `source_filter_name`.
+- Endpoints `GET /api/saved-filters`, `POST /api/saved-filters` e
+  `POST /api/saved-filters/{id}/icp`.
+- Tela `Empresas` com filtros ampliados por setor, telefone e score minimo.
+- Painel `Segmentos salvos e ICP` para salvar filtros atuais, aplicar segmento
+  e criar ICP a partir do segmento selecionado.
+- Testes dedicados em `tests/test_saved_segments.py` cobrindo snapshot,
+  reaplicacao de filtros, conversao para ICP e isolamento por workspace.
 
 Como verificar:
 
@@ -2153,4 +2168,11 @@ $env:TMP=$env:TEMP
 python -m unittest tests.test_saved_segments
 python -m unittest discover -s tests
 node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 101 tests
+OK
 ```

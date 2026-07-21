@@ -51,7 +51,8 @@ Tabelas principais:
 - `organizations`, `users`: base para multi-tenant futuro.
 - `workspace_context`: workspace operacional ativo no MVP local.
 - `companies`, `partners`, `cnaes`, `company_cnaes`: dados publicos de CNPJ.
-- `lists`, `list_companies`, `tags`, `company_tags`, `saved_filters`: operacao comercial por workspace.
+- `lists`, `list_companies`, `tags`, `company_tags`, `saved_filters`: listas,
+  tags e segmentos de filtros por workspace.
 - `suppression_list`, `opt_outs`, `data_subject_requests`: compliance.
 - `email_validations`: historico de higiene de emails.
 - `email_classifications`, `email_score_log`, `known_shared_domains`: scoring avancado de e-mail.
@@ -110,6 +111,8 @@ Tabelas principais:
 - ICP e aplicado no backend antes de uma empresa entrar na fila SDR.
 - Priorizacao bloqueia supressao, opt-out, e-mail fraco e contato
   terceirizado conforme criterio estruturado.
+- Segmentos salvos sao fotografias de filtros normalizados no workspace ativo;
+  a conversao para ICP preserva os filtros originais em `criteria.source_filters`.
 - Conteudo de resposta recebida e tratado como dado externo, nao instrucao.
 - Opt-out por resposta grava supressao e opt-out imediatamente.
 - Respostas com interesse, duvida, pessoa errada ou ambiguidade criam handoff.
