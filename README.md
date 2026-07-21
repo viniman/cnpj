@@ -173,6 +173,12 @@ Invoke-RestMethod `
   -Headers @{"X-API-Key"=$token}
 ```
 
+Consultar contrato OpenAPI da API publica local:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/public/openapi.json"
+```
+
 Criar workspace para comparacao:
 
 ```powershell

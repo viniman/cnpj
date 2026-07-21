@@ -444,6 +444,8 @@ function renderSaasAccount(data) {
     metric("Bloqueios", blockedUsage, blockedUsage ? "amber" : ""),
   ].join("");
 
+  renderSaasPublicApiDocs();
+
   $("#saasApiKeysTable").innerHTML = keys.length
     ? table(
         ["Nome", "Status", "Mascara", "Escopos", "Criada", "Revogada", "Ultimo uso", ""],
@@ -496,6 +498,23 @@ function renderSaasAccount(data) {
   $$("[data-revoke-saas-key]").forEach((button) => {
     button.addEventListener("click", () => revokeSaasApiKey(button.dataset.revokeSaasKey));
   });
+}
+
+function renderSaasPublicApiDocs() {
+  const origin = window.location.origin || "http://127.0.0.1:8000";
+  const openapiUrl = `${origin}/api/public/openapi.json`;
+  const searchUrl = `${origin}/api/public/companies?state=SP&has_email=1&limit=10`;
+  $("#saasPublicApiDocs").innerHTML = table(
+    ["Item", "Contrato atual"],
+    [
+      ["OpenAPI", `<a href="${escapeHtml(openapiUrl)}" target="_blank" rel="noreferrer">${escapeHtml(openapiUrl)}</a>`],
+      ["Endpoint", `<code>${escapeHtml(searchUrl)}</code>`],
+      ["Autenticacao", `<code>X-API-Key: &lt;token&gt;</code> ou <code>Authorization: Bearer &lt;token&gt;</code>`],
+      ["Escopo", badge("companies:read", "green")],
+      ["Custo", badge("1 credito por chamada bem-sucedida", "amber")],
+      ["Rate limit", badge("60/min por chave", "purple")],
+    ],
+  );
 }
 
 function renderCreatedSaasToken(token) {

@@ -57,6 +57,168 @@ class ApiAccessError(Exception):
         self.status_code = status_code
 
 
+def public_openapi_spec():
+    company_properties = {
+        "id": {"type": "integer", "example": 1},
+        "cnpj": {"type": "string", "example": "12.345.678/0001-95"},
+        "legal_name": {"type": "string", "example": "ALVO API LTDA"},
+        "trade_name": {"type": "string", "example": "ALVO"},
+        "status": {"type": "string", "example": "Ativa"},
+        "city": {"type": "string", "example": "Sao Paulo"},
+        "state": {"type": "string", "example": "SP"},
+        "main_cnae_code": {"type": "string", "example": "6201501"},
+        "main_cnae_description": {"type": "string", "example": "Software sob encomenda"},
+        "size": {"type": "string", "example": "ME"},
+        "email": {"type": "string", "format": "email", "example": "contato@alvoapi.com.br"},
+        "phone": {"type": "string", "example": "1133334444"},
+        "sector": {"type": "string", "example": "Tecnologia"},
+        "opportunity_score": {"type": "integer", "minimum": 0, "maximum": 100, "example": 72},
+        "source_name": {"type": "string", "example": "Receita Federal"},
+        "collected_at": {"type": "string", "format": "date-time"},
+    }
+    query_parameters = [
+        ("query", "Texto livre em CNPJ, razao social, fantasia, cidade ou email.", "string"),
+        ("state", "UF da empresa.", "string"),
+        ("city", "Cidade da empresa.", "string"),
+        ("cnae", "Codigo ou trecho do CNAE principal.", "string"),
+        ("status", "Situacao cadastral.", "string"),
+        ("size", "Porte da empresa.", "string"),
+        ("sector", "Setor inferido.", "string"),
+        ("has_email", "Quando true, exige email cadastral.", "boolean"),
+        ("has_phone", "Quando true, exige telefone cadastral.", "boolean"),
+        ("min_score", "Score minimo de oportunidade.", "integer"),
+        ("limit", "Quantidade maxima de itens retornados.", "integer"),
+        ("offset", "Deslocamento para paginacao simples.", "integer"),
+    ]
+    return {
+        "openapi": "3.0.3",
+        "info": {
+            "title": "Radar CNPJ - API Publica Local",
+            "version": "0.32.0",
+            "description": (
+                "Contrato local da API publica de consulta B2B por dados de CNPJ. "
+                "Chamadas bem-sucedidas consomem creditos no backend."
+            ),
+        },
+        "servers": [{"url": "/", "description": "Servidor local atual"}],
+        "paths": {
+            "/api/public/openapi.json": {
+                "get": {
+                    "summary": "Consultar especificacao OpenAPI",
+                    "description": "Retorna o contrato publico local sem consumir creditos.",
+                    "operationId": "getPublicOpenApiSpec",
+                    "responses": {
+                        "200": {
+                            "description": "Especificacao OpenAPI",
+                            "content": {"application/json": {"schema": {"type": "object"}}},
+                        }
+                    },
+                }
+            },
+            "/api/public/companies": {
+                "get": {
+                    "summary": "Buscar empresas",
+                    "description": "Consulta empresas por filtros publicos e debita creditos quando a chamada e aceita.",
+                    "operationId": "searchPublicCompanies",
+                    "security": [{"ApiKeyAuth": []}, {"BearerAuth": []}],
+                    "x-required-scope": PUBLIC_COMPANY_SEARCH_SCOPE,
+                    "x-credit-cost": PUBLIC_COMPANY_SEARCH_COST,
+                    "x-rate-limit-default-per-minute": DEFAULT_API_RATE_LIMIT_PER_MINUTE,
+                    "parameters": [
+                        {
+                            "name": name,
+                            "in": "query",
+                            "required": False,
+                            "description": description,
+                            "schema": {"type": schema_type},
+                        }
+                        for name, description, schema_type in query_parameters
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Busca concluida e credito debitado.",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/PublicCompanySearchResult"}
+                                }
+                            },
+                        },
+                        "401": {"$ref": "#/components/responses/Unauthorized"},
+                        "402": {"$ref": "#/components/responses/PaymentRequired"},
+                        "403": {"$ref": "#/components/responses/Forbidden"},
+                        "429": {"$ref": "#/components/responses/RateLimited"},
+                    },
+                }
+            },
+        },
+        "components": {
+            "securitySchemes": {
+                "ApiKeyAuth": {"type": "apiKey", "in": "header", "name": "X-API-Key"},
+                "BearerAuth": {"type": "http", "scheme": "bearer"},
+            },
+            "responses": {
+                "Unauthorized": {
+                    "description": "Token ausente, invalido ou revogado.",
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+                },
+                "PaymentRequired": {
+                    "description": "Saldo de creditos insuficiente.",
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+                },
+                "Forbidden": {
+                    "description": "Chave sem escopo necessario.",
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+                },
+                "RateLimited": {
+                    "description": "Rate limit excedido para a chave.",
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
+                },
+            },
+            "schemas": {
+                "PublicCompany": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": company_properties,
+                    "required": ["id", "cnpj", "legal_name", "status", "city", "state", "opportunity_score"],
+                },
+                "PublicApiUsage": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "api_key_id": {"type": "integer"},
+                        "cost": {"type": "integer", "example": PUBLIC_COMPANY_SEARCH_COST},
+                        "balance_after": {"type": "integer", "example": 99},
+                        "event_id": {"type": "integer"},
+                    },
+                    "required": ["api_key_id", "cost", "balance_after", "event_id"],
+                },
+                "PublicCompanySearchResult": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "total": {"type": "integer", "example": 1},
+                        "limit": {"type": "integer", "example": 10},
+                        "offset": {"type": "integer", "example": 0},
+                        "items": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/PublicCompany"},
+                        },
+                        "usage": {"$ref": "#/components/schemas/PublicApiUsage"},
+                    },
+                    "required": ["total", "limit", "offset", "items", "usage"],
+                },
+                "Error": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {"error": {"type": "string"}},
+                    "required": ["error"],
+                },
+            },
+        },
+        "tags": [{"name": "public-api", "description": "Contratos publicos locais com creditos e rate limit."}],
+    }
+
+
 def dict_row(row):
     return dict(row) if row is not None else None
 
