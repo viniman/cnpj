@@ -755,3 +755,31 @@ Consequencias:
 - Aplicar o clone no destino continua sendo uma acao separada.
 - Fases futuras podem comparar performance entre playbook original e clones
   por metadados de origem.
+
+## ADR-030 - Onboarding compoe servicos existentes
+
+Data: 2026-07-20
+
+Decisao:
+
+- O wizard de onboarding deve chamar os mesmos servicos usados manualmente:
+  workspace, playbook, ICP, template, sequencia e OKR.
+- O novo workspace se torna o contexto ativo ao fim do onboarding.
+- O wizard nao cria envio real, leads automaticos ou cadencias sem aprovacao.
+
+Racional:
+
+- O prompt de governanca pede que uma nova empresa fique operacional rapido,
+  mas sem perder transparencia e editabilidade.
+- Duplicar logica de ICP/template/sequencia criaria divergencia e buracos nos
+  trilhos duros.
+- Tornar o workspace ativo imediatamente permite ao operador revisar o Command
+  Center ja no contexto correto.
+
+Consequencias:
+
+- Cada artefato criado pelo wizard possui o mesmo modelo e auditoria do fluxo
+  manual.
+- O onboarding pode ser usado como base para um produto SaaS futuro, mas ainda
+  e singleton/local nesta fase.
+- Envio real continua fora do escopo ate infraestrutura e compliance completos.

@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 27 implementada localmente em `feature/27-playbook-clone-foundation`.
+Status: fase 28 iniciada localmente em `feature/28-workspace-onboarding-wizard`.
 
 Fases:
 
@@ -134,6 +134,7 @@ Fases:
 21. Playbooks e aplicacao ativa por workspace ativo.
 22. Auditoria operacional por workspace ativo.
 23. Clonagem auditavel de playbooks entre workspaces.
+24. Wizard de onboarding operacional.
 
 ## Camada 6 - SaaS monetizavel
 

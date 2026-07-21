@@ -1,0 +1,50 @@
+# Fase 28 - Wizard de onboarding operacional
+
+## Objetivo
+
+Criar um fluxo local que deixe uma nova empresa interna operacional em poucos
+minutos: workspace, perfil, playbook aplicado, ICP inicial, template de copy,
+sequencia semi-supervisionada e OKR inicial. O wizard deve reutilizar os
+trilhos ja existentes, sem criar atalhos que contornem auditoria ou aprovacao
+humana.
+
+## Escopo
+
+- Criar servico `run_workspace_onboarding`.
+- Criar workspace e tornar esse workspace o contexto ativo.
+- Preencher perfil operacional com nome, vertical, tom, dominio de envio,
+  remetente e cor.
+- Usar playbook default do novo workspace ou clone de playbook existente.
+- Aplicar o playbook escolhido ao workspace.
+- Criar ICP inicial a partir do payload ou do conteudo do playbook.
+- Criar template de primeiro contato com rodape de compliance do backend.
+- Criar sequencia inicial semi-supervisionada com aprovacao humana.
+- Criar OKR inicial com KR rastreavel por `kpi_key`.
+- Registrar auditoria e resumo da execucao.
+- Expor endpoint local e painel simples no Command Center.
+
+## Fora do escopo desta fase
+
+- Envio real de e-mail.
+- Criacao automatica de leads ou inscricao de listas em sequencia.
+- Fluxo multiusuario/RBAC.
+- Wizard em etapas persistidas com progresso parcial.
+- Validacao DNS real de dominio de envio.
+
+## Decisao central
+
+Onboarding e composicao de servicos existentes, nao um caminho paralelo. O
+wizard chama as mesmas funcoes de playbook, ICP, template, sequencia e OKR,
+mantendo contexto ativo, auditoria e aprovacao humana por passo.
+
+## Criterios de aceite
+
+- Onboarding cria novo workspace e o torna ativo.
+- Perfil operacional recebe dados informados.
+- Playbook e aplicado ao workspace criado.
+- ICP inicial e criado no workspace novo.
+- Template inicial e criado com versao ativa.
+- Sequencia inicial usa o template criado e exige aprovacao humana.
+- OKR inicial e criado com KR rastreavel.
+- Reuso de playbook clonado e opcional e auditavel.
+- Testes automatizados provam que tudo fica no novo workspace.

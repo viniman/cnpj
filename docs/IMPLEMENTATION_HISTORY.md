@@ -1774,3 +1774,25 @@ Resultado esperado nesta etapa:
 Ran 75 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 28 de onboarding operacional
+
+Branch: `feature/28-workspace-onboarding-wizard`
+
+Estado inicial:
+
+- Fase 27 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 75 tests`, `OK` usando `TEMP/TMP` em `D:`
+  porque o drive `C:` esta sem espaco livre no ambiente local.
+
+Meta da fase:
+
+- Criar wizard local para deixar nova empresa operacional rapidamente.
+- Compor workspace, perfil, playbook, ICP, template, sequencia e OKR.
+- Manter auditoria e aprovacao humana sem atalhos.
+
+Documento principal:
+
+- `docs/WORKSPACE_ONBOARDING_SPEC.md`
