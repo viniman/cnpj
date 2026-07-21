@@ -77,6 +77,7 @@ from .services import (
     list_reply_classifications,
     list_saved_filters,
     list_sequences,
+    list_workspace_score_config_versions,
     prepare_next_journey_step,
     public_openapi_spec,
     public_search_companies,
@@ -87,6 +88,7 @@ from .services import (
     reject_sequence_step,
     render_email_template,
     rescore_workspace_companies,
+    rollback_workspace_score_config_version,
     revoke_api_key,
     run_workspace_onboarding,
     saas_account,
@@ -234,6 +236,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(get_workspace_scoring_config(conn))
                 elif parsed.path == "/api/scoring/company-config":
                     self.send_json(get_workspace_company_score_config(conn))
+                elif parsed.path == "/api/scoring/config-versions":
+                    self.send_json(list_workspace_score_config_versions(conn, params))
                 elif len(parts) == 3 and parts[1] == "companies":
                     company = get_company(conn, int(parts[2]))
                     if not company:
@@ -431,6 +435,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, update_workspace_company_score_config(conn, data))
                 elif parsed.path == "/api/scoring/company-rescore":
                     self.send_json_commit(conn, rescore_workspace_companies(conn, data))
+                elif len(parts) == 5 and parts[1] == "scoring" and parts[2] == "config-versions" and parts[4] == "rollback":
+                    self.send_json_commit(conn, rollback_workspace_score_config_version(conn, int(parts[3]), data))
                 elif parsed.path == "/api/okrs":
                     self.send_json_commit(conn, create_okr(conn, data), 201)
                 elif parsed.path == "/api/agent-governance/configs":

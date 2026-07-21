@@ -283,6 +283,22 @@ def init_db():
                 FOREIGN KEY (scoring_config_id) REFERENCES workspace_company_score_configs(id)
             );
 
+            CREATE TABLE IF NOT EXISTS workspace_score_config_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                config_type TEXT NOT NULL,
+                source_config_id INTEGER NOT NULL,
+                version_number INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                name TEXT NOT NULL,
+                config_json TEXT NOT NULL,
+                change_note TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                activated_at TEXT,
+                UNIQUE (org_id, config_type, version_number),
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
             CREATE TABLE IF NOT EXISTS company_enrichment (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 company_id INTEGER NOT NULL UNIQUE,
@@ -1038,6 +1054,11 @@ def init_db():
                 ON company_workspace_scores(org_id, opportunity_score);
             CREATE INDEX IF NOT EXISTS idx_company_workspace_scores_company
                 ON company_workspace_scores(company_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_workspace_score_config_versions_active
+                ON workspace_score_config_versions(org_id, config_type)
+                WHERE status = 'active';
+            CREATE INDEX IF NOT EXISTS idx_workspace_score_config_versions_lookup
+                ON workspace_score_config_versions(org_id, config_type, version_number);
             CREATE INDEX IF NOT EXISTS idx_company_enrichment_domain ON company_enrichment(detected_domain);
             CREATE INDEX IF NOT EXISTS idx_company_enrichment_score ON company_enrichment(digital_maturity_score);
             CREATE INDEX IF NOT EXISTS idx_scraping_jobs_status ON scraping_jobs(status);
