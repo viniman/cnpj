@@ -167,6 +167,8 @@ Tabelas principais:
   sao recusados no backend.
 - Endpoints publicos autenticados usam o `org_id` da chave, nao o contexto da
   topbar. Escopo, rate limit e saldo sao avaliados antes da busca publica.
+- O contrato publico local fica em `/api/public/openapi.json` e explicita
+  autenticacao, escopo, custo em creditos, rate limit e erros por endpoint.
 - A auditoria operacional lida por `/api/audit` usa `current_org_id(conn)`;
   uma visao global administrativa exigira endpoint e permissao proprios.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo

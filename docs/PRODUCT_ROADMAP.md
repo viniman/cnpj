@@ -143,7 +143,7 @@ Meta:
 
 - API publica, chaves de API, creditos, planos e paridade parcial com Snov.io.
 
-Status: fase 32 iniciada em `feature/32-public-openapi-docs`.
+Status: fase 32 implementada localmente em `feature/32-public-openapi-docs`.
 
 Fases:
 
