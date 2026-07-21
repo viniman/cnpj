@@ -2176,3 +2176,61 @@ Resultado esperado nesta etapa:
 Ran 101 tests
 OK
 ```
+
+## 2026-07-21 - Fase 35 de scoring por workspace
+
+Branch: `feature/35-workspace-scoring-config`
+
+Estado inicial:
+
+- Fase 34 mesclada localmente no `master`.
+- O scoring de e-mail ja existe, mas o dicionario de prefixos ainda e fixo em
+  codigo.
+- O prompt de growth pede pesos editaveis por workspace, porque a importancia
+  de `rh@`, `financeiro@`, `comercial@` e outros prefixos muda conforme o ICP.
+
+Meta da fase:
+
+- Criar configuracao ativa de scoring por workspace.
+- Permitir atualizar regras de prefixo por API e UI local.
+- Aplicar a configuracao em `score_email_record`.
+- Manter o algoritmo puro compativel com os defaults.
+
+Documento principal:
+
+- `docs/WORKSPACE_SCORING_CONFIG_SPEC.md`
+
+Commits:
+
+- `1340010 docs: define workspace scoring config phase`
+- `0832c66 feat: add workspace scoring config backend`
+- `217210c feat: add scoring config UI`
+
+Implementado:
+
+- Tabela `workspace_scoring_configs` com uma configuracao ativa por workspace.
+- Default idempotente baseado em `PREFIX_RULES`.
+- Servicos para ler, normalizar e atualizar regras de prefixo e thresholds.
+- Endpoints `GET /api/scoring/config` e `POST /api/scoring/config`.
+- `score_email_record` aplicando regras do workspace ativo e retornando
+  `scoring_config_id`, `scoring_config_name` e marcador de regra aplicada.
+- Aba `Higiene` com painel `Config scoring`, editor JSON e resumo de prefixos.
+- Testes dedicados em `tests/test_workspace_scoring_config.py` cobrindo default,
+  customizacao de prefixo, persistencia e isolamento multi-workspace.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_workspace_scoring_config tests.test_email_scoring
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 105 tests
+OK
+```

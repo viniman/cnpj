@@ -27,7 +27,7 @@ Proximos hardenings:
 
 Prioridade imediata.
 
-Status: fase 34 implementada localmente em `feature/34-saved-segments-icp`.
+Status: fase 35 implementada localmente em `feature/35-workspace-scoring-config`.
 
 Meta:
 

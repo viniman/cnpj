@@ -939,3 +939,32 @@ Consequencias:
   de mercado.
 - Fases futuras podem versionar segmentos ou materializa-los em listas sem
   alterar a semantica desta fase.
+
+## ADR-037 - Scoring de e-mail configuravel por workspace
+
+Data: 2026-07-21
+
+Decisao:
+
+- Cada workspace deve ter uma configuracao ativa de scoring de e-mail.
+- A primeira configuracao editavel sera o dicionario de prefixos e pesos.
+- O algoritmo puro continua com defaults estaveis quando nenhuma configuracao
+  externa for enviada.
+- `score_email_record` passa a aplicar a configuracao do workspace ativo e a
+  registrar qual configuracao influenciou o resultado.
+
+Racional:
+
+- O prompt de growth exige que pesos como `rh@`, `financeiro@` ou `comercial@`
+  mudem conforme o ICP de cada empresa.
+- Configuracao por workspace aumenta aderencia sem bifurcar codigo ou criar
+  ambientes separados.
+- Manter defaults no algoritmo puro preserva testes unitarios, reuso e
+  capacidade de rodar scoring fora do banco.
+
+Consequencias:
+
+- Reclassificacoes futuras podem produzir score diferente por workspace.
+- Historico completo/versionamento de scoring fica para uma fase posterior.
+- APIs que usam chave publica devem futuramente aplicar a configuracao do
+  workspace da chave, nao a topbar local.

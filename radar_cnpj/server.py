@@ -51,6 +51,7 @@ from .services import (
     get_email_template,
     get_icp_rule,
     get_list,
+    get_workspace_scoring_config,
     lead_timeline,
     get_sequence,
     import_source,
@@ -93,6 +94,7 @@ from .services import (
     simulate_campaign,
     update_meeting_status,
     update_notification_status,
+    update_workspace_scoring_config,
     validate_emails,
     set_current_workspace,
     workspace_context,
@@ -225,6 +227,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(search_companies(conn, params))
                 elif parsed.path == "/api/saved-filters":
                     self.send_json(list_saved_filters(conn, params))
+                elif parsed.path == "/api/scoring/config":
+                    self.send_json(get_workspace_scoring_config(conn))
                 elif len(parts) == 3 and parts[1] == "companies":
                     company = get_company(conn, int(parts[2]))
                     if not company:
@@ -416,6 +420,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, create_saved_filter(conn, data), 201)
                 elif len(parts) == 4 and parts[1] == "saved-filters" and parts[3] == "icp":
                     self.send_json_commit(conn, create_icp_from_saved_filter(conn, int(parts[2]), data), 201)
+                elif parsed.path == "/api/scoring/config":
+                    self.send_json_commit(conn, update_workspace_scoring_config(conn, data))
                 elif parsed.path == "/api/okrs":
                     self.send_json_commit(conn, create_okr(conn, data), 201)
                 elif parsed.path == "/api/agent-governance/configs":

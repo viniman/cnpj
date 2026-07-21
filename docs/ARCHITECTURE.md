@@ -56,6 +56,8 @@ Tabelas principais:
 - `suppression_list`, `opt_outs`, `data_subject_requests`: compliance.
 - `email_validations`: historico de higiene de emails.
 - `email_classifications`, `email_score_log`, `known_shared_domains`: scoring avancado de e-mail.
+- `workspace_scoring_configs`: dicionario de prefixos e thresholds de scoring
+  por workspace ativo.
 - `company_enrichment`, `scraping_jobs`, `scraping_cache`: enriquecimento responsavel e cache.
 - `leads`, `campaigns`, `campaign_variants`, `sends`, `events`,
   `conversions`, `throttle_config`, `pause_events`: CRM de experimento
@@ -111,6 +113,9 @@ Tabelas principais:
 - ICP e aplicado no backend antes de uma empresa entrar na fila SDR.
 - Priorizacao bloqueia supressao, opt-out, e-mail fraco e contato
   terceirizado conforme criterio estruturado.
+- O scoring de e-mail usa configuracao do workspace ativo quando persistido por
+  `score_email_record`; o algoritmo puro preserva defaults quando chamado sem
+  banco.
 - Segmentos salvos sao fotografias de filtros normalizados no workspace ativo;
   a conversao para ICP preserva os filtros originais em `criteria.source_filters`.
 - Conteudo de resposta recebida e tratado como dado externo, nao instrucao.

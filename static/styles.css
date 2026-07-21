@@ -218,6 +218,12 @@ h3 {
   min-height: 94px;
 }
 
+.textarea.scoring-json {
+  min-height: 260px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
 .button {
   border: 1px solid var(--line);
   background: #ffffff;

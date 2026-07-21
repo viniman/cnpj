@@ -115,9 +115,12 @@ def score_email(
     known_shared_domains=None,
     suppression_set=None,
     opt_out_set=None,
+    prefix_rules=None,
+    prefix_rules_source="default",
 ):
     normalized = normalize_email(email)
     known_shared_domains = known_shared_domains or set()
+    active_prefix_rules = prefix_rules or PREFIX_RULES
     partner_names = partner_names or []
     labels = []
     reasons = []
@@ -152,10 +155,12 @@ def score_email(
         reasons.append("Email esta na lista de supressao")
         return result(normalized, local, domain, area, "suppressed", labels, 0, reasons, same_email_companies, same_domain_companies)
 
-    if local_prefix in PREFIX_RULES:
-        area, score, label = PREFIX_RULES[local_prefix]
+    if local_prefix in active_prefix_rules:
+        area, score, label = active_prefix_rules[local_prefix]
         labels.append(label)
         reasons.append("Prefixo '%s' indica area: %s" % (local_prefix, area))
+        if prefix_rules_source != "default":
+            reasons.append("Regra de prefixo do workspace aplicada")
     elif is_nominal_local(local):
         labels.append("nominal")
         score += 15
@@ -211,7 +216,10 @@ def score_email(
 
     score = max(0, min(100, int(score)))
     primary = primary_classification(labels, score)
-    return result(normalized, local, domain, area, primary, labels, score, reasons, same_email_companies, same_domain_companies)
+    scoring = result(normalized, local, domain, area, primary, labels, score, reasons, same_email_companies, same_domain_companies)
+    scoring["prefix_rule_source"] = prefix_rules_source if local_prefix in active_prefix_rules else "heuristic"
+    scoring["prefix_rule_key"] = local_prefix if local_prefix in active_prefix_rules else ""
+    return scoring
 
 
 def primary_classification(labels, score):
