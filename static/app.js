@@ -419,6 +419,77 @@ function renderWorkspaceComparison(data) {
     : `<div class="empty-state">Nenhum snapshot executivo.</div>`;
 }
 
+function renderWorkspaceOnboardingResult(result) {
+  const container = $("#workspaceOnboardingResult");
+  if (!container) return;
+  if (!result) {
+    container.innerHTML = `<div class="empty-state">Nenhum onboarding executado nesta sessao.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["Workspace", "Playbook", "ICP", "Template", "Sequencia", "OKR", "Run"],
+    [
+      [
+        escapeHtml(result.profile?.display_name || result.workspace?.name || "-"),
+        escapeHtml(result.playbook?.name || "-"),
+        escapeHtml(result.icp_rule?.name || "-"),
+        escapeHtml(result.template?.name || "-"),
+        escapeHtml(result.sequence?.name || "-"),
+        escapeHtml(result.objective?.title || "-"),
+        badge(result.onboarding_run?.id || "-"),
+      ],
+    ],
+  );
+}
+
+async function runWorkspaceOnboardingFromForm() {
+  const name = $("#onboardingWorkspaceName").value.trim();
+  if (!name) return showStatus("Informe o nome da empresa.", "warn");
+  const sourcePlaybookId = Number($("#onboardingSourcePlaybook").value || 0);
+  const payload = {
+    workspace: {
+      name,
+      vertical: $("#onboardingVertical").value.trim(),
+      sending_domain: $("#onboardingSendingDomain").value.trim(),
+      sender_name: $("#onboardingSender").value.trim(),
+      default_tone: $("#onboardingTone").value.trim(),
+      brand_color: $("#onboardingBrandColor").value.trim() || undefined,
+    },
+    icp: {
+      criteria: {
+        states: commaValues("#onboardingStates"),
+        cnaes: commaValues("#onboardingCnaes"),
+        min_email_score: Number($("#onboardingMinEmailScore").value || 30),
+      },
+    },
+    okr: {
+      key_results: [
+        {
+          title: "Receber respostas qualificadas",
+          kpi_key: "replies_received",
+          target_value: Number($("#onboardingTarget").value || 10),
+        },
+      ],
+    },
+  };
+  if (sourcePlaybookId) {
+    payload.playbook = {
+      source_playbook_id: sourcePlaybookId,
+      name: `${name} - playbook inicial`,
+    };
+  }
+  const result = await api("/api/workspaces/onboarding", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  state.workspaceContext = result.workspace_context;
+  renderWorkspaceContext(result.workspace_context);
+  renderWorkspaceOnboardingResult(result);
+  showStatus(`Onboarding de ${result.profile?.display_name || name} concluido.`);
+  await loadViewData("command");
+  renderWorkspaceOnboardingResult(result);
+}
+
 async function createWorkspaceFromForm() {
   await api("/api/workspaces", {
     method: "POST",
@@ -511,6 +582,7 @@ function renderPlaybooks(data) {
   syncPlaybookVersionForm(selected);
   renderSelectedPlaybookVersions(selected);
   renderPlaybookCloneTargets(profile.org_id);
+  renderOnboardingPlaybookOptions(playbooks);
 
   $("#playbooksTable").innerHTML = playbooks.length
     ? table(
@@ -533,6 +605,15 @@ function renderPlaybooks(data) {
       renderSelectedPlaybookVersions(playbook);
     });
   });
+}
+
+function renderOnboardingPlaybookOptions(playbooks) {
+  const select = $("#onboardingSourcePlaybook");
+  if (!select) return;
+  select.innerHTML = [
+    `<option value="">Default do novo workspace</option>`,
+    ...playbooks.map((playbook) => `<option value="${escapeHtml(playbook.id)}">${escapeHtml(playbookOptionLabel(playbook))}</option>`),
+  ].join("");
 }
 
 function renderPlaybookCloneTargets(activeOrgId) {
@@ -2392,6 +2473,7 @@ function wireEvents() {
   $("#generateNotificationsBtn").addEventListener("click", generateNotificationsFromSignals);
   $("#refreshNotificationsBtn").addEventListener("click", loadNotifications);
   $("#refreshWorkspaceComparisonBtn").addEventListener("click", loadWorkspaceComparison);
+  $("#runWorkspaceOnboardingBtn").addEventListener("click", runWorkspaceOnboardingFromForm);
   $("#createWorkspaceBtn").addEventListener("click", createWorkspaceFromForm);
   $("#createWorkspaceSnapshotBtn").addEventListener("click", createWorkspaceSnapshotFromForm);
   $("#refreshOkrsBtn").addEventListener("click", loadOkrs);
