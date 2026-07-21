@@ -1742,3 +1742,35 @@ Meta da fase:
 Documento principal:
 
 - `docs/PLAYBOOK_CLONE_SPEC.md`
+
+Commits:
+
+- `bd21c8b docs: define playbook clone phase`
+- `a2621c5 feat: add auditable playbook cloning`
+
+Implementado:
+
+- Servico `clone_playbook_to_workspace`.
+- Endpoint `POST /api/playbooks/{id}/clone`.
+- Clone a partir da versao ativa ou de `version_id` explicito.
+- Criacao de novo playbook independente no workspace de destino.
+- Auditoria da clonagem no workspace de origem e de recebimento no destino.
+- Bloco de clonagem na UI local de playbooks.
+- Teste multi-workspace em `tests/test_playbooks.py`.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_playbooks
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 75 tests
+OK
+```

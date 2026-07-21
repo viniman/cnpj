@@ -32,6 +32,20 @@ Reuso entre empresas deve ser copia auditavel, nao referencia compartilhada. O
 workspace de destino recebe um novo playbook independente, preservando a origem
 em metadados e deixando qualquer aplicacao operacional para acao posterior.
 
+## Implementado nesta fase
+
+- `clone_playbook_to_workspace` clona playbook do workspace ativo para destino.
+- Clone usa versao ativa por padrao ou `version_id` explicito.
+- Destino recebe default de playbook antes do clone quando ainda nao tinha
+  biblioteca inicial.
+- Novo playbook no destino nasce com `source = cloned` e versao 1 ativa.
+- Endpoint `POST /api/playbooks/{id}/clone`.
+- Painel local de playbooks ganhou seletor de workspace destino e campos de
+  nome/descricao do clone.
+- Auditoria registra `clone_playbook_to_workspace` na origem e
+  `receive_cloned_playbook` no destino.
+- Teste multi-workspace cobre clonagem, recusas, isolamento e auditoria.
+
 ## Criterios de aceite
 
 - Clonar playbook do workspace ativo cria novo playbook no destino.

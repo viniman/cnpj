@@ -88,6 +88,16 @@ Invoke-RestMethod `
   -ContentType "application/json"
 ```
 
+Clonar playbook para outro workspace:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/playbooks/1/clone" `
+  -Body '{"target_org_id":2,"name":"Clone para Nine","description":"Teste controlado de playbook vencedor"}' `
+  -ContentType "application/json"
+```
+
 Gerar notificacoes proativas locais:
 
 ```powershell
@@ -670,6 +680,7 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/playbooks`
 - `POST /api/playbooks/{id}/versions`
 - `POST /api/playbooks/{id}/apply`
+- `POST /api/playbooks/{id}/clone`
 - `GET /api/notifications`
 - `POST /api/notifications/generate`
 - `POST /api/notifications/{id}/mark-read`
@@ -790,6 +801,8 @@ python -m unittest discover -s tests
   empresa tem configuracao ativa, simulacoes e custos proprios.
 - Playbooks tambem usam o workspace ativo; biblioteca, versoes, perfil
   operacional e aplicacao ativa nao atravessam empresas selecionadas na topbar.
+- Clonar playbook entre workspaces cria uma copia independente e auditavel no
+  destino; nao aplica automaticamente ICP, cadencia, OKR ou governanca.
 - Auditoria operacional tambem usa o workspace ativo; `/api/audit` mostra os
   eventos da empresa selecionada na topbar.
 

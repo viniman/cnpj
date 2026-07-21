@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 27 iniciada localmente em `feature/27-playbook-clone-foundation`.
+Status: fase 27 implementada localmente em `feature/27-playbook-clone-foundation`.
 
 Fases:
 
