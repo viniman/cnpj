@@ -90,7 +90,8 @@ Define o workspace ativo local.
 
 - A tabela `companies` continua global nesta fase; o dashboard conta empresas
   por vinculo em listas do workspace.
-- Auditoria global ainda mantem migracao dedicada para fase futura.
+- Auditoria operacional foi migrada na Fase 26; uma visao global administrativa
+  futura deve ser explicita e protegida por RBAC.
   Experimentos/campanhas simuladas foram migrados na Fase 18; templates de
   e-mail foram migrados na Fase 19;
   sequencias/jornadas/aprovacoes foram migradas na Fase 20; ICP e fila SDR

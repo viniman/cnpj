@@ -1669,3 +1669,54 @@ Resultado esperado nesta etapa:
 Ran 73 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 26 de auditoria por workspace
+
+Branch: `feature/26-audit-context-foundation`
+
+Estado inicial:
+
+- Fase 25 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 73 tests`, `OK` usando `TEMP/TMP` em `D:`
+  porque o drive `C:` esta sem espaco livre no ambiente local.
+
+Meta da fase:
+
+- Migrar leitura de auditoria operacional para o workspace ativo.
+- Bloquear vazamento visual de eventos de auditoria entre empresas internas.
+- Manter uma futura visao global administrativa fora do fluxo operacional.
+
+Documento principal:
+
+- `docs/AUDIT_CONTEXT_SPEC.md`
+
+Commits:
+
+- `9c69f3a docs: define audit context phase`
+- `326211a feat: scope audit events to active workspace`
+
+Implementado:
+
+- `audit_events` migrado para `current_org_id(conn)`.
+- API `/api/audit` mantendo o contrato atual, mas lendo o workspace ativo.
+- Teste multi-workspace em `tests/test_workspace_context.py` provando que
+  eventos de auditoria operacional nao vazam entre empresas internas.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_workspace_context
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 74 tests
+OK
+```

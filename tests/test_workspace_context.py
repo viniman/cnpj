@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from radar_cnpj.database import connect, init_db, now_iso
 from radar_cnpj.services import (
     add_companies_to_list,
+    audit_events,
     create_list,
     create_okr,
     create_workspace,
@@ -143,6 +144,33 @@ class WorkspaceContextTest(unittest.TestCase):
 
             set_current_workspace(conn, 1)
             self.assertEqual(okr_dashboard(conn)["objectives"][0]["id"], "default")
+        finally:
+            conn.close()
+
+    def test_audit_events_use_active_workspace(self):
+        conn = connect()
+        try:
+            internal_list = create_list(conn, "Auditoria interna", "Evento interno")
+            workspace = create_workspace(conn, {"name": "Auditoria Nine"})
+
+            set_current_workspace(conn, workspace["id"])
+            scoped_list = create_list(conn, "Auditoria Nine", "Evento isolado")
+            scoped_entity_ids = {
+                item["entity_id"]
+                for item in audit_events(conn)
+                if item["action"] == "create_list" and item["entity_type"] == "list"
+            }
+            self.assertIn(str(scoped_list["id"]), scoped_entity_ids)
+            self.assertNotIn(str(internal_list["id"]), scoped_entity_ids)
+
+            set_current_workspace(conn, 1)
+            internal_entity_ids = {
+                item["entity_id"]
+                for item in audit_events(conn)
+                if item["action"] == "create_list" and item["entity_type"] == "list"
+            }
+            self.assertIn(str(internal_list["id"]), internal_entity_ids)
+            self.assertNotIn(str(scoped_list["id"]), internal_entity_ids)
         finally:
             conn.close()
 

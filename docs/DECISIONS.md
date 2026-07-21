@@ -703,3 +703,30 @@ Consequencias:
 - O mesmo nome de playbook pode existir em workspaces diferentes.
 - Ao trocar workspace, biblioteca e aplicacao ativa mudam junto.
 - Fase futura pode criar acao `clone_playbook_to_workspace` com auditoria.
+
+## ADR-028 - Auditoria operacional segue o workspace ativo
+
+Data: 2026-07-20
+
+Decisao:
+
+- A leitura de `audit_logs` pela API operacional deve usar
+  `current_org_id(conn)`.
+- A tela local de auditoria nao deve misturar eventos de empresas internas
+  diferentes.
+- Uma visao global administrativa fica fora do MVP local e deve ser criada
+  como superficie explicita futura.
+
+Racional:
+
+- Auditoria e parte central da transparencia radical; mostrar eventos de outro
+  workspace quebra a confianca do operador.
+- A gravacao ja carrega `org_id`; a leitura precisa acompanhar a fronteira de
+  contexto.
+- Separar leitura operacional de leitura administrativa prepara RBAC futuro.
+
+Consequencias:
+
+- Ao trocar workspace, `/api/audit` acompanha a empresa ativa.
+- Eventos globais/administrativos precisarao de endpoint proprio no futuro.
+- Testes de contexto devem cobrir que eventos nao vazam entre workspaces.

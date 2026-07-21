@@ -6312,8 +6312,9 @@ def command_center_action(conn, payload):
 
 
 def audit_events(conn, limit=100):
+    org_id = current_org_id(conn)
     rows = conn.execute(
         "SELECT * FROM audit_logs WHERE org_id = ? ORDER BY id DESC LIMIT ?",
-        (ORG_ID, min(int(limit), 500)),
+        (org_id, min(int(limit), 500)),
     ).fetchall()
     return [dict_row(row) for row in rows]

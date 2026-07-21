@@ -145,6 +145,8 @@ Tabelas principais:
 - Playbooks, versoes, perfil operacional e aplicacao ativa leem
   `current_org_id(conn)`; defaults sao idempotentes por workspace e IDs de
   outro contexto sao recusados.
+- A auditoria operacional lida por `/api/audit` usa `current_org_id(conn)`;
+  uma visao global administrativa exigira endpoint e permissao proprios.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo
   vinculo com listas do workspace ativo.
 - Supressao e opt-out sao consultados globalmente pelo modulo de higiene,
