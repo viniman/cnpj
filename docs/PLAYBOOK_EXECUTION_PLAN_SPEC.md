@@ -37,6 +37,20 @@ playbook e criar artefatos operacionais existe um plano explicito, auditavel e
 aplicado por humano. A aplicacao continua usando os mesmos servicos de ICP,
 template, sequencia e OKR, preservando compliance e aprovacao humana.
 
+## Implementado nesta fase
+
+- Tabela `playbook_execution_plans` com plano, diff, status e artefatos criados.
+- Servicos para criar, listar, buscar e aplicar planos no workspace ativo.
+- API local:
+  - `GET /api/playbook-execution-plans`
+  - `POST /api/playbooks/{id}/execution-plans`
+  - `POST /api/playbook-execution-plans/{id}/apply`
+- UI no painel de Playbooks para criar plano, revisar criacoes/guardrails e
+  aplicar rascunhos explicitamente.
+- Auditoria para criacao e aplicacao de plano.
+- Testes cobrindo preview sem efeitos colaterais, aplicacao unica e isolamento
+  entre workspaces.
+
 ## Criterios de aceite
 
 - Criar plano nao cria ICP, template, sequencia nem OKR.

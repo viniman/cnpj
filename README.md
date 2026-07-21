@@ -98,6 +98,28 @@ Invoke-RestMethod `
   -ContentType "application/json"
 ```
 
+Criar plano de execucao revisavel para um playbook:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/playbooks/1/execution-plans" `
+  -Body '{"version_id":1,"apply_note":"Validar antes de criar ICP, template, sequencia e OKR"}' `
+  -ContentType "application/json"
+```
+
+Consultar e aplicar planos de execucao:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/playbook-execution-plans"
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/playbook-execution-plans/1/apply" `
+  -Body '{"note":"Aplicado apos revisao operacional"}' `
+  -ContentType "application/json"
+```
+
 Gerar notificacoes proativas locais:
 
 ```powershell
@@ -691,6 +713,9 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/playbooks/{id}/versions`
 - `POST /api/playbooks/{id}/apply`
 - `POST /api/playbooks/{id}/clone`
+- `GET /api/playbook-execution-plans`
+- `POST /api/playbooks/{id}/execution-plans`
+- `POST /api/playbook-execution-plans/{id}/apply`
 - `GET /api/notifications`
 - `POST /api/notifications/generate`
 - `POST /api/notifications/{id}/mark-read`
@@ -814,6 +839,9 @@ python -m unittest discover -s tests
   operacional e aplicacao ativa nao atravessam empresas selecionadas na topbar.
 - Clonar playbook entre workspaces cria uma copia independente e auditavel no
   destino; nao aplica automaticamente ICP, cadencia, OKR ou governanca.
+- Planos de execucao de playbook criam uma previa auditavel antes de
+  materializar ICP, template, sequencia e OKR; apenas a acao explicita de
+  aplicar o plano cria esses artefatos.
 - O onboarding operacional cria uma nova empresa pronta para revisao no Command
   Center: workspace, playbook aplicado, ICP, template, sequencia, OKR e default
   de agente, sem envio real.

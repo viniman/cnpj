@@ -1851,3 +1851,40 @@ Meta da fase:
 Documento principal:
 
 - `docs/PLAYBOOK_EXECUTION_PLAN_SPEC.md`
+
+Commits:
+
+- `f136ae0 docs: define playbook execution plan phase`
+- `9179569 feat: add playbook execution plans`
+- `0e5bee3 feat: add playbook execution plan UI`
+
+Implementado:
+
+- Tabela `playbook_execution_plans`.
+- Servicos `create_playbook_execution_plan`, `list_playbook_execution_plans` e
+  `apply_playbook_execution_plan`.
+- Endpoints para listar planos, criar plano a partir de playbook e aplicar
+  plano existente.
+- Plano em rascunho com `plan_json`, `diff_json`, status e artefatos criados.
+- Aplicacao explicita reaproveitando os servicos existentes de playbook, ICP,
+  template, sequencia e OKR.
+- UI no painel de Playbooks com criacao de plano, tabela de diff/guardrails e
+  acao para aplicar rascunhos.
+- Testes dedicados em `tests/test_playbook_execution_plans.py`.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_playbook_execution_plans
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 80 tests
+OK
+```
