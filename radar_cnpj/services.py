@@ -49,6 +49,18 @@ DEFAULT_API_KEY_SCOPES = ["companies:read", "emails:read", "exports:create"]
 DEFAULT_API_RATE_LIMIT_PER_MINUTE = 60
 PUBLIC_COMPANY_SEARCH_SCOPE = "companies:read"
 PUBLIC_COMPANY_SEARCH_COST = 1
+COMPANY_FILTER_KEYS = {
+    "query",
+    "state",
+    "city",
+    "cnae",
+    "status",
+    "size",
+    "sector",
+    "has_email",
+    "has_phone",
+    "min_score",
+}
 DEFAULT_SAAS_PLANS = [
     {
         "code": "free",
@@ -776,6 +788,139 @@ def search_companies(conn, params):
         values + [limit, offset],
     ).fetchall()
     return {"total": total, "limit": limit, "offset": offset, "items": [dict_row(row) for row in rows]}
+
+
+def normalize_company_filters(payload):
+    payload = payload or {}
+    raw_filters = payload.get("filters") if isinstance(payload.get("filters"), dict) else payload
+    filters = {}
+    for key in COMPANY_FILTER_KEYS:
+        value = raw_filters.get(key)
+        if value is None or value == "":
+            continue
+        if key in ("has_email", "has_phone"):
+            if bool_criteria(value, False):
+                filters[key] = "1"
+            continue
+        if key == "min_score":
+            filters[key] = str(int_criteria(value, 0, 0, 100))
+            continue
+        filters[key] = str(value).strip()
+    if filters.get("state"):
+        filters["state"] = filters["state"].upper()
+    return filters
+
+
+def parse_saved_filter_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    stored = json.loads(data.pop("filters_json") or "{}")
+    snapshot = stored.get("_snapshot") if isinstance(stored.get("_snapshot"), dict) else {}
+    filters = {key: value for key, value in stored.items() if key != "_snapshot"}
+    data["filters"] = filters
+    data["snapshot"] = snapshot
+    data["total_at_creation"] = snapshot.get("total")
+    return data
+
+
+def get_saved_filter(conn, filter_id):
+    org_id = current_org_id(conn)
+    row = conn.execute(
+        "SELECT * FROM saved_filters WHERE id = ? AND org_id = ?",
+        (int(filter_id), org_id),
+    ).fetchone()
+    return parse_saved_filter_row(row)
+
+
+def list_saved_filters(conn, params=None):
+    params = params or {}
+    org_id = current_org_id(conn)
+    rows = conn.execute(
+        """
+        SELECT *
+        FROM saved_filters
+        WHERE org_id = ?
+        ORDER BY id DESC
+        LIMIT ?
+        """,
+        (org_id, min(int(params.get("limit", 100) or 100), 500)),
+    ).fetchall()
+    return {"items": [parse_saved_filter_row(row) for row in rows]}
+
+
+def create_saved_filter(conn, payload):
+    payload = payload or {}
+    org_id = current_org_id(conn)
+    name = (payload.get("name") or "").strip()
+    if not name:
+        raise ValueError("Nome do segmento e obrigatorio")
+    filters = normalize_company_filters(payload)
+    if not filters:
+        raise ValueError("Informe ao menos um filtro para salvar o segmento")
+    total = search_companies(conn, {**filters, "limit": 1}).get("total", 0)
+    timestamp = now_iso()
+    stored_filters = dict(filters)
+    stored_filters["_snapshot"] = {"total": total, "captured_at": timestamp}
+    cursor = conn.execute(
+        """
+        INSERT INTO saved_filters (org_id, name, filters_json, created_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (org_id, name, json.dumps(stored_filters, ensure_ascii=True), timestamp),
+    )
+    audit(conn, "create_saved_filter", "saved_filter", cursor.lastrowid, {"name": name, "filters": filters, "total": total}, org_id=org_id)
+    return get_saved_filter(conn, cursor.lastrowid)
+
+
+def saved_filter_to_icp_criteria(saved_filter, payload=None):
+    payload = payload or {}
+    filters = saved_filter.get("filters") or {}
+    criteria = {
+        "states": filters.get("state") or "",
+        "cities": filters.get("city") or "",
+        "cnaes": filters.get("cnae") or "",
+        "sectors": filters.get("sector") or "",
+        "sizes": filters.get("size") or "",
+        "min_opportunity_score": filters.get("min_score") or 0,
+        "min_email_score": payload.get("min_email_score", 30),
+        "require_email": bool_criteria(filters.get("has_email"), True),
+        "require_corporate_email": bool_criteria(payload.get("require_corporate_email"), True),
+        "exclude_shared_email": bool_criteria(payload.get("exclude_shared_email"), True),
+        "exclude_suppressed": bool_criteria(payload.get("exclude_suppressed"), True),
+        "max_leads": payload.get("max_leads", 50),
+        "source_filter_id": saved_filter["id"],
+        "source_filter_name": saved_filter["name"],
+        "source_filters": filters,
+    }
+    return criteria
+
+
+def create_icp_from_saved_filter(conn, filter_id, payload=None):
+    payload = payload or {}
+    saved_filter = get_saved_filter(conn, int(filter_id))
+    if not saved_filter:
+        raise ValueError("Segmento salvo nao encontrado")
+    name = (payload.get("name") or "ICP - %s" % saved_filter["name"]).strip()
+    criteria = saved_filter_to_icp_criteria(saved_filter, payload)
+    rule = create_icp_rule(
+        conn,
+        {
+            "name": name,
+            "description": payload.get("description") or "Criado a partir do segmento salvo %s" % saved_filter["name"],
+            "status": payload.get("status") or "active",
+            "criteria": criteria,
+        },
+    )
+    audit(
+        conn,
+        "create_icp_from_saved_filter",
+        "saved_filter",
+        saved_filter["id"],
+        {"icp_rule_id": rule["id"], "filters": saved_filter["filters"]},
+        org_id=current_org_id(conn),
+    )
+    return {"saved_filter": saved_filter, "icp_rule": rule}
 
 
 def get_company(conn, company_id):
@@ -2822,6 +2967,9 @@ def normalize_icp_criteria(payload):
         "exclude_shared_email": bool_criteria(criteria.get("exclude_shared_email"), True),
         "exclude_suppressed": bool_criteria(criteria.get("exclude_suppressed"), True),
         "max_leads": int_criteria(criteria.get("max_leads"), 50, 1, 500),
+        "source_filter_id": int_criteria(criteria.get("source_filter_id"), 0, 0),
+        "source_filter_name": str(criteria.get("source_filter_name") or "").strip(),
+        "source_filters": criteria.get("source_filters") if isinstance(criteria.get("source_filters"), dict) else {},
     }
     return normalized
 
