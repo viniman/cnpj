@@ -1888,3 +1888,24 @@ Resultado esperado nesta etapa:
 Ran 80 tests
 OK
 ```
+
+## 2026-07-21 - Inicio da fase 30 de credenciais e creditos SaaS
+
+Branch: `feature/30-saas-credentials-foundation`
+
+Estado inicial:
+
+- Fase 29 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes pos-merge da fase 29: `Ran 80 tests`, `OK` usando `TEMP/TMP` em `D:`.
+
+Meta da fase:
+
+- Criar base SaaS local com chaves de API por workspace.
+- Criar carteira de creditos por workspace e ledger append-only.
+- Preparar trilho duro de saldo para endpoints publicos futuros.
+
+Documento principal:
+
+- `docs/SAAS_CREDENTIALS_SPEC.md`
