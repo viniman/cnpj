@@ -198,6 +198,57 @@
 
           <section class="panel">
             <div class="panel-head">
+              <h2>SaaS e API</h2>
+              <button id="refreshSaasAccountBtn" class="button">Atualizar SaaS</button>
+            </div>
+            <div id="saasSummary" class="metric-grid compact-metrics"></div>
+            <div class="governance-grid workspace-grid">
+              <section>
+                <h3>Nova chave de API</h3>
+                <div class="form-grid one">
+                  <label>
+                    Nome
+                    <input id="saasApiKeyName" class="input" placeholder="Integracao interna" />
+                  </label>
+                  <label>
+                    Escopos
+                    <input id="saasApiKeyScopes" class="input" value="companies:read, emails:read, exports:create" />
+                  </label>
+                  <button id="createSaasApiKeyBtn" class="button primary">Criar chave</button>
+                </div>
+                <div id="saasCreatedToken" class="table-wrap">
+                  <div class="empty-state">Nenhum token criado nesta sessao.</div>
+                </div>
+              </section>
+              <section>
+                <h3>Carteira de creditos</h3>
+                <div class="form-grid one">
+                  <label>
+                    Valor
+                    <input id="saasCreditAmount" class="input" type="number" step="1" placeholder="100 ou -10" />
+                  </label>
+                  <label>
+                    Motivo
+                    <input id="saasCreditReason" class="input" placeholder="Credito manual ou consumo de teste" />
+                  </label>
+                  <button id="adjustSaasCreditsBtn" class="button">Registrar ajuste</button>
+                </div>
+              </section>
+            </div>
+            <div class="content-grid playbook-tables">
+              <section>
+                <h3>Chaves</h3>
+                <div id="saasApiKeysTable" class="table-wrap"></div>
+              </section>
+              <section>
+                <h3>Ledger</h3>
+                <div id="saasTransactionsTable" class="table-wrap"></div>
+              </section>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
               <h2>OKRs e KPIs</h2>
               <button id="refreshOkrsBtn" class="button">Atualizar KPIs</button>
             </div>
