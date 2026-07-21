@@ -5838,6 +5838,220 @@ def workspace_comparison(conn):
     }
 
 
+def onboarding_playbook_content(playbook):
+    active_version = playbook.get("active_version") or {}
+    return active_version.get("content") or {}
+
+
+def onboarding_icp_criteria(payload, content):
+    icp = dict(content.get("icp") or {})
+    criteria = dict(payload or {})
+    source_cnaes = criteria.get("cnaes") or criteria.get("target_cnaes") or icp.get("cnaes") or icp.get("target_cnaes")
+    return {
+        "states": criteria.get("states") or icp.get("states") or [],
+        "cities": criteria.get("cities") or icp.get("cities") or [],
+        "cnaes": source_cnaes or [],
+        "sectors": criteria.get("sectors") or icp.get("sectors") or [],
+        "sizes": criteria.get("sizes") or icp.get("sizes") or [],
+        "min_opportunity_score": criteria.get("min_opportunity_score") or icp.get("min_opportunity_score") or 0,
+        "min_email_score": criteria.get("min_email_score") or icp.get("min_email_score") or 30,
+        "require_email": criteria.get("require_email", icp.get("require_email", True)),
+        "require_corporate_email": criteria.get("require_corporate_email", icp.get("require_corporate_email", True)),
+        "exclude_shared_email": criteria.get("exclude_shared_email", icp.get("exclude_shared_email", True)),
+        "exclude_suppressed": criteria.get("exclude_suppressed", icp.get("exclude_suppressed", True)),
+        "max_leads": criteria.get("max_leads") or icp.get("max_leads") or 50,
+    }
+
+
+def onboarding_template_payload(payload, workspace, content):
+    template = dict(payload or {})
+    copy = dict(content.get("copy") or {})
+    tone = workspace.get("default_tone") or copy.get("tone") or "direto, B2B, consultivo"
+    return {
+        "name": template.get("name") or "Primeiro contato - %s" % workspace["display_name"],
+        "purpose": template.get("purpose") or "first_contact",
+        "subject": template.get("subject") or "Ideia para {{nome_empresa}}",
+        "body": template.get("body")
+        or (
+            "Ola {{nome_contato}}, vi que a {{nome_empresa}} atua em {{cidade}}. "
+            "Tenho uma ideia objetiva para conversar com seu time em um tom %s. "
+            "Podemos falar por aqui ou pelo CTA: {{cta_url}}"
+        )
+        % tone,
+    }
+
+
+def onboarding_sequence_steps(payload, template, content):
+    cadence = dict(content.get("cadence") or {})
+    requested_steps = payload.get("steps") if isinstance(payload, dict) else None
+    steps = requested_steps or cadence.get("steps") or [{"name": "Primeiro contato", "wait_days": 0}]
+    result = []
+    for index, step in enumerate(steps, start=1):
+        result.append(
+            {
+                "step_number": index,
+                "name": step.get("name") or "Passo %s" % index,
+                "wait_days": int(step.get("wait_days") or 0),
+                "template_id": template["id"],
+                "require_approval": True,
+            }
+        )
+    return result
+
+
+def onboarding_okr_payload(payload, workspace, content):
+    okr = dict(content.get("okr") or {})
+    requested = dict(payload or {})
+    key_results = requested.get("key_results") or okr.get("key_results") or [
+        {"title": "Receber respostas qualificadas", "kpi_key": "replies_received", "target_value": 10}
+    ]
+    prepared = []
+    for item in key_results:
+        prepared.append(
+            {
+                "title": item.get("title") or "KR %s" % (item.get("kpi_key") or "replies_received"),
+                "kpi_key": item.get("kpi_key") or "replies_received",
+                "target_value": item.get("target_value") or 10,
+            }
+        )
+    period_end = requested.get("period_end") or (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
+    return {
+        "title": requested.get("title") or okr.get("objective") or "Validar outbound B2B - %s" % workspace["display_name"],
+        "description": requested.get("description") or "Objetivo inicial criado pelo onboarding operacional.",
+        "period_start": requested.get("period_start") or datetime.utcnow().strftime("%Y-%m-%d"),
+        "period_end": period_end,
+        "key_results": prepared,
+    }
+
+
+def run_workspace_onboarding(conn, payload):
+    payload = payload or {}
+    workspace_payload = dict(payload.get("workspace") or payload)
+    name = (workspace_payload.get("name") or "").strip()
+    if not name:
+        raise ValueError("Nome do workspace e obrigatorio")
+
+    source_org_id = current_org_id(conn)
+    workspace = create_workspace(conn, workspace_payload)
+    target_org_id = workspace["id"]
+    playbook_payload = dict(payload.get("playbook") or {})
+    source_playbook_id = int(playbook_payload.get("source_playbook_id") or 0)
+
+    if source_playbook_id:
+        playbook = clone_playbook_to_workspace(
+            conn,
+            source_playbook_id,
+            {
+                "target_org_id": target_org_id,
+                "version_id": playbook_payload.get("source_version_id"),
+                "name": playbook_payload.get("name") or "%s - onboarding" % name,
+                "description": playbook_payload.get("description") or "Clone criado pelo onboarding operacional.",
+            },
+        )
+    else:
+        ensure_default_playbooks_for_org(conn, target_org_id)
+        playbook = parse_playbook_row(
+            conn,
+            conn.execute(
+                """
+                SELECT *
+                FROM playbooks
+                WHERE org_id = ?
+                ORDER BY source = 'system_default' DESC, id ASC
+                LIMIT 1
+                """,
+                (target_org_id,),
+            ).fetchone(),
+        )
+
+    set_current_workspace(conn, target_org_id)
+    profile = ensure_company_profile(conn)
+    playbook = get_playbook(conn, playbook["id"])
+    application = apply_playbook(
+        conn,
+        playbook["id"],
+        {
+            "version_id": (playbook.get("active_version") or {}).get("id"),
+            "note": playbook_payload.get("apply_note") or "Aplicado pelo onboarding operacional.",
+        },
+    )
+    content = onboarding_playbook_content(playbook)
+
+    icp_payload = dict(payload.get("icp") or {})
+    icp_rule = create_icp_rule(
+        conn,
+        {
+            "name": icp_payload.get("name") or "ICP inicial - %s" % profile["display_name"],
+            "description": icp_payload.get("description") or "ICP criado pelo onboarding operacional.",
+            "criteria": onboarding_icp_criteria(icp_payload.get("criteria") or icp_payload, content),
+        },
+    )
+    template = create_email_template(conn, onboarding_template_payload(payload.get("template") or {}, profile, content))
+    sequence_payload = dict(payload.get("sequence") or {})
+    sequence = create_sequence(
+        conn,
+        {
+            "name": sequence_payload.get("name") or "Cadencia inicial - %s" % profile["display_name"],
+            "description": sequence_payload.get("description") or "Sequencia criada pelo onboarding operacional.",
+            "steps": onboarding_sequence_steps(sequence_payload, template, content),
+        },
+    )
+    objective = create_okr(conn, onboarding_okr_payload(payload.get("okr") or {}, profile, content))
+    agent_config_id = ensure_default_agent_config(conn)
+
+    summary = {
+        "source_org_id": source_org_id,
+        "org_id": target_org_id,
+        "workspace_name": profile["display_name"],
+        "playbook_id": playbook["id"],
+        "playbook_application_id": application["id"],
+        "icp_rule_id": icp_rule["id"],
+        "template_id": template["id"],
+        "sequence_id": sequence["id"],
+        "objective_id": objective["id"],
+        "agent_config_id": agent_config_id,
+        "used_cloned_playbook": bool(source_playbook_id),
+    }
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO workspace_onboarding_runs (
+            org_id, playbook_id, playbook_application_id, icp_rule_id,
+            template_id, sequence_id, objective_id, agent_config_id,
+            summary_json, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            target_org_id,
+            playbook["id"],
+            application["id"],
+            icp_rule["id"],
+            template["id"],
+            sequence["id"],
+            objective["id"],
+            agent_config_id,
+            json.dumps(summary, ensure_ascii=True),
+            timestamp,
+        ),
+    )
+    summary["onboarding_run_id"] = cursor.lastrowid
+    audit(conn, "run_workspace_onboarding", "workspace_onboarding_run", cursor.lastrowid, summary, org_id=target_org_id)
+    return {
+        "workspace": workspace_detail(conn, target_org_id),
+        "profile": profile,
+        "playbook": playbook,
+        "active_application": application,
+        "icp_rule": icp_rule,
+        "template": template,
+        "sequence": sequence,
+        "objective": objective,
+        "agent_config_id": agent_config_id,
+        "onboarding_run": {"id": cursor.lastrowid, "summary": summary, "created_at": timestamp},
+        "workspace_context": workspace_context(conn),
+    }
+
+
 NOTIFICATION_STATUSES = {"pending", "sent", "read", "dismissed"}
 HANDOFF_NOTIFICATION_KEYWORDS = ("interesse", "reuniao", "duvida", "ambigu", "pessoa errada", "lead quente")
 
