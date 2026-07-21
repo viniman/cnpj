@@ -27,7 +27,7 @@ Proximos hardenings:
 
 Prioridade imediata.
 
-Status: fase 37 iniciada localmente em
+Status: fase 37 implementada localmente em
 `feature/37-scoring-config-version-history`.
 
 Meta:

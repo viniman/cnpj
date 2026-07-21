@@ -2320,7 +2320,22 @@ Documento principal:
 
 Commits:
 
-- Pendente.
+- `eb0f3cf docs: define scoring config history phase`
+- `60c4c8c feat: add scoring config version history`
+- `7f57ed7 feat: add scoring config history UI`
+
+Implementado:
+
+- Tabela `workspace_score_config_versions` com historico comum para score de
+  e-mail e de empresa.
+- Versao 1 criada automaticamente para defaults existentes ou novos.
+- Atualizacao de score de e-mail e empresa criando nova versao ativa.
+- Rollback por snapshot antigo criando nova versao ativa.
+- Endpoints `GET /api/scoring/config-versions` e
+  `POST /api/scoring/config-versions/{id}/rollback`.
+- Aba `Higiene` com painel `Historico scoring`, filtro por tipo e acao de
+  restaurar versao.
+- Testes dedicados em `tests/test_scoring_config_versions.py`.
 
 Como verificar:
 
@@ -2330,4 +2345,11 @@ $env:TMP=$env:TEMP
 python -m unittest tests.test_scoring_config_versions tests.test_workspace_scoring_config tests.test_workspace_company_score_config
 python -m unittest discover -s tests
 node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 113 tests
+OK
 ```

@@ -61,6 +61,8 @@ Tabelas principais:
 - `workspace_company_score_configs`, `company_workspace_scores`: regras de
   score comercial de empresa por workspace e overlay calculado sem sobrescrever
   o score base global.
+- `workspace_score_config_versions`: historico e rollback de configuracoes de
+  score de e-mail e de empresa por workspace.
 - `company_enrichment`, `scraping_jobs`, `scraping_cache`: enriquecimento responsavel e cache.
 - `leads`, `campaigns`, `campaign_variants`, `sends`, `events`,
   `conversions`, `throttle_config`, `pause_events`: CRM de experimento
@@ -122,6 +124,8 @@ Tabelas principais:
 - O score de empresa usa overlay por workspace quando recalculado; busca,
   detalhe e ICP caem para `companies.opportunity_score` quando o overlay ainda
   nao existe.
+- Configuracoes de score sao versionadas em snapshots; rollback cria uma nova
+  versao ativa, nao reativa silenciosamente uma versao antiga.
 - Segmentos salvos sao fotografias de filtros normalizados no workspace ativo;
   a conversao para ICP preserva os filtros originais em `criteria.source_filters`.
 - Conteudo de resposta recebida e tratado como dado externo, nao instrucao.

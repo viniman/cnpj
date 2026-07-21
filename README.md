@@ -398,6 +398,34 @@ A busca de empresas, o detalhe da empresa e a priorizacao ICP usam o overlay do
 workspace quando ele existe; caso contrario, continuam usando o score base.
 Na UI local, isso fica na aba `Higiene`, painel `Score empresa`.
 
+## Historico e rollback de scoring
+
+As configuracoes de score de e-mail e de empresa agora mantem historico em
+`workspace_score_config_versions`. Cada alteracao cria uma nova versao ativa e
+arquiva a anterior. Rollback tambem cria nova versao ativa, preservando quando
+a restauracao aconteceu.
+
+Listar versoes:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/scoring/config-versions"
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/scoring/config-versions?type=email"
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/scoring/config-versions?type=company"
+```
+
+Restaurar uma versao:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/scoring/config-versions/1/rollback" `
+  -Body '{"change_note":"Rollback operacional"}' `
+  -ContentType "application/json"
+```
+
+Na UI local, use `Higiene`, painel `Historico scoring`. Para score de empresa,
+apos rollback, use `Recalcular empresas` para atualizar o overlay ja calculado.
+
 ## Enriquecimento de empresas
 
 A aba `Enriquecimento` permite coletar sinais publicos do site de uma empresa
@@ -863,6 +891,8 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `GET /api/scoring/company-config`
 - `POST /api/scoring/company-config`
 - `POST /api/scoring/company-rescore`
+- `GET /api/scoring/config-versions`
+- `POST /api/scoring/config-versions/{id}/rollback`
 - `GET /api/saved-filters`
 - `POST /api/saved-filters`
 - `POST /api/saved-filters/{id}/icp`
@@ -1008,6 +1038,9 @@ python -m unittest discover -s tests
 - Score de empresa tambem usa o workspace ativo; `company_workspace_scores`
   funciona como overlay por empresa/workspace e nao sobrescreve
   `companies.opportunity_score`.
+- Historico de scoring tambem usa o workspace ativo; rollback cria nova versao
+  ativa em `workspace_score_config_versions`, mantendo a linha do tempo
+  auditavel.
 - Segmentos salvos tambem usam o workspace ativo; filtros normalizados ficam em
   `saved_filters`, podem ser reaplicados na busca e podem gerar `icp_rules`
   preservando os filtros originais em `criteria.source_filters`.
@@ -1019,7 +1052,7 @@ python -m unittest discover -s tests
 3. Autenticacao real e RBAC.
 4. Tags operacionais no frontend.
 5. Canal de solicitacao de titular.
-6. Versionamento historico de configuracoes de score por workspace.
+6. Diff visual de impacto antes/depois das configuracoes de score.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
 8. Templates de resposta manual assistida.
 9. Troca de contexto operacional por workspace.
