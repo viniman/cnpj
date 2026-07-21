@@ -912,3 +912,30 @@ Consequencias:
 - `credit_wallets.plan_name` vira cache operacional do codigo do plano atual.
 - Fases futuras podem aplicar limites por plano nos guardrails de API, exports,
   enriquecimento e agente.
+
+## ADR-036 - Segmento salvo e fotografia de filtros
+
+Data: 2026-07-21
+
+Decisao:
+
+- Segmentos salvos devem reutilizar `saved_filters`.
+- Um segmento e uma fotografia normalizada dos filtros da tela de empresas.
+- A contagem no momento da criacao fica dentro de `filters_json._snapshot`.
+- Conversao para ICP deve chamar `create_icp_rule`, mantendo `source_filters`
+  nos criterios.
+
+Racional:
+
+- O prompt de growth pede que filtro combinado vire ICP reutilizavel.
+- Criar uma nova tabela de segmento agora duplicaria `saved_filters`.
+- Salvar snapshot de contagem ajuda o operador a lembrar o tamanho original do
+  mercado, mas a busca continua dinamica quando o segmento e aplicado.
+
+Consequencias:
+
+- Segmentos antigos sem `_snapshot` continuam legiveis.
+- `limit` e `offset` nao entram no segmento porque sao paginacao, nao criterio
+  de mercado.
+- Fases futuras podem versionar segmentos ou materializa-los em listas sem
+  alterar a semantica desta fase.

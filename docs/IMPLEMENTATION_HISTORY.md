@@ -2117,3 +2117,40 @@ Resultado esperado nesta etapa:
 Ran 97 tests
 OK
 ```
+
+## 2026-07-21 - Inicio da fase 34 de segmentos salvos
+
+Branch: `feature/34-saved-segments-icp`
+
+Estado inicial:
+
+- Fase 33 mesclada localmente no `master`.
+- Tabela `saved_filters` ja existe no schema, mas sem servicos, endpoints ou UI.
+- O prompt de growth pede que o funil de filtros possa ser salvo como segmento
+  e ICP reutilizavel.
+
+Meta da fase:
+
+- Salvar filtros atuais da tela de empresas como segmento.
+- Reaplicar segmento salvo na busca.
+- Converter segmento em regra ICP estruturada.
+
+Documento principal:
+
+- `docs/SAVED_SEGMENT_ICP_SPEC.md`
+
+Commits planejados:
+
+- `docs: define saved segment ICP phase`
+- `feat: add saved segment services`
+- `feat: add saved segment UI`
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_saved_segments
+python -m unittest discover -s tests
+node --check static\app.js
+```

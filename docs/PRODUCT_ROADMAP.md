@@ -27,6 +27,8 @@ Proximos hardenings:
 
 Prioridade imediata.
 
+Status: fase 34 iniciada em `feature/34-saved-segments-icp`.
+
 Meta:
 
 - Aumentar qualidade das listas antes de qualquer modulo de disparo.
@@ -41,6 +43,7 @@ Fases:
 3. Flag de contato compartilhado/terceirizado por repeticao em varios CNPJs.
 4. Tabelas `email_classifications`, `known_shared_domains` e `email_score_log`.
 5. Exposicao na UI e API.
+6. Segmentos salvos a partir de filtros combinados e conversao para ICP.
 
 ## Camada 2 - Enriquecimento responsavel
 
