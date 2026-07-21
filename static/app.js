@@ -18,6 +18,7 @@ const state = {
   okrs: null,
   agentGovernance: null,
   playbooks: null,
+  playbookExecutionPlans: [],
   notifications: null,
   workspaceContext: null,
   workspaceComparison: null,
@@ -101,6 +102,7 @@ async function loadViewData(view = state.view) {
       loadWorkspaceComparison(),
       loadOkrs(),
       loadPlaybooks(),
+      loadPlaybookExecutionPlans(),
       loadAgentGovernance(),
     ]);
   }
@@ -520,6 +522,12 @@ async function loadPlaybooks() {
   renderPlaybooks(data);
 }
 
+async function loadPlaybookExecutionPlans() {
+  const data = await api("/api/playbook-execution-plans");
+  state.playbookExecutionPlans = data.items || [];
+  renderPlaybookExecutionPlans(state.playbookExecutionPlans);
+}
+
 function playbookOptionLabel(playbook) {
   const active = playbook.active_version;
   return `${playbook.name} ${active ? `(v${active.version_number})` : ""}`;
@@ -681,6 +689,70 @@ async function applyPlaybookFromForm(playbookId = null, versionId = null) {
   });
   showStatus("Playbook aplicado ao workspace.");
   await loadPlaybooks();
+}
+
+async function createPlaybookExecutionPlanFromForm() {
+  const playbook = selectedPlaybook();
+  if (!playbook) return showStatus("Selecione um playbook.", "warn");
+  const result = await api(`/api/playbooks/${playbook.id}/execution-plans`, {
+    method: "POST",
+    body: JSON.stringify({
+      version_id: playbook.active_version?.id,
+      apply_note: $("#playbookApplyNote").value.trim() || undefined,
+    }),
+  });
+  showStatus(`Plano ${result.id} criado para revisao.`);
+  await loadPlaybookExecutionPlans();
+}
+
+async function applyPlaybookExecutionPlan(planId) {
+  await api(`/api/playbook-execution-plans/${planId}/apply`, {
+    method: "POST",
+    body: JSON.stringify({ note: $("#playbookApplyNote").value.trim() }),
+  });
+  showStatus(`Plano ${planId} aplicado.`);
+  await Promise.all([loadPlaybookExecutionPlans(), loadPlaybooks(), loadOkrs(), loadCommandCenter()]);
+}
+
+function planCreatesSummary(plan) {
+  return (plan.diff?.creates || []).map((entry) => `${entry.type}: ${entry.name}`).join("\n");
+}
+
+function planGuardsSummary(plan) {
+  return (plan.diff?.guards || []).join("\n");
+}
+
+function planArtifactsSummary(plan) {
+  const artifacts = plan.created_artifacts || {};
+  const entries = Object.entries(artifacts);
+  if (!entries.length) return "-";
+  return entries.map(([key, value]) => `${key}: ${value}`).join("\n");
+}
+
+function renderPlaybookExecutionPlans(items) {
+  const target = $("#playbookExecutionPlansTable");
+  if (!target) return;
+  target.innerHTML = items.length
+    ? table(
+        ["ID", "Status", "Playbook", "Versao", "Cria", "Trilhos", "Criado", "Aplicado", ""],
+        items.map((plan) => [
+          escapeHtml(plan.id),
+          badge(plan.status, plan.status === "applied" ? "green" : "purple"),
+          escapeHtml(plan.playbook_name || "-"),
+          plan.version_number ? `v${escapeHtml(plan.version_number)}` : "-",
+          previewHtml(planCreatesSummary(plan)),
+          previewHtml(plan.status === "applied" ? planArtifactsSummary(plan) : planGuardsSummary(plan)),
+          escapeHtml(plan.created_at || "-"),
+          escapeHtml(plan.applied_at || "-"),
+          plan.status === "draft"
+            ? `<button class="row-action" data-apply-playbook-plan="${escapeHtml(plan.id)}">Aplicar</button>`
+            : badge("aplicado", "green"),
+        ]),
+      )
+    : `<div class="empty-state">Nenhum plano de execucao criado neste workspace.</div>`;
+  $$("[data-apply-playbook-plan]").forEach((button) => {
+    button.addEventListener("click", () => applyPlaybookExecutionPlan(button.dataset.applyPlaybookPlan));
+  });
 }
 
 async function clonePlaybookFromForm() {
@@ -2486,6 +2558,7 @@ function wireEvents() {
   $("#createPlaybookBtn").addEventListener("click", createPlaybookFromForm);
   $("#createPlaybookVersionBtn").addEventListener("click", createPlaybookVersionFromForm);
   $("#applyPlaybookBtn").addEventListener("click", () => applyPlaybookFromForm());
+  $("#createPlaybookExecutionPlanBtn").addEventListener("click", createPlaybookExecutionPlanFromForm);
   $("#clonePlaybookBtn").addEventListener("click", clonePlaybookFromForm);
   $("#refreshAgentGovernanceBtn").addEventListener("click", loadAgentGovernance);
   $("#createAgentConfigBtn").addEventListener("click", createAgentConfigFromForm);

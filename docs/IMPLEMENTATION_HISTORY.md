@@ -1829,3 +1829,62 @@ Resultado esperado nesta etapa:
 Ran 77 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 29 de execucao guiada de playbook
+
+Branch: `feature/29-playbook-execution-plan`
+
+Estado inicial:
+
+- Fase 28 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 77 tests`, `OK` usando `TEMP/TMP` em `D:`
+  porque o drive `C:` esta sem espaco livre no ambiente local.
+
+Meta da fase:
+
+- Criar plano revisavel antes de materializar um playbook.
+- Aplicar plano de forma explicita e auditavel.
+- Reusar servicos existentes de ICP, template, sequencia e OKR.
+
+Documento principal:
+
+- `docs/PLAYBOOK_EXECUTION_PLAN_SPEC.md`
+
+Commits:
+
+- `f136ae0 docs: define playbook execution plan phase`
+- `9179569 feat: add playbook execution plans`
+- `0e5bee3 feat: add playbook execution plan UI`
+
+Implementado:
+
+- Tabela `playbook_execution_plans`.
+- Servicos `create_playbook_execution_plan`, `list_playbook_execution_plans` e
+  `apply_playbook_execution_plan`.
+- Endpoints para listar planos, criar plano a partir de playbook e aplicar
+  plano existente.
+- Plano em rascunho com `plan_json`, `diff_json`, status e artefatos criados.
+- Aplicacao explicita reaproveitando os servicos existentes de playbook, ICP,
+  template, sequencia e OKR.
+- UI no painel de Playbooks com criacao de plano, tabela de diff/guardrails e
+  acao para aplicar rascunhos.
+- Testes dedicados em `tests/test_playbook_execution_plans.py`.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_playbook_execution_plans
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 80 tests
+OK
+```

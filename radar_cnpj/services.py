@@ -5881,7 +5881,7 @@ def onboarding_template_payload(payload, workspace, content):
     }
 
 
-def onboarding_sequence_steps(payload, template, content):
+def onboarding_sequence_step_blueprint(payload, content):
     cadence = dict(content.get("cadence") or {})
     requested_steps = payload.get("steps") if isinstance(payload, dict) else None
     steps = requested_steps or cadence.get("steps") or [{"name": "Primeiro contato", "wait_days": 0}]
@@ -5892,10 +5892,18 @@ def onboarding_sequence_steps(payload, template, content):
                 "step_number": index,
                 "name": step.get("name") or "Passo %s" % index,
                 "wait_days": int(step.get("wait_days") or 0),
-                "template_id": template["id"],
                 "require_approval": True,
             }
         )
+    return result
+
+
+def onboarding_sequence_steps(payload, template, content):
+    result = []
+    for step in onboarding_sequence_step_blueprint(payload, content):
+        item = dict(step)
+        item["template_id"] = template["id"]
+        result.append(item)
     return result
 
 
@@ -6050,6 +6058,230 @@ def run_workspace_onboarding(conn, payload):
         "onboarding_run": {"id": cursor.lastrowid, "summary": summary, "created_at": timestamp},
         "workspace_context": workspace_context(conn),
     }
+
+
+def parse_playbook_execution_plan_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["plan"] = json.loads(data.pop("plan_json") or "{}")
+    data["diff"] = json.loads(data.pop("diff_json") or "{}")
+    data["created_artifacts"] = json.loads(data.pop("created_artifacts_json") or "{}")
+    return data
+
+
+def get_playbook_execution_plan(conn, plan_id):
+    org_id = current_org_id(conn)
+    row = conn.execute(
+        """
+        SELECT plan.*, pb.name AS playbook_name, ver.version_number
+        FROM playbook_execution_plans plan
+        JOIN playbooks pb ON pb.id = plan.playbook_id AND pb.org_id = plan.org_id
+        JOIN playbook_versions ver ON ver.id = plan.version_id
+        WHERE plan.id = ? AND plan.org_id = ?
+        """,
+        (int(plan_id), org_id),
+    ).fetchone()
+    return parse_playbook_execution_plan_row(row)
+
+
+def list_playbook_execution_plans(conn, params=None):
+    org_id = current_org_id(conn)
+    params = params or {}
+    where = ["plan.org_id = ?"]
+    values = [org_id]
+    if params.get("status"):
+        where.append("plan.status = ?")
+        values.append(params.get("status"))
+    rows = conn.execute(
+        """
+        SELECT plan.*, pb.name AS playbook_name, ver.version_number
+        FROM playbook_execution_plans plan
+        JOIN playbooks pb ON pb.id = plan.playbook_id AND pb.org_id = plan.org_id
+        JOIN playbook_versions ver ON ver.id = plan.version_id
+        WHERE %s
+        ORDER BY plan.id DESC
+        LIMIT ?
+        """
+        % " AND ".join(where),
+        values + [min(int(params.get("limit", 50) or 50), 200)],
+    ).fetchall()
+    return {"items": [parse_playbook_execution_plan_row(row) for row in rows]}
+
+
+def playbook_version_from_payload(playbook, version_id=None):
+    versions = playbook.get("versions") or []
+    if version_id:
+        selected = next((version for version in versions if int(version["id"]) == int(version_id)), None)
+    else:
+        selected = playbook.get("active_version")
+    if not selected:
+        raise ValueError("Versao do playbook nao encontrada")
+    return selected
+
+
+def playbook_execution_diff(conn, plan):
+    org_id = current_org_id(conn)
+    counts = {}
+    for key, table in (
+        ("icp_rules", "icp_rules"),
+        ("email_templates", "email_templates"),
+        ("sequences", "sequences"),
+        ("objectives", "objectives"),
+    ):
+        row = conn.execute("SELECT COUNT(*) AS total FROM %s WHERE org_id = ?" % table, (org_id,)).fetchone()
+        counts[key] = int(row["total"] or 0)
+    return {
+        "current_counts": counts,
+        "creates": [
+            {"type": "playbook_application", "name": plan["playbook_application"]["note"]},
+            {"type": "icp_rule", "name": plan["icp_rule"]["name"]},
+            {"type": "email_template", "name": plan["email_template"]["name"]},
+            {"type": "sequence", "name": plan["sequence"]["name"]},
+            {"type": "objective", "name": plan["okr"]["title"]},
+        ],
+        "guards": [
+            "Template sera criado pelo backend com rodape de compliance.",
+            "Sequencia sera criada com aprovacao humana obrigatoria.",
+            "Nenhum lead sera inscrito e nenhum envio real sera feito.",
+        ],
+    }
+
+
+def build_playbook_execution_plan(conn, playbook, version, payload):
+    payload = payload or {}
+    profile = ensure_company_profile(conn)
+    content = version.get("content") or {}
+    icp_payload = dict(payload.get("icp") or {})
+    template_payload = onboarding_template_payload(payload.get("template") or {}, profile, content)
+    validate_editable_template(template_payload["subject"], template_payload["body"])
+    sequence_payload = dict(payload.get("sequence") or {})
+    okr_payload = onboarding_okr_payload(payload.get("okr") or {}, profile, content)
+    return {
+        "playbook_application": {
+            "playbook_id": playbook["id"],
+            "version_id": version["id"],
+            "note": payload.get("apply_note") or "Aplicacao proposta por plano de execucao.",
+        },
+        "icp_rule": {
+            "name": icp_payload.get("name") or "ICP do playbook - %s" % playbook["name"],
+            "description": icp_payload.get("description") or "Criado a partir de plano de execucao de playbook.",
+            "criteria": onboarding_icp_criteria(icp_payload.get("criteria") or icp_payload, content),
+        },
+        "email_template": template_payload,
+        "sequence": {
+            "name": sequence_payload.get("name") or "Cadencia do playbook - %s" % playbook["name"],
+            "description": sequence_payload.get("description") or "Criada a partir de plano de execucao de playbook.",
+            "steps": onboarding_sequence_step_blueprint(sequence_payload, content),
+        },
+        "okr": okr_payload,
+    }
+
+
+def create_playbook_execution_plan(conn, playbook_id, payload):
+    org_id = current_org_id(conn)
+    playbook = get_playbook(conn, int(playbook_id))
+    if not playbook:
+        raise ValueError("Playbook nao encontrado")
+    version = playbook_version_from_payload(playbook, (payload or {}).get("version_id"))
+    plan = build_playbook_execution_plan(conn, playbook, version, payload or {})
+    diff = playbook_execution_diff(conn, plan)
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO playbook_execution_plans (
+            org_id, playbook_id, version_id, status, plan_json, diff_json,
+            created_artifacts_json, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            org_id,
+            playbook["id"],
+            version["id"],
+            "draft",
+            json.dumps(plan, ensure_ascii=True),
+            json.dumps(diff, ensure_ascii=True),
+            "{}",
+            timestamp,
+        ),
+    )
+    audit(
+        conn,
+        "create_playbook_execution_plan",
+        "playbook_execution_plan",
+        cursor.lastrowid,
+        {"playbook_id": playbook["id"], "version_id": version["id"]},
+        org_id=org_id,
+    )
+    return get_playbook_execution_plan(conn, cursor.lastrowid)
+
+
+def apply_playbook_execution_plan(conn, plan_id, payload=None):
+    org_id = current_org_id(conn)
+    execution_plan = get_playbook_execution_plan(conn, int(plan_id))
+    if not execution_plan:
+        raise ValueError("Plano de execucao nao encontrado")
+    if execution_plan["status"] != "draft":
+        raise ValueError("Plano de execucao ja foi aplicado")
+    plan = execution_plan["plan"]
+    application = apply_playbook(
+        conn,
+        execution_plan["playbook_id"],
+        {
+            "version_id": execution_plan["version_id"],
+            "note": (payload or {}).get("note") or plan["playbook_application"]["note"],
+        },
+    )
+    icp_rule = create_icp_rule(conn, plan["icp_rule"])
+    template = create_email_template(conn, plan["email_template"])
+    sequence_steps = []
+    for step in plan["sequence"]["steps"]:
+        item = dict(step)
+        item["template_id"] = template["id"]
+        sequence_steps.append(item)
+    sequence = create_sequence(
+        conn,
+        {
+            "name": plan["sequence"]["name"],
+            "description": plan["sequence"].get("description") or "",
+            "steps": sequence_steps,
+        },
+    )
+    objective = create_okr(conn, plan["okr"])
+    artifacts = {
+        "playbook_application_id": application["id"],
+        "icp_rule_id": icp_rule["id"],
+        "template_id": template["id"],
+        "sequence_id": sequence["id"],
+        "objective_id": objective["id"],
+    }
+    timestamp = now_iso()
+    conn.execute(
+        """
+        UPDATE playbook_execution_plans
+        SET status = 'applied', created_artifacts_json = ?, applied_at = ?
+        WHERE id = ? AND org_id = ?
+        """,
+        (json.dumps(artifacts, ensure_ascii=True), timestamp, int(plan_id), org_id),
+    )
+    audit(
+        conn,
+        "apply_playbook_execution_plan",
+        "playbook_execution_plan",
+        int(plan_id),
+        artifacts,
+        org_id=org_id,
+    )
+    result = get_playbook_execution_plan(conn, int(plan_id))
+    result["created"] = {
+        "active_application": application,
+        "icp_rule": icp_rule,
+        "template": template,
+        "sequence": sequence,
+        "objective": objective,
+    }
+    return result
 
 
 NOTIFICATION_STATUSES = {"pending", "sent", "read", "dismissed"}

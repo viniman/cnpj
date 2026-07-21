@@ -11,6 +11,7 @@ from .services import (
     activate_agent_config,
     agent_governance,
     apply_playbook,
+    apply_playbook_execution_plan,
     approve_sequence_step,
     audit_events,
     create_icp_rule,
@@ -25,6 +26,7 @@ from .services import (
     create_meeting_from_handoff,
     clone_playbook_to_workspace,
     create_playbook,
+    create_playbook_execution_plan,
     create_playbook_version,
     create_sequence,
     create_workspace,
@@ -60,6 +62,7 @@ from .services import (
     list_lists,
     list_meetings,
     list_notifications,
+    list_playbook_execution_plans,
     okr_dashboard,
     playbook_library,
     list_priority_queue,
@@ -176,6 +179,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(agent_governance(conn))
                 elif parsed.path == "/api/playbooks":
                     self.send_json(playbook_library(conn))
+                elif parsed.path == "/api/playbook-execution-plans":
+                    self.send_json(list_playbook_execution_plans(conn, params))
                 elif parsed.path == "/api/notifications":
                     self.send_json(list_notifications(conn, params))
                 elif parsed.path == "/api/workspace-context":
@@ -391,6 +396,10 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, apply_playbook(conn, int(parts[2]), data), 201)
                 elif len(parts) == 4 and parts[1] == "playbooks" and parts[3] == "clone":
                     self.send_json_commit(conn, clone_playbook_to_workspace(conn, int(parts[2]), data), 201)
+                elif len(parts) == 4 and parts[1] == "playbooks" and parts[3] == "execution-plans":
+                    self.send_json_commit(conn, create_playbook_execution_plan(conn, int(parts[2]), data), 201)
+                elif len(parts) == 4 and parts[1] == "playbook-execution-plans" and parts[3] == "apply":
+                    self.send_json_commit(conn, apply_playbook_execution_plan(conn, int(parts[2]), data), 201)
                 elif parsed.path == "/api/notifications/generate":
                     self.send_json_commit(conn, generate_notifications(conn), 201)
                 elif len(parts) == 4 and parts[1] == "notifications" and parts[3] == "mark-read":

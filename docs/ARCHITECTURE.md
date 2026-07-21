@@ -84,6 +84,8 @@ Tabelas principais:
   workspace.
 - `workspace_onboarding_runs`: historico do wizard de onboarding operacional,
   com os IDs de playbook, ICP, template, sequencia, OKR e configuracao criados.
+- `playbook_execution_plans`: planos revisaveis para materializar playbooks em
+  ICP, template, sequencia e OKR, com diff, status e artefatos criados.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -153,6 +155,9 @@ Tabelas principais:
 - O wizard de onboarding compoe servicos existentes e registra
   `workspace_onboarding_runs`; ele nao cria envio real nem contorna aprovacao
   humana de sequencias.
+- Planos de execucao de playbook separam preview de aplicacao: criar plano nao
+  cria artefatos operacionais, e aplicar plano e uma acao explicita auditada no
+  workspace ativo.
 - A auditoria operacional lida por `/api/audit` usa `current_org_id(conn)`;
   uma visao global administrativa exigira endpoint e permissao proprios.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo
