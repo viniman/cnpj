@@ -24,6 +24,7 @@ const state = {
   workspaceContext: null,
   workspaceComparison: null,
   saasAccount: null,
+  officialCheckpoints: [],
   scoringConfig: null,
   companyScoringConfig: null,
   scoreConfigVersions: [],
@@ -119,7 +120,7 @@ async function loadViewData(view = state.view) {
     await loadCompanies();
   }
   if (view === "lists") await loadLists(true);
-  if (view === "import") await loadOfficialCatalog();
+  if (view === "import") await Promise.all([loadOfficialCatalog(), loadOfficialCheckpoints()]);
   if (view === "experiments") {
     await loadLists();
     await loadExperiments();
@@ -1836,22 +1837,81 @@ function renderOfficialFiles(files) {
   );
 }
 
+async function loadOfficialCheckpoints() {
+  const container = $("#officialCheckpoints");
+  if (!container) return;
+  const data = await api("/api/sources/official/checkpoints");
+  state.officialCheckpoints = data.items || [];
+  renderOfficialCheckpoints(state.officialCheckpoints);
+}
+
+function officialCheckpointTone(status) {
+  if (status === "completed") return "green";
+  if (status === "failed") return "red";
+  if (status === "running") return "amber";
+  return "blue";
+}
+
+function renderOfficialCheckpoints(items) {
+  const container = $("#officialCheckpoints");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">Nenhum checkpoint de importacao oficial.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["Snapshot", "Chunk", "Status", "Prox. offset", "Lote", "Importadas", "Erros", "Atualizado", ""],
+    items.map((item) => [
+      escapeHtml(item.snapshot),
+      escapeHtml(item.chunk),
+      badge(item.status || "-", officialCheckpointTone(item.status)),
+      escapeHtml(item.next_offset || 0),
+      escapeHtml(item.limit_per_run || "-"),
+      escapeHtml(item.imported_rows || 0),
+      escapeHtml(item.error_rows || 0),
+      escapeHtml(fmt(item.updated_at)),
+      item.status === "completed"
+        ? `<span class="muted">concluido</span>`
+        : `<button class="row-action" data-official-resume="${escapeHtml(item.id)}">Retomar</button>`,
+    ]),
+  );
+}
+
 async function syncOfficial(modeOverride) {
   const mode = modeOverride || $("#officialMode").value;
   const snapshot = $("#officialSnapshot").value.trim();
   const chunk = Number($("#officialChunk").value || 1);
   const limit = Number($("#officialLimit").value || 1000);
+  const offsetRaw = $("#officialOffset").value.trim();
+  const resume = $("#officialResume").checked;
   if (!snapshot) return showStatus("Descubra ou informe o snapshot oficial.", "warn");
   if (mode === "full" && !window.confirm("A base completa pode baixar varios GB. Continuar?")) return;
   showStatus("Sincronizacao oficial iniciada. Isso pode demorar conforme o tamanho dos arquivos.");
+  const payload = { snapshot, chunk, limit, mode, resume };
+  if (offsetRaw) payload.offset = Number(offsetRaw);
   const result = await api("/api/sources/official/sync", {
     method: "POST",
-    body: JSON.stringify({ snapshot, chunk, limit, mode }),
+    body: JSON.stringify(payload),
   });
   const imported = result.imported ? ` / ${result.imported.imported_rows} empresas importadas` : "";
-  showStatus(`${result.downloaded.length} arquivos oficiais processados${imported}.`);
+  const checkpoint = result.checkpoint ? ` / checkpoint ${result.checkpoint.status} no offset ${result.checkpoint.next_offset}` : "";
+  showStatus(`${result.downloaded.length} arquivos oficiais processados${imported}${checkpoint}.`);
+  $("#officialOffset").value = "";
+  await loadOfficialCheckpoints();
   await loadDashboard();
   await loadCompanies();
+}
+
+async function resumeOfficialCheckpoint(checkpointId) {
+  const checkpoint = state.officialCheckpoints.find((item) => String(item.id) === String(checkpointId));
+  if (!checkpoint) return;
+  $("#officialSnapshot").value = checkpoint.snapshot;
+  $("#officialChunk").value = checkpoint.chunk;
+  $("#officialLimit").value = checkpoint.limit_per_run || $("#officialLimit").value || 1000;
+  $("#officialMode").value = "chunk";
+  $("#officialResume").checked = true;
+  $("#officialOffset").value = "";
+  await syncOfficial("chunk");
 }
 
 async function lookupBrasilApi() {
@@ -3166,6 +3226,12 @@ function wireEvents() {
   $("#discoverOfficialBtn").addEventListener("click", loadOfficialCatalog);
   $("#syncOfficialBtn").addEventListener("click", () => syncOfficial());
   $("#downloadDomainsBtn").addEventListener("click", () => syncOfficial("domains"));
+  $("#refreshOfficialCheckpointsBtn").addEventListener("click", loadOfficialCheckpoints);
+  $("#officialCheckpoints").addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-official-resume]");
+    if (!button) return;
+    await resumeOfficialCheckpoint(button.dataset.officialResume);
+  });
   $("#brasilApiBtn").addEventListener("click", lookupBrasilApi);
   $("#enrichCompanyBtn").addEventListener("click", enrichCompanyFromForm);
   $("#loadEnrichmentBtn").addEventListener("click", loadEnrichmentFromForm);
