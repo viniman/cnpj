@@ -1614,3 +1614,58 @@ Resultado esperado nesta etapa:
 Ran 72 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 25 de playbooks por workspace
+
+Branch: `feature/25-playbook-context-foundation`
+
+Estado inicial:
+
+- Fase 24 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 72 tests`, `OK` usando `TEMP/TMP` em `D:`
+  porque o drive `C:` esta sem espaco livre no ambiente local.
+
+Meta da fase:
+
+- Migrar perfil, playbooks, versoes e aplicacao ativa para o workspace ativo.
+- Garantir default idempotente por workspace.
+- Bloquear playbook ou versao de outro workspace.
+
+Documento principal:
+
+- `docs/PLAYBOOK_CONTEXT_SPEC.md`
+
+Commits:
+
+- `655656b docs: define playbook context phase`
+- `70aec97 feat: scope playbooks to active workspace`
+
+Implementado:
+
+- Perfil operacional resolvido pelo workspace ativo.
+- Default de playbook criado de forma idempotente por workspace.
+- Criacao, listagem e detalhe de playbooks filtrados por workspace ativo.
+- Criacao de versao recusando playbook de outro workspace.
+- Aplicacao de playbook/versao recusando IDs de outro workspace.
+- Aplicacao ativa retornando somente o workspace ativo.
+- Auditoria de playbooks gravada no contexto ativo.
+- Teste multi-workspace em `tests/test_playbooks.py`.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_playbooks
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 73 tests
+OK
+```

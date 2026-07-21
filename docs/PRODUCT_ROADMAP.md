@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 24 implementada localmente em `feature/24-agent-governance-context-foundation`.
+Status: fase 25 implementada localmente em `feature/25-playbook-context-foundation`.
 
 Fases:
 
@@ -131,6 +131,7 @@ Fases:
 18. Respostas, handoffs e reunioes por workspace ativo.
 19. Command Center e replay por workspace ativo.
 20. Governanca do agente e custos por workspace ativo.
+21. Playbooks e aplicacao ativa por workspace ativo.
 
 ## Camada 6 - SaaS monetizavel
 

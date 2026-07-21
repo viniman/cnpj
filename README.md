@@ -788,6 +788,8 @@ python -m unittest discover -s tests
   inbox, Kanban, atividade e timeline seguem a empresa selecionada na topbar.
 - Governanca do agente e custos de IA tambem usam o workspace ativo; cada
   empresa tem configuracao ativa, simulacoes e custos proprios.
+- Playbooks tambem usam o workspace ativo; biblioteca, versoes, perfil
+  operacional e aplicacao ativa nao atravessam empresas selecionadas na topbar.
 
 ## Proximas fases sugeridas
 

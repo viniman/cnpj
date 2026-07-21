@@ -142,6 +142,9 @@ Tabelas principais:
   somente dados do workspace ativo.
 - Governanca do agente e custos de IA leem `current_org_id(conn)` para
   configuracoes, simulacoes, ativacao e contabilidade.
+- Playbooks, versoes, perfil operacional e aplicacao ativa leem
+  `current_org_id(conn)`; defaults sao idempotentes por workspace e IDs de
+  outro contexto sao recusados.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo
   vinculo com listas do workspace ativo.
 - Supressao e opt-out sao consultados globalmente pelo modulo de higiene,

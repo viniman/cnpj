@@ -5168,7 +5168,7 @@ def ensure_company_profile_for_org(conn, org_id, defaults=None):
 
 
 def ensure_company_profile(conn):
-    return ensure_company_profile_for_org(conn, ORG_ID)
+    return ensure_company_profile_for_org(conn, current_org_id(conn))
 
 
 def parse_playbook_version_row(row):
@@ -5216,10 +5216,11 @@ def parse_playbook_row(conn, row):
 
 
 def ensure_default_playbooks(conn):
+    org_id = current_org_id(conn)
     ensure_company_profile(conn)
     existing = conn.execute(
         "SELECT id FROM playbooks WHERE org_id = ? LIMIT 1",
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()
     if existing:
         return
@@ -5233,7 +5234,7 @@ def ensure_default_playbooks(conn):
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                ORG_ID,
+                org_id,
                 item["name"],
                 item["description"],
                 "active",
@@ -5244,7 +5245,7 @@ def ensure_default_playbooks(conn):
         )
         playbook = conn.execute(
             "SELECT * FROM playbooks WHERE org_id = ? AND name = ?",
-            (ORG_ID, item["name"]),
+            (org_id, item["name"]),
         ).fetchone()
         version = conn.execute(
             "SELECT id FROM playbook_versions WHERE playbook_id = ? LIMIT 1",
@@ -5271,7 +5272,14 @@ def ensure_default_playbooks(conn):
             ),
         )
         if cursor.rowcount:
-            audit(conn, "create_default_playbook", "playbook", playbook["id"], {"name": item["name"]})
+            audit(
+                conn,
+                "create_default_playbook",
+                "playbook",
+                playbook["id"],
+                {"name": item["name"]},
+                org_id=org_id,
+            )
 
 
 def next_playbook_version(conn, playbook_id):
@@ -5283,15 +5291,17 @@ def next_playbook_version(conn, playbook_id):
 
 
 def get_playbook(conn, playbook_id):
+    org_id = current_org_id(conn)
     ensure_default_playbooks(conn)
     row = conn.execute(
         "SELECT * FROM playbooks WHERE id = ? AND org_id = ?",
-        (int(playbook_id), ORG_ID),
+        (int(playbook_id), org_id),
     ).fetchone()
     return parse_playbook_row(conn, row)
 
 
 def list_playbooks(conn):
+    org_id = current_org_id(conn)
     ensure_default_playbooks(conn)
     rows = conn.execute(
         """
@@ -5300,18 +5310,19 @@ def list_playbooks(conn):
         WHERE org_id = ?
         ORDER BY status ASC, updated_at DESC, id DESC
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchall()
     return [parse_playbook_row(conn, row) for row in rows]
 
 
 def create_playbook(conn, payload):
+    org_id = current_org_id(conn)
     ensure_company_profile(conn)
     payload = payload or {}
     name = (payload.get("name") or "").strip()
     if not name:
         raise ValueError("Nome do playbook e obrigatorio")
-    if conn.execute("SELECT id FROM playbooks WHERE org_id = ? AND name = ?", (ORG_ID, name)).fetchone():
+    if conn.execute("SELECT id FROM playbooks WHERE org_id = ? AND name = ?", (org_id, name)).fetchone():
         raise ValueError("Ja existe um playbook com esse nome")
     content = normalize_playbook_content(payload.get("content"))
     timestamp = now_iso()
@@ -5323,7 +5334,7 @@ def create_playbook(conn, payload):
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             name,
             payload.get("description") or "",
             payload.get("status") or "active",
@@ -5350,15 +5361,16 @@ def create_playbook(conn, payload):
             timestamp,
         ),
     )
-    audit(conn, "create_playbook", "playbook", cursor.lastrowid, {"name": name})
+    audit(conn, "create_playbook", "playbook", cursor.lastrowid, {"name": name}, org_id=org_id)
     return get_playbook(conn, cursor.lastrowid)
 
 
 def create_playbook_version(conn, playbook_id, payload):
+    org_id = current_org_id(conn)
     ensure_default_playbooks(conn)
     playbook = conn.execute(
         "SELECT * FROM playbooks WHERE id = ? AND org_id = ?",
-        (int(playbook_id), ORG_ID),
+        (int(playbook_id), org_id),
     ).fetchone()
     if not playbook:
         raise ValueError("Playbook nao encontrado")
@@ -5396,9 +5408,24 @@ def create_playbook_version(conn, playbook_id, payload):
         "UPDATE playbooks SET updated_at = ? WHERE id = ?",
         (timestamp, int(playbook_id)),
     )
-    audit(conn, "create_playbook_version", "playbook_version", cursor.lastrowid, {"playbook_id": int(playbook_id)})
+    audit(
+        conn,
+        "create_playbook_version",
+        "playbook_version",
+        cursor.lastrowid,
+        {"playbook_id": int(playbook_id)},
+        org_id=org_id,
+    )
     return parse_playbook_version_row(
-        conn.execute("SELECT * FROM playbook_versions WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        conn.execute(
+            """
+            SELECT ver.*
+            FROM playbook_versions ver
+            JOIN playbooks pb ON pb.id = ver.playbook_id
+            WHERE ver.id = ? AND pb.org_id = ?
+            """,
+            (cursor.lastrowid, org_id),
+        ).fetchone()
     )
 
 
@@ -5411,30 +5438,32 @@ def parse_playbook_application_row(row):
 
 
 def active_playbook_application(conn):
+    org_id = current_org_id(conn)
     row = conn.execute(
         """
         SELECT app.*, profile.display_name AS company_name, pb.name AS playbook_name,
                ver.version_number, ver.description AS version_description,
                ver.content_json
         FROM workspace_playbook_applications app
-        JOIN company_profiles profile ON profile.id = app.company_profile_id
-        JOIN playbooks pb ON pb.id = app.playbook_id
+        JOIN company_profiles profile ON profile.id = app.company_profile_id AND profile.org_id = app.org_id
+        JOIN playbooks pb ON pb.id = app.playbook_id AND pb.org_id = app.org_id
         JOIN playbook_versions ver ON ver.id = app.version_id
         WHERE app.org_id = ? AND app.status = 'active'
         ORDER BY app.id DESC
         LIMIT 1
         """,
-        (ORG_ID,),
+        (org_id,),
     ).fetchone()
     return parse_playbook_application_row(row)
 
 
 def apply_playbook(conn, playbook_id, payload):
+    org_id = current_org_id(conn)
     ensure_default_playbooks(conn)
     payload = payload or {}
     playbook = conn.execute(
         "SELECT * FROM playbooks WHERE id = ? AND org_id = ?",
-        (int(playbook_id), ORG_ID),
+        (int(playbook_id), org_id),
     ).fetchone()
     if not playbook:
         raise ValueError("Playbook nao encontrado")
@@ -5469,7 +5498,7 @@ def apply_playbook(conn, playbook_id, payload):
         SET status = 'historical'
         WHERE org_id = ? AND status = 'active'
         """,
-        (ORG_ID,),
+        (org_id,),
     )
     cursor = conn.execute(
         """
@@ -5479,7 +5508,7 @@ def apply_playbook(conn, playbook_id, payload):
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            ORG_ID,
+            org_id,
             profile["id"],
             int(playbook_id),
             version["id"],
@@ -5494,6 +5523,7 @@ def apply_playbook(conn, playbook_id, payload):
         "workspace_playbook_application",
         cursor.lastrowid,
         {"playbook_id": int(playbook_id), "version_id": version["id"]},
+        org_id=org_id,
     )
     return active_playbook_application(conn)
 
