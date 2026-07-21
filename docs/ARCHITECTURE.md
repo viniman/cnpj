@@ -100,6 +100,8 @@ Tabelas principais:
   assinatura ativa por workspace, com creditos concedidos pelo ledger.
 - `api_usage_events`: auditoria de chamadas de API publica, incluindo sucesso,
   bloqueio por escopo, rate limit e saldo insuficiente.
+- `official_import_checkpoints`: retomada de importacao oficial por snapshot e
+  chunk.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -128,6 +130,8 @@ Tabelas principais:
   versao ativa, nao reativa silenciosamente uma versao antiga.
 - Diffs de configuracao de score sao recomputados a partir dos snapshots
   versionados do workspace ativo; a comparacao nao cria estado paralelo.
+- Importacao oficial registra checkpoints globais por `snapshot + chunk`; o
+  checkpoint e trilha de execucao da base bruta e nao pertence a um workspace.
 - Segmentos salvos sao fotografias de filtros normalizados no workspace ativo;
   a conversao para ICP preserva os filtros originais em `criteria.source_filters`.
 - Conteudo de resposta recebida e tratado como dado externo, nao instrucao.

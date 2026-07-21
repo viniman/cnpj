@@ -305,6 +305,22 @@ Invoke-RestMethod `
   -ContentType "application/json"
 ```
 
+Retomar automaticamente o mesmo snapshot/chunk a partir do ultimo checkpoint:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/sources/official/sync" `
+  -Body '{"mode":"chunk","snapshot":"2026-06","chunk":1,"limit":1000,"resume":true}' `
+  -ContentType "application/json"
+```
+
+Listar checkpoints de importacao oficial:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/sources/official/checkpoints"
+```
+
 Atencao: cada chunk oficial pode ter centenas de MB, e a base completa mensal tem varios GB. O MVP suporta descoberta, download e importacao limitada em SQLite. Para a carga nacional completa, use a migracao planejada para PostgreSQL + staging + COPY.
 
 ## Consulta por API
@@ -919,6 +935,7 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/import`
 - `POST /api/seed`
 - `GET /api/sources/official`
+- `GET /api/sources/official/checkpoints`
 - `POST /api/sources/official/sync`
 - `POST /api/sources/official/download`
 - `POST /api/sources/brasilapi/cnpj`
@@ -1054,11 +1071,13 @@ python -m unittest discover -s tests
 - Segmentos salvos tambem usam o workspace ativo; filtros normalizados ficam em
   `saved_filters`, podem ser reaplicados na busca e podem gerar `icp_rules`
   preservando os filtros originais em `criteria.source_filters`.
+- Importacao oficial usa checkpoints globais por `snapshot + chunk`; `resume`
+  retoma do `next_offset` salvo sem o operador procurar manualmente onde parou.
 
 ## Proximas fases sugeridas
 
 1. PostgreSQL com `pg_trgm` e `unaccent`.
-2. Importador oficial escalavel com staging e checkpoints.
+2. Staging PostgreSQL e `COPY` para carga nacional completa.
 3. Autenticacao real e RBAC.
 4. Tags operacionais no frontend.
 5. Canal de solicitacao de titular.
