@@ -1301,6 +1301,35 @@
             </div>
             <div id="scoringConfigTable" class="table-wrap"></div>
           </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Score empresa</h2>
+              <button id="refreshCompanyScoringConfigBtn" class="button">Atualizar</button>
+            </div>
+            <div class="form-grid two">
+              <label>
+                Nome
+                <input id="companyScoringConfigName" class="input" placeholder="Score de empresa B2B" />
+              </label>
+              <label>
+                Limite de recalculo
+                <input id="companyRescoreLimit" class="input" type="number" min="1" max="5000" value="500" />
+              </label>
+            </div>
+            <div class="form-grid one">
+              <label>
+                Regras JSON
+                <textarea id="companyScoringRulesJson" class="textarea scoring-json"></textarea>
+              </label>
+            </div>
+            <div class="toolbar">
+              <button id="saveCompanyScoringConfigBtn" class="button primary">Salvar score empresa</button>
+              <button id="rescoreCompaniesBtn" class="button">Recalcular empresas</button>
+              <div id="companyScoringConfigSummary" class="muted">-</div>
+            </div>
+            <div id="companyRescoreSummary" class="muted">-</div>
+            <div id="companyScoringConfigTable" class="table-wrap"></div>
+          </section>
         </section>
 
         <section id="audit" class="view">
