@@ -28,7 +28,8 @@ Proximos hardenings:
 Prioridade imediata.
 
 Status: fase 37 implementada localmente em
-`feature/37-scoring-config-version-history`.
+`feature/37-scoring-config-version-history`; fase 38 em andamento em
+`feature/38-scoring-config-diff-preview`.
 
 Meta:
 
@@ -48,6 +49,7 @@ Fases:
 7. Motor de score configuravel por workspace.
 8. Score de empresa configuravel por workspace, com overlay por tenant.
 9. Historico e rollback de configuracoes de score por workspace.
+10. Diff visual antes de restaurar versoes de configuracao de score.
 
 ## Camada 2 - Enriquecimento responsavel
 

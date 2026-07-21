@@ -1022,3 +1022,30 @@ Consequencias:
 - Comparacao visual de diffs fica para fase posterior.
 - Apos rollback de score de empresa, o operador ainda deve recalcular empresas
   para atualizar `company_workspace_scores`.
+
+## ADR-040 - Diff de score compara snapshots, nao estado paralelo
+
+Data: 2026-07-21
+
+Decisao:
+
+- A comparacao visual de configuracoes de score deve usar os snapshots salvos
+  em `workspace_score_config_versions`.
+- O diff sempre compara a versao ativa atual com uma versao escolhida do mesmo
+  workspace e tipo.
+- O resultado e uma composicao de leitura e nao cria tabela propria nem altera
+  configuracao.
+
+Racional:
+
+- A fase 37 ja estabeleceu snapshots como fonte auditavel de configuracoes.
+- Criar uma tabela paralela de diff poderia ficar obsoleta assim que uma nova
+  versao fosse ativada.
+- O operador precisa entender o efeito de um rollback como "ativo agora" para
+  "snapshot escolhido", nao como comparacao abstrata entre dois JSONs soltos.
+
+Consequencias:
+
+- O diff pode ser recalculado a qualquer momento a partir do historico.
+- Rollback continua sendo a unica acao que muda configuracao ativa.
+- Impacto estatistico em empresas recalculadas permanece como fase futura.
