@@ -5,6 +5,7 @@ import unittest
 from radar_cnpj.database import connect, init_db
 from radar_cnpj.services import (
     create_workspace,
+    get_score_config_version_diff,
     get_workspace_company_score_config,
     get_workspace_scoring_config,
     list_workspace_score_config_versions,
@@ -100,6 +101,54 @@ class ScoringConfigVersionsTest(unittest.TestCase):
             self.assertEqual(restored["active_version"]["version_number"], 3)
             self.assertEqual(active_after_rollback["change_note"], "Voltar default")
 
+    def test_email_config_diff_compares_active_to_selected_version(self):
+        with connect() as conn:
+            get_workspace_scoring_config(conn)
+            update_workspace_scoring_config(
+                conn,
+                {
+                    "name": "Scoring RH",
+                    "email_prefix_rules": {"rh": {"area": "decisor RH", "score": 82, "label": "decision_maker"}},
+                    "change_note": "Valorizar RH",
+                },
+            )
+            versions = list_workspace_score_config_versions(conn, {"type": "email"})["items"]
+            original_version = [item for item in versions if item["version_number"] == 1][0]
+
+            diff = get_score_config_version_diff(conn, original_version["id"])
+            by_path = {item["path"]: item for item in diff["changes"]}
+
+            self.assertEqual(diff["config_type"], "email")
+            self.assertEqual(diff["active_version"]["version_number"], 2)
+            self.assertEqual(diff["version"]["version_number"], 1)
+            self.assertTrue(diff["summary"]["has_changes"])
+            self.assertEqual(by_path["email_prefix_rules.rh.score"]["before"], 82)
+            self.assertEqual(by_path["email_prefix_rules.rh.score"]["after"], 35)
+            self.assertEqual(by_path["email_prefix_rules.rh.score"]["change_type"], "changed")
+
+    def test_company_config_diff_compares_active_to_selected_version(self):
+        with connect() as conn:
+            get_workspace_company_score_config(conn)
+            update_workspace_company_score_config(
+                conn,
+                {
+                    "name": "Score Saude",
+                    "rules": {"sector_bonus": {"Saude": 30}},
+                    "change_note": "Priorizar Saude",
+                },
+            )
+            versions = list_workspace_score_config_versions(conn, {"type": "company"})["items"]
+            original_version = [item for item in versions if item["version_number"] == 1][0]
+
+            diff = get_score_config_version_diff(conn, original_version["id"])
+            by_path = {item["path"]: item for item in diff["changes"]}
+
+            self.assertEqual(diff["config_type"], "company")
+            self.assertEqual(diff["active_version"]["version_number"], 2)
+            self.assertEqual(diff["version"]["version_number"], 1)
+            self.assertEqual(by_path["rules.sector_bonus.Saude"]["before"], 30)
+            self.assertEqual(by_path["rules.sector_bonus.Saude"]["after"], 7)
+
     def test_versions_do_not_cross_workspaces(self):
         with connect() as conn:
             update_workspace_scoring_config(
@@ -121,6 +170,8 @@ class ScoringConfigVersionsTest(unittest.TestCase):
             self.assertEqual(scoped_versions[0]["org_id"], workspace["id"])
             with self.assertRaises(ValueError):
                 rollback_workspace_score_config_version(conn, internal_old_version["id"])
+            with self.assertRaises(ValueError):
+                get_score_config_version_diff(conn, internal_old_version["id"])
 
 
 if __name__ == "__main__":

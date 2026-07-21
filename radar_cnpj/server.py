@@ -53,6 +53,7 @@ from .services import (
     get_list,
     get_workspace_company_score_config,
     get_workspace_scoring_config,
+    get_score_config_version_diff,
     lead_timeline,
     get_sequence,
     import_source,
@@ -238,6 +239,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(get_workspace_company_score_config(conn))
                 elif parsed.path == "/api/scoring/config-versions":
                     self.send_json(list_workspace_score_config_versions(conn, params))
+                elif len(parts) == 5 and parts[1] == "scoring" and parts[2] == "config-versions" and parts[4] == "diff":
+                    self.send_json(get_score_config_version_diff(conn, int(parts[3])))
                 elif len(parts) == 3 and parts[1] == "companies":
                     company = get_company(conn, int(parts[2]))
                     if not company:

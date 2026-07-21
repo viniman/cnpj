@@ -1643,6 +1643,106 @@ def list_workspace_score_config_versions(conn, params=None):
     return {"items": [score_config_version_row_to_dict(row) for row in rows]}
 
 
+_JSON_MISSING = object()
+
+
+def join_json_diff_path(path, key):
+    key = str(key)
+    if not path:
+        return key
+    return "%s.%s" % (path, key)
+
+
+def json_diff_entry(path, change_type, before=_JSON_MISSING, after=_JSON_MISSING):
+    return {
+        "path": path or "$",
+        "change_type": change_type,
+        "before": None if before is _JSON_MISSING else before,
+        "after": None if after is _JSON_MISSING else after,
+        "before_exists": before is not _JSON_MISSING,
+        "after_exists": after is not _JSON_MISSING,
+    }
+
+
+def json_diff_entries(before, after, path=""):
+    if before is _JSON_MISSING and isinstance(after, dict):
+        if not after:
+            return [json_diff_entry(path, "added", before, after)]
+        entries = []
+        for key in sorted(after):
+            entries.extend(json_diff_entries(_JSON_MISSING, after[key], join_json_diff_path(path, key)))
+        return entries
+    if after is _JSON_MISSING and isinstance(before, dict):
+        if not before:
+            return [json_diff_entry(path, "removed", before, after)]
+        entries = []
+        for key in sorted(before):
+            entries.extend(json_diff_entries(before[key], _JSON_MISSING, join_json_diff_path(path, key)))
+        return entries
+    if isinstance(before, dict) and isinstance(after, dict):
+        entries = []
+        for key in sorted(set(before.keys()) | set(after.keys())):
+            entries.extend(
+                json_diff_entries(
+                    before.get(key, _JSON_MISSING),
+                    after.get(key, _JSON_MISSING),
+                    join_json_diff_path(path, key),
+                )
+            )
+        return entries
+    if before is _JSON_MISSING:
+        return [json_diff_entry(path, "added", before, after)]
+    if after is _JSON_MISSING:
+        return [json_diff_entry(path, "removed", before, after)]
+    if before == after:
+        return [json_diff_entry(path, "unchanged", before, after)]
+    return [json_diff_entry(path, "changed", before, after)]
+
+
+def summarize_json_diff(entries):
+    summary = {"added": 0, "removed": 0, "changed": 0, "unchanged": 0}
+    for entry in entries:
+        change_type = entry.get("change_type")
+        if change_type in summary:
+            summary[change_type] += 1
+    summary["total"] = len(entries)
+    summary["change_count"] = summary["added"] + summary["removed"] + summary["changed"]
+    summary["has_changes"] = bool(summary["change_count"])
+    return summary
+
+
+def get_score_config_version_diff(conn, version_id):
+    org_id = current_org_id(conn)
+    row = conn.execute(
+        """
+        SELECT *
+        FROM workspace_score_config_versions
+        WHERE id = ? AND org_id = ?
+        """,
+        (int(version_id), org_id),
+    ).fetchone()
+    target = score_config_version_row_to_dict(row)
+    if not target:
+        raise ValueError("Versao de score nao encontrada")
+
+    config_type = normalize_score_config_type(target["config_type"])
+    if config_type == "email":
+        ensure_workspace_scoring_config(conn, org_id)
+    else:
+        ensure_workspace_company_score_config(conn, org_id)
+    active = active_score_config_version(conn, org_id, config_type)
+    before = (active or {}).get("config") or {}
+    after = target.get("config") or {}
+    entries = json_diff_entries(before, after)
+    return {
+        "config_type": config_type,
+        "version": target,
+        "active_version": active,
+        "summary": summarize_json_diff(entries),
+        "changes": entries,
+    }
+
+
 def ensure_workspace_scoring_config(conn, org_id=None):
     org_id = int(org_id or current_org_id(conn))
     row = conn.execute(

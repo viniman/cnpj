@@ -472,6 +472,13 @@ tr:hover td {
   padding: 0;
 }
 
+.inline-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -502,6 +509,29 @@ tr:hover td {
 .badge.purple {
   color: var(--purple);
   background: #f1edff;
+}
+
+.json-chip {
+  display: inline-block;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  color: #344054;
+}
+
+.score-diff-panel {
+  margin-top: 14px;
+}
+
+.diff-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 12px;
 }
 
 .detail-panel,

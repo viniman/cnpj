@@ -27,6 +27,7 @@ const state = {
   scoringConfig: null,
   companyScoringConfig: null,
   scoreConfigVersions: [],
+  scoreConfigDiff: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -2949,13 +2950,44 @@ function scoreVersionSummary(item) {
   return "-";
 }
 
+function scoreConfigChangeTone(changeType) {
+  if (changeType === "added") return "green";
+  if (changeType === "removed") return "red";
+  if (changeType === "changed") return "amber";
+  return "blue";
+}
+
+function scoreConfigChangeLabel(changeType) {
+  if (changeType === "added") return "Adicionado";
+  if (changeType === "removed") return "Removido";
+  if (changeType === "changed") return "Alterado";
+  if (changeType === "unchanged") return "Igual";
+  return changeType || "-";
+}
+
+function formatDiffValue(value, exists) {
+  if (!exists) return `<span class="muted">ausente</span>`;
+  let text;
+  if (value === null) {
+    text = "null";
+  } else if (typeof value === "object") {
+    text = JSON.stringify(value);
+  } else {
+    text = String(value);
+  }
+  if (text.length > 180) text = `${text.slice(0, 177)}...`;
+  return `<code class="json-chip">${escapeHtml(text)}</code>`;
+}
+
 async function loadScoreConfigVersions() {
   const selector = $("#scoreVersionType");
   const type = selector ? selector.value : "all";
   const suffix = type && type !== "all" ? `?type=${encodeURIComponent(type)}` : "";
   const data = await api(`/api/scoring/config-versions${suffix}`);
   state.scoreConfigVersions = data.items || [];
+  state.scoreConfigDiff = null;
   renderScoreConfigVersions(state.scoreConfigVersions);
+  renderScoreConfigDiff(null);
 }
 
 function renderScoreConfigVersions(items) {
@@ -2974,17 +3006,79 @@ function renderScoreConfigVersions(items) {
       escapeHtml(scoreVersionSummary(item)),
       escapeHtml(item.change_note || "-"),
       escapeHtml(fmt(item.activated_at || item.created_at)),
-      item.status === "active"
-        ? `<span class="muted">ativa</span>`
-        : `<button class="row-action" data-score-version-rollback="${escapeHtml(item.id)}">Restaurar</button>`,
+      `<span class="inline-actions">
+        <button class="row-action" data-score-version-diff="${escapeHtml(item.id)}">Diff</button>
+        ${
+          item.status === "active"
+            ? `<span class="muted">ativa</span>`
+            : `<button class="row-action" data-score-version-rollback="${escapeHtml(item.id)}">Restaurar</button>`
+        }
+      </span>`,
     ]),
   );
+}
+
+function renderScoreConfigDiff(diff) {
+  const panel = $("#scoreConfigDiffPanel");
+  if (!panel) return;
+  if (!diff) {
+    panel.innerHTML = `<div class="empty-state">Selecione Diff em uma versao para revisar o impacto antes de restaurar.</div>`;
+    return;
+  }
+  const summary = diff.summary || {};
+  const version = diff.version || {};
+  const active = diff.active_version || {};
+  const changedRows = (diff.changes || []).filter((item) => item.change_type !== "unchanged");
+  const visibleRows = changedRows.slice(0, 80);
+  panel.innerHTML = `
+    <div class="diff-summary">
+      <div>
+        <strong>${escapeHtml(scoreConfigTypeLabel(diff.config_type))}: v${escapeHtml(active.version_number || "-")} ativo -> v${escapeHtml(version.version_number || "-")}</strong>
+        <div class="muted">Antes e a configuracao ativa agora; depois e o snapshot escolhido.</div>
+      </div>
+      <div class="inline-actions">
+        ${badge(summary.changed || 0, "amber")} <span class="muted">alterados</span>
+        ${badge(summary.added || 0, "green")} <span class="muted">adicionados</span>
+        ${badge(summary.removed || 0, "red")} <span class="muted">removidos</span>
+      </div>
+    </div>
+    ${
+      changedRows.length
+        ? table(
+            ["Campo", "Tipo", "Antes", "Depois"],
+            visibleRows.map((item) => [
+              `<code>${escapeHtml(item.path)}</code>`,
+              badge(scoreConfigChangeLabel(item.change_type), scoreConfigChangeTone(item.change_type)),
+              formatDiffValue(item.before, item.before_exists),
+              formatDiffValue(item.after, item.after_exists),
+            ]),
+          )
+        : `<div class="empty-state">Nenhuma mudanca entre a versao ativa e esta versao.</div>`
+    }
+    ${changedRows.length > visibleRows.length ? `<div class="muted">Mostrando 80 de ${changedRows.length} campos alterados.</div>` : ""}
+  `;
+}
+
+async function loadScoreConfigVersionDiff(versionId, options = {}) {
+  const diff = await api(`/api/scoring/config-versions/${versionId}/diff`);
+  state.scoreConfigDiff = diff;
+  renderScoreConfigDiff(diff);
+  if (!options.silent) {
+    const count = diff.summary?.change_count || 0;
+    showStatus(count ? `Diff carregado com ${count} campos alterados.` : "Diff carregado sem mudancas.");
+  }
+  return diff;
 }
 
 async function rollbackScoreConfigVersion(versionId) {
   const version = state.scoreConfigVersions.find((item) => String(item.id) === String(versionId));
   const label = version ? `${scoreConfigTypeLabel(version.config_type)} v${version.version_number}` : "esta versao";
-  if (!window.confirm(`Restaurar ${label}?`)) return;
+  const diff =
+    state.scoreConfigDiff && String(state.scoreConfigDiff.version?.id) === String(versionId)
+      ? state.scoreConfigDiff
+      : await loadScoreConfigVersionDiff(versionId, { silent: true });
+  const count = diff.summary?.change_count || 0;
+  if (!window.confirm(`Restaurar ${label}? ${count} campos mudarao.`)) return;
   const result = await api(`/api/scoring/config-versions/${versionId}/rollback`, {
     method: "POST",
     body: JSON.stringify({ change_note: `Rollback via UI para ${label}` }),
@@ -3141,9 +3235,14 @@ function wireEvents() {
   $("#refreshScoreVersionsBtn").addEventListener("click", loadScoreConfigVersions);
   $("#scoreVersionType").addEventListener("change", loadScoreConfigVersions);
   $("#scoreConfigVersionsTable").addEventListener("click", async (event) => {
-    const button = event.target.closest("[data-score-version-rollback]");
-    if (!button) return;
-    await rollbackScoreConfigVersion(button.dataset.scoreVersionRollback);
+    const diffButton = event.target.closest("[data-score-version-diff]");
+    if (diffButton) {
+      await loadScoreConfigVersionDiff(diffButton.dataset.scoreVersionDiff);
+      return;
+    }
+    const rollbackButton = event.target.closest("[data-score-version-rollback]");
+    if (!rollbackButton) return;
+    await rollbackScoreConfigVersion(rollbackButton.dataset.scoreVersionRollback);
   });
   $("#suppressionBtn").addEventListener("click", addSuppression);
   $("#refreshAuditBtn").addEventListener("click", loadAudit);
