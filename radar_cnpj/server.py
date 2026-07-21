@@ -72,6 +72,7 @@ from .services import (
     list_reply_classifications,
     list_sequences,
     prepare_next_journey_step,
+    public_openapi_spec,
     public_search_companies,
     prioritize_icp_rule,
     remove_company_from_list,
@@ -179,6 +180,9 @@ class RadarHandler(SimpleHTTPRequestHandler):
     def handle_api_get(self, parsed):
         parts = [part for part in parsed.path.split("/") if part]
         params = self.query_params(parsed)
+        if parsed.path == "/api/public/openapi.json":
+            self.send_json(public_openapi_spec())
+            return
         if parsed.path == "/api/public/companies":
             with connect() as conn:
                 try:
