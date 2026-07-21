@@ -209,12 +209,25 @@ Tabelas principais:
 ## Evolucao para escala
 
 1. Migrar SQLite para PostgreSQL 16.
-2. Criar tabelas de staging para EMPRECSV, ESTABELE, SOCIOCSV, CNAECSV, MUNICCSV.
+2. Criar tabelas de staging para Empresas, Estabelecimentos, Socios, CNAEs,
+   Municipios, Naturezas, Motivos, Paises, Qualificacoes e Simples.
 3. Usar `COPY` para carga bruta e upsert em lotes.
 4. Adicionar Redis + BullMQ/Celery para jobs resumiveis.
 5. Usar pg_trgm/unaccent no Postgres e, se necessario, Meilisearch ou Typesense.
 6. Adicionar autenticacao real, RBAC e hash de senha.
 7. Adicionar backups, OpenTelemetry e testes E2E.
+
+### Plano PostgreSQL staging/COPY
+
+A fase 40 introduz uma fundacao de migracao sem mudar o runtime local:
+
+- `radar_cnpj.postgres_staging` gera DDL Postgres para `receita_staging`.
+- `GET /api/sources/official/postgres-plan` le `source_files` do SQLite e
+  monta comandos de extracao + `psql \copy`.
+- A tela `Importacao` mostra arquivos disponiveis, ausentes e indisponiveis,
+  alem de DDL copiavel.
+- O SQLite permanece como laboratorio local; a carga nacional completa deve
+  rodar em uma instancia Postgres dedicada.
 
 ## Fontes automatizadas
 

@@ -323,6 +323,24 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/sources/official/checkpoints"
 
 Atencao: cada chunk oficial pode ter centenas de MB, e a base completa mensal tem varios GB. O MVP suporta descoberta, download e importacao limitada em SQLite. Para a carga nacional completa, use a migracao planejada para PostgreSQL + staging + COPY.
 
+Gerar o plano PostgreSQL staging/COPY para os arquivos oficiais ja baixados:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/sources/official/postgres-plan?snapshot=2026-06"
+```
+
+A resposta inclui:
+
+- `ddl_sql`: schema `receita_staging` com tabelas brutas e indices;
+- `copy_plan`: comandos para extrair ZIPs e executar `psql \copy`;
+- `missing_files`: ZIPs oficiais esperados que ainda nao foram registrados;
+- `unavailable_files`: arquivos conhecidos, mas sem ZIP local baixado.
+
+Na UI, abra `Importacao` e use `Plano PostgreSQL staging` para ver metricas,
+copiar o DDL e copiar comandos por arquivo. Esta etapa nao executa carga real:
+ela prepara o operador para rodar a carga nacional em uma instancia Postgres
+dedicada.
+
 ## Consulta por API
 
 Tambem foi adicionada consulta individual via BrasilAPI:

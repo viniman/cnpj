@@ -2491,3 +2491,59 @@ OK
 node --check static\app.js
 OK
 ```
+
+## 2026-07-21 - Fase 40 de PostgreSQL staging e plano COPY
+
+Branch: `feature/40-postgres-staging-copy-plan`
+
+Estado inicial:
+
+- Fase 39 mesclada localmente no `master`.
+- A fonte oficial ja descobria, baixava e retomava importacoes por checkpoint.
+- A carga nacional completa ainda estava documentada como evolucao futura para
+  PostgreSQL/staging.
+
+Meta da fase:
+
+- Criar uma fundacao para carga bruta da Receita em PostgreSQL.
+- Gerar DDL de staging e comandos `psql \copy` sem alterar o runtime local.
+- Expor o plano na API e na tela `Importacao`.
+
+Documento principal:
+
+- `docs/POSTGRES_STAGING_COPY_SPEC.md`
+
+Commits:
+
+- `c985ffe docs: define postgres staging copy phase`
+- `85ff4f4 feat: add postgres staging copy plan`
+- `3ebcf8d feat: add postgres staging plan UI`
+
+Implementado:
+
+- Modulo `radar_cnpj.postgres_staging`.
+- DDL para `receita_staging` com `unaccent`, `pg_trgm`, tabelas brutas e
+  indices de busca.
+- Deteccao de familias oficiais e chunks a partir dos nomes de ZIP.
+- Plano COPY a partir de `source_files`, separando arquivos disponiveis,
+  indisponiveis, ausentes e ignorados.
+- Endpoint `GET /api/sources/official/postgres-plan`.
+- Painel `Plano PostgreSQL staging` na tela `Importacao`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_staging
+node --check static\app.js
+```
+
+Resultado desta etapa:
+
+```text
+python -m unittest tests.test_postgres_staging
+Ran 4 tests
+OK
+
+node --check static\app.js
+OK
+```

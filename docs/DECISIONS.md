@@ -1076,3 +1076,29 @@ Consequencias:
   PostgreSQL.
 - Jobs futuros podem usar o mesmo checkpoint para worker/cron.
 - O parser oficial precisa aceitar `offset` alem de `limit`.
+
+## ADR-042 - Staging Postgres nasce como plano operacional
+
+Data: 2026-07-21
+
+Decisao:
+
+- A fase 40 deve gerar DDL e comandos `psql \copy` para Postgres sem executar
+  carga real automaticamente.
+- O plano usa `source_files` como fonte de verdade dos ZIPs oficiais baixados.
+- Todas as tabelas de staging guardam colunas oficiais como `text` e metadados
+  `snapshot`, `chunk`, `source_file` e `loaded_at`.
+
+Racional:
+
+- A carga nacional da Receita exige Postgres, mas o MVP local ainda se beneficia
+  da simplicidade do SQLite.
+- Separar plano de execucao reduz risco de rodar uma carga de varios GB pelo
+  servidor HTTP local.
+- DDL e COPY versionados criam uma trilha auditavel para a futura migracao.
+
+Consequencias:
+
+- A UI mostra comandos e guardrails, mas nao dispara `COPY`.
+- Nao ha nova dependencia de driver Postgres nesta fase.
+- A transformacao de staging para tabelas finais fica para fase posterior.
