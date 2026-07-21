@@ -968,3 +968,31 @@ Consequencias:
 - Historico completo/versionamento de scoring fica para uma fase posterior.
 - APIs que usam chave publica devem futuramente aplicar a configuracao do
   workspace da chave, nao a topbar local.
+
+## ADR-038 - Score de empresa por workspace como overlay
+
+Data: 2026-07-21
+
+Decisao:
+
+- Cada workspace deve ter uma configuracao ativa para score de empresa.
+- `companies.opportunity_score` continua sendo o score base cadastral global.
+- Scores customizados serao persistidos em `company_workspace_scores`, com
+  `org_id`, `company_id`, `scoring_config_id`, score e motivos.
+- Busca, detalhe e priorizacao ICP devem usar o score do workspace quando ele
+  existir, caindo para o score base quando nao existir.
+
+Racional:
+
+- O prompt de governanca pede multi-tenancy real, e sobrescrever a coluna global
+  criaria vazamento operacional entre workspaces.
+- O prompt de growth pede filtros e ICPs com pesos ajustaveis por contexto.
+- Separar score base de overlay preserva importacao, historico e comparacao
+  entre workspaces.
+
+Consequencias:
+
+- Recalcular uma configuracao de um workspace nao altera empresas globais.
+- Algumas telas antigas ainda podem mostrar o score base ate serem migradas para
+  o overlay.
+- Versionamento historico completo de configuracoes fica para uma fase futura.

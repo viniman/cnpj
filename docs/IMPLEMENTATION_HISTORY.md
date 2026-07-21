@@ -2234,3 +2234,41 @@ Resultado esperado nesta etapa:
 Ran 105 tests
 OK
 ```
+
+## 2026-07-21 - Fase 36 de score de empresa por workspace
+
+Branch: `feature/36-workspace-company-score-config`
+
+Estado inicial:
+
+- Fase 35 mesclada localmente no `master`.
+- O score de e-mail ja e configuravel por workspace.
+- O score de empresa ainda e global em `companies.opportunity_score`.
+- O prompt de governanca exige multi-tenancy real e o prompt de growth pede
+  filtros/ICPs sensiveis a setor, porte, cidade, tamanho e valor comercial.
+
+Meta da fase:
+
+- Criar configuracao ativa de score de empresa por workspace.
+- Persistir score calculado por workspace como overlay, sem sobrescrever o
+  score base cadastral.
+- Aplicar o overlay em busca, detalhe e priorizacao ICP.
+- Expor painel local para salvar regras JSON e recalcular lote controlado.
+
+Documento principal:
+
+- `docs/WORKSPACE_COMPANY_SCORE_CONFIG_SPEC.md`
+
+Commits:
+
+- Pendente.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_workspace_company_score_config tests.test_scoring
+python -m unittest discover -s tests
+node --check static\app.js
+```
