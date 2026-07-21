@@ -2356,3 +2356,69 @@ Resultado esperado nesta etapa:
 Ran 113 tests
 OK
 ```
+
+## 2026-07-21 - Fase 38 de diff visual de score
+
+Branch: `feature/38-scoring-config-diff-preview`
+
+Estado inicial:
+
+- Fase 37 mesclada localmente no `master`.
+- Configuracoes de score de e-mail e empresa ja tinham historico e rollback.
+- O operador ainda precisava ler snapshots JSON manualmente para entender o
+  impacto antes de restaurar uma versao antiga.
+
+Meta da fase:
+
+- Comparar a configuracao ativa atual com uma versao historica escolhida.
+- Mostrar campos adicionados, removidos e alterados antes de rollback.
+- Preservar o modelo de snapshots da fase 37 sem criar estado paralelo.
+
+Documento principal:
+
+- `docs/SCORING_CONFIG_DIFF_SPEC.md`
+
+Commits:
+
+- `1119780 docs: define scoring config diff phase`
+- `06b5e57 feat: add scoring config diff endpoint`
+- `1ceaed0 feat: add scoring config diff UI`
+
+Implementado:
+
+- Comparador deterministico de JSON para snapshots de score.
+- Servico `get_score_config_version_diff`.
+- Endpoint `GET /api/scoring/config-versions/{id}/diff`.
+- Diff sempre no sentido `ativo atual -> versao escolhida`, que e o impacto de
+  rollback.
+- Isolamento por workspace ao comparar versoes.
+- UI no painel `Historico scoring` com botao `Diff`, resumo e tabela de campos
+  alterados.
+- Confirmacao de rollback exibindo a quantidade de campos que mudarao.
+- Testes cobrindo diff de e-mail, diff de empresa, isolamento por workspace e
+  rota HTTP.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_scoring_config_versions tests.test_server_routes
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado desta etapa:
+
+```text
+python -m unittest tests.test_scoring_config_versions tests.test_server_routes
+Ran 8 tests
+OK
+
+python -m unittest discover -s tests
+Ran 116 tests
+OK
+
+node --check static\app.js
+OK
+```

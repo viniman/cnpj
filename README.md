@@ -413,6 +413,12 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/scoring/config-versions?type=e
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/scoring/config-versions?type=company"
 ```
 
+Comparar a versao ativa atual com uma versao historica antes de restaurar:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/scoring/config-versions/1/diff"
+```
+
 Restaurar uma versao:
 
 ```powershell
@@ -423,8 +429,9 @@ Invoke-RestMethod `
   -ContentType "application/json"
 ```
 
-Na UI local, use `Higiene`, painel `Historico scoring`. Para score de empresa,
-apos rollback, use `Recalcular empresas` para atualizar o overlay ja calculado.
+Na UI local, use `Higiene`, painel `Historico scoring`. O botao `Diff` mostra
+campos alterados antes do rollback. Para score de empresa, apos rollback, use
+`Recalcular empresas` para atualizar o overlay ja calculado.
 
 ## Enriquecimento de empresas
 
@@ -892,6 +899,7 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/scoring/company-config`
 - `POST /api/scoring/company-rescore`
 - `GET /api/scoring/config-versions`
+- `GET /api/scoring/config-versions/{id}/diff`
 - `POST /api/scoring/config-versions/{id}/rollback`
 - `GET /api/saved-filters`
 - `POST /api/saved-filters`
@@ -1041,6 +1049,8 @@ python -m unittest discover -s tests
 - Historico de scoring tambem usa o workspace ativo; rollback cria nova versao
   ativa em `workspace_score_config_versions`, mantendo a linha do tempo
   auditavel.
+- Diff de scoring tambem usa o workspace ativo e compara snapshots ja
+  versionados; ele nao cria estado paralelo nem altera configuracoes.
 - Segmentos salvos tambem usam o workspace ativo; filtros normalizados ficam em
   `saved_filters`, podem ser reaplicados na busca e podem gerar `icp_rules`
   preservando os filtros originais em `criteria.source_filters`.
@@ -1052,7 +1062,7 @@ python -m unittest discover -s tests
 3. Autenticacao real e RBAC.
 4. Tags operacionais no frontend.
 5. Canal de solicitacao de titular.
-6. Diff visual de impacto antes/depois das configuracoes de score.
+6. Simulacao estatistica de impacto antes/depois das configuracoes de score.
 7. Descoberta assistida de dominio oficial com validacao de identidade.
 8. Templates de resposta manual assistida.
 9. Troca de contexto operacional por workspace.

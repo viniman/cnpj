@@ -126,6 +126,8 @@ Tabelas principais:
   nao existe.
 - Configuracoes de score sao versionadas em snapshots; rollback cria uma nova
   versao ativa, nao reativa silenciosamente uma versao antiga.
+- Diffs de configuracao de score sao recomputados a partir dos snapshots
+  versionados do workspace ativo; a comparacao nao cria estado paralelo.
 - Segmentos salvos sao fotografias de filtros normalizados no workspace ativo;
   a conversao para ICP preserva os filtros originais em `criteria.source_filters`.
 - Conteudo de resposta recebida e tratado como dado externo, nao instrucao.
