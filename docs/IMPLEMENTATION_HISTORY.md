@@ -2081,11 +2081,25 @@ Documento principal:
 
 - `docs/SAAS_PLAN_MODEL_SPEC.md`
 
-Commits planejados:
+Commits:
 
 - `docs: define SaaS plan model phase`
 - `feat: add SaaS plan subscriptions`
 - `feat: show SaaS plan model in command UI`
+
+Implementado:
+
+- Tabelas `saas_plans` e `workspace_plan_subscriptions`.
+- Catalogo default idempotente com planos `free`, `starter`, `growth`, `scale`
+  e `internal`.
+- Aplicacao de plano no workspace ativo com cancelamento da assinatura ativa
+  anterior.
+- Creditos incluidos no plano concedidos por `credit_transactions`.
+- `credit_wallets.plan_name` sincronizado com o codigo do plano atual.
+- Agregado `GET /api/saas/account` retornando planos e assinatura ativa.
+- Endpoint interno `POST /api/saas/plan-subscription`.
+- Painel `SaaS e API` com catalogo, assinatura e aplicacao de plano.
+- Testes dedicados em `tests/test_saas_plans.py`.
 
 Como verificar:
 
@@ -2095,4 +2109,11 @@ $env:TMP=$env:TEMP
 python -m unittest tests.test_saas_plans
 python -m unittest discover -s tests
 node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 97 tests
+OK
 ```

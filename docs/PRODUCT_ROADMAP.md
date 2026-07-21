@@ -143,7 +143,7 @@ Meta:
 
 - API publica, chaves de API, creditos, planos e paridade parcial com Snov.io.
 
-Status: fase 33 iniciada em `feature/33-saas-plan-model`.
+Status: fase 33 implementada localmente em `feature/33-saas-plan-model`.
 
 Fases:
 

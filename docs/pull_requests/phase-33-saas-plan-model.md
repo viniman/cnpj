@@ -7,16 +7,16 @@ ledger de creditos existente para conceder creditos de plano de forma auditavel.
 
 ## Implementado
 
-- [ ] Documento `docs/SAAS_PLAN_MODEL_SPEC.md`.
-- [ ] ADR do catalogo local de planos e assinatura sem gateway.
-- [ ] Tabelas `saas_plans` e `workspace_plan_subscriptions`.
-- [ ] Defaults idempotentes de planos.
-- [ ] Servico para aplicar plano ao workspace ativo.
-- [ ] Concessao de creditos via `credit_transactions`.
-- [ ] Agregado `GET /api/saas/account` com planos e assinatura.
-- [ ] Endpoint `POST /api/saas/plan-subscription`.
-- [ ] UI no painel `SaaS e API`.
-- [ ] Testes automatizados da fase.
+- [x] Documento `docs/SAAS_PLAN_MODEL_SPEC.md`.
+- [x] ADR do catalogo local de planos e assinatura sem gateway.
+- [x] Tabelas `saas_plans` e `workspace_plan_subscriptions`.
+- [x] Defaults idempotentes de planos.
+- [x] Servico para aplicar plano ao workspace ativo.
+- [x] Concessao de creditos via `credit_transactions`.
+- [x] Agregado `GET /api/saas/account` com planos e assinatura.
+- [x] Endpoint `POST /api/saas/plan-subscription`.
+- [x] UI no painel `SaaS e API`.
+- [x] Testes automatizados da fase.
 
 ## Como testar localmente
 
@@ -30,10 +30,10 @@ node --check static\app.js
 
 ## Checklist de aceite
 
-- [ ] Planos default existem e sao idempotentes.
-- [ ] Aplicar plano cria assinatura ativa.
-- [ ] Creditos incluidos sao registrados pelo ledger.
-- [ ] Troca de plano cancela assinatura anterior.
-- [ ] Plano arquivado e recusado.
-- [ ] SaaS account retorna plano atual e catalogo.
-- [ ] UI mostra assinatura e permite aplicar plano.
+- [x] Planos default existem e sao idempotentes.
+- [x] Aplicar plano cria assinatura ativa.
+- [x] Creditos incluidos sao registrados pelo ledger.
+- [x] Troca de plano cancela assinatura anterior.
+- [x] Plano arquivado e recusado.
+- [x] SaaS account retorna plano atual e catalogo.
+- [x] UI mostra assinatura e permite aplicar plano.

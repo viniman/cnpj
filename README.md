@@ -148,6 +148,16 @@ Consultar fundacao SaaS local:
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/saas/account"
 ```
 
+Aplicar um plano SaaS local ao workspace ativo:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/saas/plan-subscription" `
+  -Body '{"plan_code":"starter","billing_period":"monthly","note":"Validar plano Starter"}' `
+  -ContentType "application/json"
+```
+
 Criar chave de API e ajustar creditos:
 
 ```powershell
