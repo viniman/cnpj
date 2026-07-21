@@ -1829,3 +1829,25 @@ Resultado esperado nesta etapa:
 Ran 77 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 29 de execucao guiada de playbook
+
+Branch: `feature/29-playbook-execution-plan`
+
+Estado inicial:
+
+- Fase 28 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 77 tests`, `OK` usando `TEMP/TMP` em `D:`
+  porque o drive `C:` esta sem espaco livre no ambiente local.
+
+Meta da fase:
+
+- Criar plano revisavel antes de materializar um playbook.
+- Aplicar plano de forma explicita e auditavel.
+- Reusar servicos existentes de ICP, template, sequencia e OKR.
+
+Documento principal:
+
+- `docs/PLAYBOOK_EXECUTION_PLAN_SPEC.md`

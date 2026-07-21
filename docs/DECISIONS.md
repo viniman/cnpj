@@ -783,3 +783,26 @@ Consequencias:
 - O onboarding pode ser usado como base para um produto SaaS futuro, mas ainda
   e singleton/local nesta fase.
 - Envio real continua fora do escopo ate infraestrutura e compliance completos.
+
+## ADR-031 - Playbook gera plano antes de criar artefatos
+
+Data: 2026-07-20
+
+Decisao:
+
+- Aplicar operacionalmente um playbook deve passar por um plano revisavel.
+- O plano fica persistido em `playbook_execution_plans`.
+- Criar o plano nao cria ICP, template, sequencia nem OKR; aplicar o plano sim.
+
+Racional:
+
+- O prompt de governanca pede transparencia radical e artefatos editaveis.
+- Playbook mistura ICP, copy, cadencia e meta; criar tudo de uma vez sem
+  preview reduziria confianca do operador.
+- Separar preview de aplicacao preserva a promessa de humano no controle.
+
+Consequencias:
+
+- A UI pode mostrar impacto antes de criar artefatos.
+- Planos aplicados viram trilha de auditoria para explicar configuracoes.
+- Fases futuras podem adicionar edicao granular e aprovacao multiusuario.
