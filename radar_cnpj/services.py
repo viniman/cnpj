@@ -49,6 +49,83 @@ DEFAULT_API_KEY_SCOPES = ["companies:read", "emails:read", "exports:create"]
 DEFAULT_API_RATE_LIMIT_PER_MINUTE = 60
 PUBLIC_COMPANY_SEARCH_SCOPE = "companies:read"
 PUBLIC_COMPANY_SEARCH_COST = 1
+DEFAULT_SAAS_PLANS = [
+    {
+        "code": "free",
+        "name": "Free",
+        "monthly_price_brl_cents": 0,
+        "included_credits": 0,
+        "api_rate_limit_per_minute": 0,
+        "max_api_keys": 0,
+        "allow_public_api": 0,
+        "allow_exports": 0,
+        "allow_enrichment": 0,
+        "allow_agent": 0,
+        "allow_campaigns": 0,
+        "overage_credit_price_brl_cents": 100,
+        "metadata": {"positioning": "Busca cadastral basica interna, sem API publica."},
+    },
+    {
+        "code": "starter",
+        "name": "Starter",
+        "monthly_price_brl_cents": 19700,
+        "included_credits": 1000,
+        "api_rate_limit_per_minute": 60,
+        "max_api_keys": 2,
+        "allow_public_api": 1,
+        "allow_exports": 1,
+        "allow_enrichment": 1,
+        "allow_agent": 0,
+        "allow_campaigns": 0,
+        "overage_credit_price_brl_cents": 20,
+        "metadata": {"positioning": "Validacao de API e listas pequenas."},
+    },
+    {
+        "code": "growth",
+        "name": "Growth",
+        "monthly_price_brl_cents": 49700,
+        "included_credits": 5000,
+        "api_rate_limit_per_minute": 120,
+        "max_api_keys": 5,
+        "allow_public_api": 1,
+        "allow_exports": 1,
+        "allow_enrichment": 1,
+        "allow_agent": 1,
+        "allow_campaigns": 1,
+        "overage_credit_price_brl_cents": 12,
+        "metadata": {"positioning": "Operacao B2B com enrichment, exportacao e agente supervisionado."},
+    },
+    {
+        "code": "scale",
+        "name": "Scale",
+        "monthly_price_brl_cents": 99700,
+        "included_credits": 20000,
+        "api_rate_limit_per_minute": 240,
+        "max_api_keys": 10,
+        "allow_public_api": 1,
+        "allow_exports": 1,
+        "allow_enrichment": 1,
+        "allow_agent": 1,
+        "allow_campaigns": 1,
+        "overage_credit_price_brl_cents": 8,
+        "metadata": {"positioning": "Uso intensivo com agente, campanhas e API."},
+    },
+    {
+        "code": "internal",
+        "name": "Internal",
+        "monthly_price_brl_cents": 0,
+        "included_credits": 10000,
+        "api_rate_limit_per_minute": 600,
+        "max_api_keys": 20,
+        "allow_public_api": 1,
+        "allow_exports": 1,
+        "allow_enrichment": 1,
+        "allow_agent": 1,
+        "allow_campaigns": 1,
+        "overage_credit_price_brl_cents": 0,
+        "metadata": {"positioning": "Uso proprio em localhost e testes internos."},
+    },
+]
 
 
 class ApiAccessError(Exception):
@@ -6733,6 +6810,212 @@ def consume_credits(conn, amount, reason, reference_type="", reference_id="", me
     return consume_credits_for_org(conn, current_org_id(conn), amount, reason, reference_type, reference_id, metadata)
 
 
+def parse_saas_plan_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["metadata"] = json.loads(data.pop("metadata_json") or "{}")
+    for key in ("allow_public_api", "allow_exports", "allow_enrichment", "allow_agent", "allow_campaigns"):
+        data[key] = bool(data.get(key))
+    return data
+
+
+def parse_workspace_plan_subscription_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["metadata"] = json.loads(data.pop("metadata_json") or "{}")
+    return data
+
+
+def ensure_default_saas_plans(conn):
+    timestamp = now_iso()
+    for plan in DEFAULT_SAAS_PLANS:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO saas_plans (
+                code, name, status, monthly_price_brl_cents, included_credits,
+                api_rate_limit_per_minute, max_api_keys, allow_public_api,
+                allow_exports, allow_enrichment, allow_agent, allow_campaigns,
+                overage_credit_price_brl_cents, metadata_json, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                plan["code"],
+                plan["name"],
+                "active",
+                int(plan["monthly_price_brl_cents"]),
+                int(plan["included_credits"]),
+                int(plan["api_rate_limit_per_minute"]),
+                int(plan["max_api_keys"]),
+                int(plan["allow_public_api"]),
+                int(plan["allow_exports"]),
+                int(plan["allow_enrichment"]),
+                int(plan["allow_agent"]),
+                int(plan["allow_campaigns"]),
+                int(plan["overage_credit_price_brl_cents"]),
+                json.dumps(plan.get("metadata") or {}, ensure_ascii=True),
+                timestamp,
+                timestamp,
+            ),
+        )
+
+
+def list_saas_plans(conn, params=None):
+    params = params or {}
+    ensure_default_saas_plans(conn)
+    where = []
+    values = []
+    if not params.get("include_archived"):
+        where.append("status = ?")
+        values.append("active")
+    sql_where = "WHERE " + " AND ".join(where) if where else ""
+    rows = conn.execute(
+        """
+        SELECT *
+        FROM saas_plans
+        %s
+        ORDER BY monthly_price_brl_cents ASC, included_credits ASC, id ASC
+        """
+        % sql_where,
+        values,
+    ).fetchall()
+    return {"items": [parse_saas_plan_row(row) for row in rows]}
+
+
+def get_saas_plan(conn, plan_value):
+    ensure_default_saas_plans(conn)
+    value = str(plan_value or "").strip()
+    if not value:
+        return None
+    if value.isdigit():
+        row = conn.execute("SELECT * FROM saas_plans WHERE id = ?", (int(value),)).fetchone()
+    else:
+        row = conn.execute("SELECT * FROM saas_plans WHERE code = ?", (value,)).fetchone()
+    return parse_saas_plan_row(row)
+
+
+def get_active_workspace_plan_subscription(conn, org_id=None):
+    org_id = int(org_id or current_org_id(conn))
+    row = conn.execute(
+        """
+        SELECT *
+        FROM workspace_plan_subscriptions
+        WHERE org_id = ? AND status = 'active'
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (org_id,),
+    ).fetchone()
+    subscription = parse_workspace_plan_subscription_row(row)
+    if not subscription:
+        return None
+    subscription["plan"] = get_saas_plan(conn, subscription["plan_id"])
+    return subscription
+
+
+def subscription_renewal_date(billing_period):
+    if billing_period == "annual":
+        return (datetime.utcnow() + timedelta(days=365)).replace(microsecond=0).isoformat() + "Z"
+    if billing_period == "internal":
+        return None
+    return (datetime.utcnow() + timedelta(days=30)).replace(microsecond=0).isoformat() + "Z"
+
+
+def apply_saas_plan_subscription(conn, payload):
+    payload = payload or {}
+    org_id = current_org_id(conn)
+    plan = get_saas_plan(conn, payload.get("plan_id") or payload.get("plan_code"))
+    if not plan:
+        raise ValueError("Plano SaaS nao encontrado")
+    if plan["status"] != "active":
+        raise ValueError("Plano SaaS arquivado nao pode ser aplicado")
+
+    billing_period = (payload.get("billing_period") or ("internal" if plan["code"] == "internal" else "monthly")).strip()
+    if billing_period not in ("monthly", "annual", "internal"):
+        raise ValueError("Periodo de cobranca invalido")
+
+    timestamp = now_iso()
+    note = (payload.get("note") or "").strip()
+    conn.execute(
+        """
+        UPDATE workspace_plan_subscriptions
+        SET status = 'canceled', canceled_at = ?
+        WHERE org_id = ? AND status = 'active'
+        """,
+        (timestamp, org_id),
+    )
+    cursor = conn.execute(
+        """
+        INSERT INTO workspace_plan_subscriptions (
+            org_id, plan_id, status, billing_period, started_at, renews_at,
+            metadata_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            org_id,
+            plan["id"],
+            "active",
+            billing_period,
+            timestamp,
+            subscription_renewal_date(billing_period),
+            json.dumps({"note": note, "source": payload.get("source") or "manual"}, ensure_ascii=True),
+        ),
+    )
+    subscription_id = cursor.lastrowid
+    credit_result = None
+    if int(plan["included_credits"] or 0) > 0:
+        credit_result = adjust_credit_wallet_for_org(
+            conn,
+            org_id,
+            {
+                "amount": int(plan["included_credits"]),
+                "reason": "Creditos incluidos no plano %s" % plan["name"],
+                "reference_type": "saas_plan_subscription",
+                "reference_id": subscription_id,
+                "metadata": {"plan_code": plan["code"], "plan_id": plan["id"], "billing_period": billing_period},
+            },
+        )
+    else:
+        ensure_credit_wallet(conn, org_id)
+
+    conn.execute(
+        """
+        UPDATE credit_wallets
+        SET plan_name = ?, updated_at = ?
+        WHERE org_id = ?
+        """,
+        (plan["code"], timestamp, org_id),
+    )
+    metadata = {
+        "note": note,
+        "source": payload.get("source") or "manual",
+        "credit_transaction_id": (credit_result or {}).get("transaction", {}).get("id"),
+        "included_credits": plan["included_credits"],
+    }
+    conn.execute(
+        """
+        UPDATE workspace_plan_subscriptions
+        SET metadata_json = ?
+        WHERE id = ?
+        """,
+        (json.dumps(metadata, ensure_ascii=True), subscription_id),
+    )
+    audit(
+        conn,
+        "apply_saas_plan",
+        "workspace_plan_subscription",
+        subscription_id,
+        {"plan_code": plan["code"], "included_credits": plan["included_credits"], "billing_period": billing_period},
+        org_id=org_id,
+    )
+    subscription = get_active_workspace_plan_subscription(conn, org_id)
+    wallet = ensure_credit_wallet(conn, org_id)
+    return {"subscription": subscription, "plan": plan, "wallet": wallet, "credit": credit_result}
+
+
 def api_window_start():
     now = datetime.utcnow().replace(second=0, microsecond=0)
     return now.isoformat() + "Z"
@@ -6910,8 +7193,12 @@ def saas_account(conn, params=None):
     transactions = list_credit_transactions(conn, params)["items"]
     keys = list_api_keys(conn, params)["items"]
     usage_events = list_api_usage_events(conn, params)["items"]
+    plans = list_saas_plans(conn, params)["items"]
+    subscription = get_active_workspace_plan_subscription(conn)
     return {
         "wallet": wallet,
+        "plans": plans,
+        "subscription": subscription,
         "api_keys": keys,
         "transactions": transactions,
         "usage_events": usage_events,

@@ -14,6 +14,7 @@ from .services import (
     agent_governance,
     apply_playbook,
     apply_playbook_execution_plan,
+    apply_saas_plan_subscription,
     approve_sequence_step,
     audit_events,
     create_icp_rule,
@@ -434,6 +435,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, revoke_api_key(conn, int(parts[3]), data))
                 elif parsed.path == "/api/saas/credits/adjust":
                     self.send_json_commit(conn, adjust_credit_wallet(conn, data), 201)
+                elif parsed.path == "/api/saas/plan-subscription":
+                    self.send_json_commit(conn, apply_saas_plan_subscription(conn, data), 201)
                 elif parsed.path == "/api/notifications/generate":
                     self.send_json_commit(conn, generate_notifications(conn), 201)
                 elif len(parts) == 4 and parts[1] == "notifications" and parts[3] == "mark-read":

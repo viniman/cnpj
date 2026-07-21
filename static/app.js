@@ -129,6 +129,10 @@ function metric(label, value, tone = "") {
   return `<article class="metric ${tone}"><span>${label}</span><strong>${fmt(value)}</strong></article>`;
 }
 
+function brl(cents) {
+  return `R$ ${(Number(cents || 0) / 100).toFixed(2).replace(".", ",")}`;
+}
+
 async function loadDashboard() {
   const data = await api("/api/dashboard");
   if (data.active_workspace) renderWorkspaceContext({ ...(state.workspaceContext || {}), active_workspace: data.active_workspace });
@@ -431,19 +435,24 @@ function renderWorkspaceComparison(data) {
 
 function renderSaasAccount(data) {
   const wallet = data?.wallet || {};
+  const plans = data?.plans || [];
+  const subscription = data?.subscription || null;
   const keys = data?.api_keys || [];
   const transactions = data?.transactions || [];
   const usageEvents = data?.usage_events || [];
   const activeKeys = keys.filter((key) => key.status === "active").length;
   const blockedUsage = usageEvents.filter((event) => event.status !== "ok").length;
+  const activePlan = subscription?.plan || plans.find((plan) => plan.code === wallet.plan_name);
   $("#saasSummary").innerHTML = [
     metric("Saldo", wallet.balance || 0, Number(wallet.balance || 0) > 0 ? "green" : ""),
-    metric("Plano", wallet.plan_name || "internal"),
+    metric("Plano", activePlan?.code || wallet.plan_name || "sem plano"),
     metric("Chaves ativas", activeKeys, activeKeys ? "green" : ""),
+    metric("Creditos do plano", activePlan?.included_credits ?? 0),
     metric("Uso API", usageEvents.length),
     metric("Bloqueios", blockedUsage, blockedUsage ? "amber" : ""),
   ].join("");
 
+  renderSaasPlans(plans, subscription);
   renderSaasPublicApiDocs();
 
   $("#saasApiKeysTable").innerHTML = keys.length
@@ -498,6 +507,53 @@ function renderSaasAccount(data) {
   $$("[data-revoke-saas-key]").forEach((button) => {
     button.addEventListener("click", () => revokeSaasApiKey(button.dataset.revokeSaasKey));
   });
+}
+
+function renderSaasPlans(plans, subscription) {
+  $("#saasPlanSelect").innerHTML = plans
+    .map((plan) => `<option value="${escapeHtml(plan.code)}">${escapeHtml(plan.name)} - ${escapeHtml(brl(plan.monthly_price_brl_cents))}</option>`)
+    .join("");
+  if (subscription?.plan?.code) $("#saasPlanSelect").value = subscription.plan.code;
+  $("#saasSubscriptionSummary").innerHTML = subscription
+    ? table(
+        ["Plano", "Status", "Periodo", "Inicio", "Renova", "Creditos", "API/min"],
+        [
+          [
+            escapeHtml(subscription.plan?.name || "-"),
+            badge(subscription.status || "-", subscription.status === "active" ? "green" : "purple"),
+            escapeHtml(subscription.billing_period || "-"),
+            escapeHtml(subscription.started_at || "-"),
+            escapeHtml(subscription.renews_at || "-"),
+            badge(subscription.plan?.included_credits || 0, "green"),
+            badge(subscription.plan?.api_rate_limit_per_minute || 0, "purple"),
+          ],
+        ],
+      )
+    : `<div class="empty-state">Nenhum plano aplicado neste workspace.</div>`;
+
+  $("#saasPlansTable").innerHTML = plans.length
+    ? table(
+        ["Plano", "Preco", "Creditos", "API/min", "Chaves", "Recursos", "Credito extra"],
+        plans.map((plan) => [
+          `<strong>${escapeHtml(plan.name)}</strong><br /><span class="muted">${escapeHtml(plan.code)}</span>`,
+          escapeHtml(brl(plan.monthly_price_brl_cents)),
+          badge(plan.included_credits, plan.included_credits ? "green" : ""),
+          badge(plan.api_rate_limit_per_minute || 0, plan.allow_public_api ? "purple" : ""),
+          escapeHtml(plan.max_api_keys || 0),
+          [
+            plan.allow_public_api ? "API" : "",
+            plan.allow_exports ? "Export" : "",
+            plan.allow_enrichment ? "Enrich" : "",
+            plan.allow_agent ? "Agente" : "",
+            plan.allow_campaigns ? "Campanhas" : "",
+          ]
+            .filter(Boolean)
+            .map((item) => badge(item, "green"))
+            .join(" "),
+          escapeHtml(brl(plan.overage_credit_price_brl_cents)),
+        ]),
+      )
+    : `<div class="empty-state">Nenhum plano SaaS cadastrado.</div>`;
 }
 
 function renderSaasPublicApiDocs() {
@@ -560,6 +616,23 @@ async function adjustSaasCreditsFromForm() {
   $("#saasCreditAmount").value = "";
   $("#saasCreditReason").value = "";
   showStatus("Ajuste de creditos registrado.");
+  await loadSaasAccount();
+}
+
+async function applySaasPlanFromForm() {
+  const planCode = $("#saasPlanSelect").value;
+  if (!planCode) return showStatus("Selecione um plano.", "warn");
+  const result = await api("/api/saas/plan-subscription", {
+    method: "POST",
+    body: JSON.stringify({
+      plan_code: planCode,
+      billing_period: $("#saasPlanBillingPeriod").value,
+      note: $("#saasPlanNote").value.trim(),
+      source: "command_center",
+    }),
+  });
+  $("#saasPlanNote").value = "";
+  showStatus(`Plano ${result.plan?.name || planCode} aplicado ao workspace.`);
   await loadSaasAccount();
 }
 
@@ -2690,6 +2763,7 @@ function wireEvents() {
   $("#refreshSaasAccountBtn").addEventListener("click", loadSaasAccount);
   $("#createSaasApiKeyBtn").addEventListener("click", createSaasApiKeyFromForm);
   $("#adjustSaasCreditsBtn").addEventListener("click", adjustSaasCreditsFromForm);
+  $("#applySaasPlanBtn").addEventListener("click", applySaasPlanFromForm);
   $("#runWorkspaceOnboardingBtn").addEventListener("click", runWorkspaceOnboardingFromForm);
   $("#createWorkspaceBtn").addEventListener("click", createWorkspaceFromForm);
   $("#createWorkspaceSnapshotBtn").addEventListener("click", createWorkspaceSnapshotFromForm);

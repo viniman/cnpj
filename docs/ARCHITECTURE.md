@@ -88,6 +88,8 @@ Tabelas principais:
   ICP, template, sequencia e OKR, com diff, status e artefatos criados.
 - `api_keys`, `credit_wallets`, `credit_transactions`: fundacao SaaS local com
   chaves por workspace, saldo de creditos e ledger append-only.
+- `saas_plans`, `workspace_plan_subscriptions`: catalogo local de planos e
+  assinatura ativa por workspace, com creditos concedidos pelo ledger.
 - `api_usage_events`: auditoria de chamadas de API publica, incluindo sucesso,
   bloqueio por escopo, rate limit e saldo insuficiente.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
@@ -165,6 +167,8 @@ Tabelas principais:
 - Chaves de API nao guardam token completo; o banco conserva apenas hash,
   prefixo e mascara. Creditos sao alterados por ledger e debitos acima do saldo
   sao recusados no backend.
+- Planos SaaS sao aplicados por assinatura local auditavel; creditos incluidos
+  entram por `credit_transactions`, nunca por edicao direta de saldo.
 - Endpoints publicos autenticados usam o `org_id` da chave, nao o contexto da
   topbar. Escopo, rate limit e saldo sao avaliados antes da busca publica.
 - O contrato publico local fica em `/api/public/openapi.json` e explicita

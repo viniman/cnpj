@@ -885,3 +885,30 @@ Consequencias:
   implementacao.
 - Testes passam a verificar a presenca dos contratos publicos essenciais.
 - Uma futura Swagger UI pode reutilizar o mesmo JSON sem novo desenho de API.
+
+## ADR-035 - Planos SaaS locais usam ledger de creditos
+
+Data: 2026-07-21
+
+Decisao:
+
+- Planos comerciais devem existir como catalogo local em `saas_plans`.
+- Cada workspace pode ter uma assinatura ativa em
+  `workspace_plan_subscriptions`.
+- Creditos incluidos no plano devem entrar por `credit_transactions`, nunca por
+  edicao direta de saldo.
+- A fase valida modelo comercial sem checkout, gateway ou recorrencia real.
+
+Racional:
+
+- O produto precisa testar preco, pacote e limites antes de integrar pagamento.
+- O ledger append-only da fase 30 ja e a fonte correta para saldo auditavel.
+- Separar catalogo, assinatura e carteira evita misturar configuracao comercial
+  com saldo operacional.
+
+Consequencias:
+
+- Trocar de plano cancela a assinatura ativa anterior e cria nova trilha.
+- `credit_wallets.plan_name` vira cache operacional do codigo do plano atual.
+- Fases futuras podem aplicar limites por plano nos guardrails de API, exports,
+  enriquecimento e agente.
