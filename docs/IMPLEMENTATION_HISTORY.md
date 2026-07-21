@@ -1945,3 +1945,24 @@ Resultado esperado nesta etapa:
 Ran 84 tests
 OK
 ```
+
+## 2026-07-21 - Inicio da fase 31 de rate limit e creditos por API
+
+Branch: `feature/31-api-rate-credit-guardrails`
+
+Estado inicial:
+
+- Fase 30 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes pos-merge da fase 30: `Ran 84 tests`, `OK` usando `TEMP/TMP` em `D:`.
+
+Meta da fase:
+
+- Autenticar endpoint publico local por API key.
+- Aplicar escopo, rate limit e saldo de creditos no backend.
+- Registrar uso aceito e bloqueado em ledger de uso separado.
+
+Documento principal:
+
+- `docs/API_RATE_CREDIT_SPEC.md`
