@@ -866,6 +866,40 @@ def init_db():
                 FOREIGN KEY (wallet_id) REFERENCES credit_wallets(id)
             );
 
+            CREATE TABLE IF NOT EXISTS saas_plans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                monthly_price_brl_cents INTEGER NOT NULL DEFAULT 0,
+                included_credits INTEGER NOT NULL DEFAULT 0,
+                api_rate_limit_per_minute INTEGER NOT NULL DEFAULT 0,
+                max_api_keys INTEGER NOT NULL DEFAULT 0,
+                allow_public_api INTEGER NOT NULL DEFAULT 0,
+                allow_exports INTEGER NOT NULL DEFAULT 0,
+                allow_enrichment INTEGER NOT NULL DEFAULT 0,
+                allow_agent INTEGER NOT NULL DEFAULT 0,
+                allow_campaigns INTEGER NOT NULL DEFAULT 0,
+                overage_credit_price_brl_cents INTEGER NOT NULL DEFAULT 0,
+                metadata_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS workspace_plan_subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                plan_id INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                billing_period TEXT NOT NULL DEFAULT 'monthly',
+                started_at TEXT NOT NULL,
+                renews_at TEXT,
+                canceled_at TEXT,
+                metadata_json TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (plan_id) REFERENCES saas_plans(id)
+            );
+
             CREATE TABLE IF NOT EXISTS api_usage_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER,
@@ -1004,6 +1038,12 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_api_keys_org_status ON api_keys(org_id, status);
             CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(token_prefix);
             CREATE INDEX IF NOT EXISTS idx_credit_transactions_wallet ON credit_transactions(wallet_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_saas_plans_code ON saas_plans(code);
+            CREATE INDEX IF NOT EXISTS idx_saas_plans_status ON saas_plans(status);
+            CREATE INDEX IF NOT EXISTS idx_workspace_plan_subscriptions_org ON workspace_plan_subscriptions(org_id, status);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_workspace_plan_subscriptions_active
+                ON workspace_plan_subscriptions(org_id)
+                WHERE status = 'active';
             CREATE INDEX IF NOT EXISTS idx_api_usage_key_created ON api_usage_events(api_key_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_api_usage_org_status ON api_usage_events(org_id, status, created_at);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
