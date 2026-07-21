@@ -1580,15 +1580,35 @@ def ensure_score_config_initial_version(conn, config_type, config, change_note="
     org_id = int(config.get("org_id") or current_org_id(conn))
     count = score_config_version_count(conn, org_id, config_type)
     if not count:
-        create_score_config_version(
-            conn,
-            config_type,
-            config["id"],
-            config["name"],
-            score_config_snapshot(config_type, config),
-            change_note,
-            org_id=org_id,
+        timestamp = now_iso()
+        cursor = conn.execute(
+            """
+            INSERT OR IGNORE INTO workspace_score_config_versions (
+                org_id, config_type, source_config_id, version_number, status,
+                name, config_json, change_note, created_at, activated_at
+            )
+            VALUES (?, ?, ?, 1, 'active', ?, ?, ?, ?, ?)
+            """,
+            (
+                org_id,
+                config_type,
+                int(config["id"]),
+                config["name"],
+                json.dumps(score_config_snapshot(config_type, config), ensure_ascii=True),
+                change_note,
+                timestamp,
+                timestamp,
+            ),
         )
+        if cursor.rowcount:
+            audit(
+                conn,
+                "create_score_config_version",
+                "workspace_score_config_version",
+                cursor.lastrowid,
+                {"config_type": config_type, "source_config_id": int(config["id"]), "version_number": 1, "change_note": change_note},
+                org_id=org_id,
+            )
     return attach_score_config_version_summary(conn, config_type, config, org_id=org_id)
 
 
