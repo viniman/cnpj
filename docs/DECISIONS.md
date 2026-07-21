@@ -833,3 +833,30 @@ Consequencias:
 - Revogar chave preserva historico em vez de apagar registro.
 - Fases futuras podem validar chave recebida por header comparando hash e podem
   debitar creditos usando a mesma funcao de ledger.
+
+## ADR-033 - API publica usa org da chave, nao contexto da topbar
+
+Data: 2026-07-21
+
+Decisao:
+
+- Endpoints publicos autenticados por API key devem resolver `org_id` a partir
+  da chave ativa.
+- Rate limit e creditos sao avaliados antes da regra de negocio do endpoint.
+- O `workspace_context` local continua existindo apenas para a UI interna.
+
+Racional:
+
+- Integracoes programaticas nao podem mudar de workspace porque alguem trocou a
+  topbar no localhost.
+- O prompt SaaS pede cota no backend, nao apenas na interface.
+- Registrar chamadas bloqueadas e bem-sucedidas cria auditoria para cobranca,
+  suporte e investigacao de abuso.
+
+Consequencias:
+
+- Servicos publicos precisam aceitar o contexto da chave explicitamente.
+- Chamadas bloqueadas por rate limit, escopo ou credito tambem entram em
+  `api_usage_events`.
+- A proxima fase pode documentar esses contratos em OpenAPI sem redesenhar os
+  trilhos.

@@ -6,6 +6,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from .database import connect, init_db
 from .services import (
+    ApiAccessError,
     add_companies_to_list,
     add_suppression,
     activate_agent_config,
@@ -71,6 +72,7 @@ from .services import (
     list_reply_classifications,
     list_sequences,
     prepare_next_journey_step,
+    public_search_companies,
     prioritize_icp_rule,
     remove_company_from_list,
     record_campaign_event,
@@ -168,9 +170,25 @@ class RadarHandler(SimpleHTTPRequestHandler):
         values = parse_qs(parsed.query)
         return dict((key, value[-1]) for key, value in values.items())
 
+    def api_token(self):
+        auth = (self.headers.get("Authorization") or "").strip()
+        if auth.lower().startswith("bearer "):
+            return auth.split(" ", 1)[1].strip()
+        return (self.headers.get("X-API-Key") or "").strip()
+
     def handle_api_get(self, parsed):
         parts = [part for part in parsed.path.split("/") if part]
         params = self.query_params(parsed)
+        if parsed.path == "/api/public/companies":
+            with connect() as conn:
+                try:
+                    self.send_json_commit(conn, public_search_companies(conn, self.api_token(), params))
+                except ApiAccessError as exc:
+                    conn.commit()
+                    self.send_error_json(str(exc), exc.status_code)
+                except Exception as exc:
+                    self.send_error_json(str(exc), 500)
+            return
         try:
             with connect() as conn:
                 if parsed.path == "/api/health":

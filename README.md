@@ -164,6 +164,15 @@ Invoke-RestMethod `
   -ContentType "application/json"
 ```
 
+Consultar empresas pela API publica local:
+
+```powershell
+$token = "<token retornado na criacao da chave>"
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/api/public/companies?state=SP&has_email=1&limit=10" `
+  -Headers @{"X-API-Key"=$token}
+```
+
 Criar workspace para comparacao:
 
 ```powershell
@@ -742,6 +751,7 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/saas/api-keys`
 - `POST /api/saas/api-keys/{id}/revoke`
 - `POST /api/saas/credits/adjust`
+- `GET /api/public/companies`
 - `GET /api/notifications`
 - `POST /api/notifications/generate`
 - `POST /api/notifications/{id}/mark-read`
@@ -871,6 +881,8 @@ python -m unittest discover -s tests
 - A fundacao SaaS tambem usa o workspace ativo: chaves de API, carteira e
   ledger de creditos nao atravessam empresas. Token completo aparece apenas na
   criacao; depois so prefixo/mascara ficam disponiveis.
+- A API publica local usa a organizacao da chave, aplica escopo, rate limit e
+  saldo antes de consultar empresas, e registra usos aceitos/bloqueados.
 - O onboarding operacional cria uma nova empresa pronta para revisao no Command
   Center: workspace, playbook aplicado, ICP, template, sequencia, OKR e default
   de agente, sem envio real.

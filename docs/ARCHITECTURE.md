@@ -88,6 +88,8 @@ Tabelas principais:
   ICP, template, sequencia e OKR, com diff, status e artefatos criados.
 - `api_keys`, `credit_wallets`, `credit_transactions`: fundacao SaaS local com
   chaves por workspace, saldo de creditos e ledger append-only.
+- `api_usage_events`: auditoria de chamadas de API publica, incluindo sucesso,
+  bloqueio por escopo, rate limit e saldo insuficiente.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -163,6 +165,8 @@ Tabelas principais:
 - Chaves de API nao guardam token completo; o banco conserva apenas hash,
   prefixo e mascara. Creditos sao alterados por ledger e debitos acima do saldo
   sao recusados no backend.
+- Endpoints publicos autenticados usam o `org_id` da chave, nao o contexto da
+  topbar. Escopo, rate limit e saldo sao avaliados antes da busca publica.
 - A auditoria operacional lida por `/api/audit` usa `current_org_id(conn)`;
   uma visao global administrativa exigira endpoint e permissao proprios.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo

@@ -46,6 +46,15 @@ ORG_ID = 1
 USER_ID = 1
 API_TOKEN_PREFIX = "rc_local_"
 DEFAULT_API_KEY_SCOPES = ["companies:read", "emails:read", "exports:create"]
+DEFAULT_API_RATE_LIMIT_PER_MINUTE = 60
+PUBLIC_COMPANY_SEARCH_SCOPE = "companies:read"
+PUBLIC_COMPANY_SEARCH_COST = 1
+
+
+class ApiAccessError(Exception):
+    def __init__(self, message, status_code=401):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 def dict_row(row):
@@ -6436,6 +6445,14 @@ def parse_credit_transaction_row(row):
     return data
 
 
+def parse_api_usage_event_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["metadata"] = json.loads(data.pop("metadata_json") or "{}")
+    return data
+
+
 def ensure_credit_wallet(conn, org_id=None):
     org_id = int(org_id or current_org_id(conn))
     row = conn.execute("SELECT * FROM credit_wallets WHERE org_id = ?", (org_id,)).fetchone()
@@ -6453,9 +6470,9 @@ def ensure_credit_wallet(conn, org_id=None):
     return parse_credit_wallet_row(row)
 
 
-def list_credit_transactions(conn, params=None):
+def list_credit_transactions_for_org(conn, org_id, params=None):
     params = params or {}
-    org_id = current_org_id(conn)
+    org_id = int(org_id)
     wallet = ensure_credit_wallet(conn, org_id)
     rows = conn.execute(
         """
@@ -6470,9 +6487,13 @@ def list_credit_transactions(conn, params=None):
     return {"items": [parse_credit_transaction_row(row) for row in rows]}
 
 
-def adjust_credit_wallet(conn, payload):
+def list_credit_transactions(conn, params=None):
+    return list_credit_transactions_for_org(conn, current_org_id(conn), params)
+
+
+def adjust_credit_wallet_for_org(conn, org_id, payload):
     payload = payload or {}
-    org_id = current_org_id(conn)
+    org_id = int(org_id)
     wallet = ensure_credit_wallet(conn, org_id)
     amount = int(payload.get("amount") or 0)
     if amount == 0:
@@ -6525,12 +6546,17 @@ def adjust_credit_wallet(conn, payload):
     return {"wallet": updated_wallet, "transaction": transaction}
 
 
-def consume_credits(conn, amount, reason, reference_type="", reference_id="", metadata=None):
+def adjust_credit_wallet(conn, payload):
+    return adjust_credit_wallet_for_org(conn, current_org_id(conn), payload)
+
+
+def consume_credits_for_org(conn, org_id, amount, reason, reference_type="", reference_id="", metadata=None):
     amount = int(amount or 0)
     if amount <= 0:
         raise ValueError("Consumo de creditos deve ser positivo")
-    return adjust_credit_wallet(
+    return adjust_credit_wallet_for_org(
         conn,
+        int(org_id),
         {
             "amount": -amount,
             "reason": reason,
@@ -6541,18 +6567,198 @@ def consume_credits(conn, amount, reason, reference_type="", reference_id="", me
     )
 
 
+def consume_credits(conn, amount, reason, reference_type="", reference_id="", metadata=None):
+    return consume_credits_for_org(conn, current_org_id(conn), amount, reason, reference_type, reference_id, metadata)
+
+
+def api_window_start():
+    now = datetime.utcnow().replace(second=0, microsecond=0)
+    return now.isoformat() + "Z"
+
+
+def api_rate_cutoff():
+    return (datetime.utcnow() - timedelta(seconds=60)).replace(microsecond=0).isoformat() + "Z"
+
+
+def record_api_usage_event(
+    conn,
+    api_key=None,
+    endpoint="",
+    scope="",
+    cost=0,
+    status="ok",
+    response_code=200,
+    message="",
+    metadata=None,
+    org_id=None,
+):
+    timestamp = now_iso()
+    resolved_org_id = int(org_id or (api_key or {}).get("org_id") or 0) or None
+    api_key_id = (api_key or {}).get("id")
+    cursor = conn.execute(
+        """
+        INSERT INTO api_usage_events (
+            org_id, api_key_id, endpoint, scope, cost, status, response_code,
+            message, window_start, metadata_json, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            resolved_org_id,
+            api_key_id,
+            endpoint,
+            scope,
+            int(cost or 0),
+            status,
+            int(response_code),
+            message or "",
+            api_window_start(),
+            json.dumps(metadata or {}, ensure_ascii=True),
+            timestamp,
+        ),
+    )
+    row = conn.execute("SELECT * FROM api_usage_events WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return parse_api_usage_event_row(row)
+
+
+def list_api_usage_events(conn, params=None):
+    params = params or {}
+    org_id = current_org_id(conn)
+    rows = conn.execute(
+        """
+        SELECT usage.*, key.name AS api_key_name, key.masked_token AS api_key_mask
+        FROM api_usage_events usage
+        LEFT JOIN api_keys key ON key.id = usage.api_key_id
+        WHERE usage.org_id = ?
+        ORDER BY usage.id DESC
+        LIMIT ?
+        """,
+        (org_id, min(int(params.get("limit", 50) or 50), 200)),
+    ).fetchall()
+    return {"items": [parse_api_usage_event_row(row) for row in rows]}
+
+
+def api_key_request_count(conn, api_key_id):
+    row = conn.execute(
+        """
+        SELECT COUNT(*) AS total
+        FROM api_usage_events
+        WHERE api_key_id = ? AND created_at >= ?
+        """,
+        (int(api_key_id), api_rate_cutoff()),
+    ).fetchone()
+    return int(row["total"] or 0)
+
+
+def authorize_api_request(conn, token, required_scope, endpoint, cost=0, rate_limit_per_minute=None, metadata=None):
+    token = (token or "").strip()
+    if not token:
+        raise ApiAccessError("Token de API ausente", 401)
+    api_key = get_active_api_key_by_token(conn, token)
+    if not api_key:
+        raise ApiAccessError("Chave de API invalida ou revogada", 401)
+
+    if required_scope not in (api_key.get("scopes") or []):
+        record_api_usage_event(
+            conn,
+            api_key=api_key,
+            endpoint=endpoint,
+            scope=required_scope,
+            status="blocked_scope",
+            response_code=403,
+            message="Escopo ausente",
+            metadata=metadata,
+        )
+        raise ApiAccessError("Chave de API sem escopo necessario", 403)
+
+    limit = int(rate_limit_per_minute or DEFAULT_API_RATE_LIMIT_PER_MINUTE)
+    if api_key_request_count(conn, api_key["id"]) >= limit:
+        record_api_usage_event(
+            conn,
+            api_key=api_key,
+            endpoint=endpoint,
+            scope=required_scope,
+            status="blocked_rate_limit",
+            response_code=429,
+            message="Rate limit excedido",
+            metadata={"limit_per_minute": limit, **(metadata or {})},
+        )
+        raise ApiAccessError("Rate limit excedido para esta chave", 429)
+
+    wallet = ensure_credit_wallet(conn, api_key["org_id"])
+    if int(wallet["balance"] or 0) < int(cost or 0):
+        record_api_usage_event(
+            conn,
+            api_key=api_key,
+            endpoint=endpoint,
+            scope=required_scope,
+            status="blocked_credit",
+            response_code=402,
+            message="Saldo insuficiente",
+            metadata={"required_credits": int(cost or 0), "balance": wallet["balance"], **(metadata or {})},
+        )
+        raise ApiAccessError("Saldo de creditos insuficiente", 402)
+    return {"api_key": api_key, "wallet": wallet, "cost": int(cost or 0), "endpoint": endpoint, "scope": required_scope}
+
+
+def public_search_companies(conn, token, params=None, rate_limit_per_minute=None):
+    params = params or {}
+    endpoint = "/api/public/companies"
+    authorization = authorize_api_request(
+        conn,
+        token,
+        PUBLIC_COMPANY_SEARCH_SCOPE,
+        endpoint,
+        cost=PUBLIC_COMPANY_SEARCH_COST,
+        rate_limit_per_minute=rate_limit_per_minute,
+        metadata={"params": dict(params)},
+    )
+    result = search_companies(conn, params)
+    debit = consume_credits_for_org(
+        conn,
+        authorization["api_key"]["org_id"],
+        authorization["cost"],
+        "Consulta publica de empresas via API",
+        reference_type="api_endpoint",
+        reference_id=endpoint,
+        metadata={"api_key_id": authorization["api_key"]["id"], "total": result["total"]},
+    )
+    usage = record_api_usage_event(
+        conn,
+        api_key=authorization["api_key"],
+        endpoint=endpoint,
+        scope=PUBLIC_COMPANY_SEARCH_SCOPE,
+        cost=authorization["cost"],
+        status="ok",
+        response_code=200,
+        message="Consulta concluida",
+        metadata={"total": result["total"], "limit": result["limit"], "offset": result["offset"]},
+    )
+    result["usage"] = {
+        "api_key_id": authorization["api_key"]["id"],
+        "cost": authorization["cost"],
+        "balance_after": debit["wallet"]["balance"],
+        "event_id": usage["id"],
+    }
+    return result
+
+
 def saas_account(conn, params=None):
     wallet = ensure_credit_wallet(conn)
     transactions = list_credit_transactions(conn, params)["items"]
     keys = list_api_keys(conn, params)["items"]
+    usage_events = list_api_usage_events(conn, params)["items"]
     return {
         "wallet": wallet,
         "api_keys": keys,
         "transactions": transactions,
+        "usage_events": usage_events,
         "summary": {
             "balance": wallet["balance"],
             "active_api_keys": len([item for item in keys if item["status"] == "active"]),
             "transaction_count": len(transactions),
+            "usage_count": len(usage_events),
+            "blocked_usage_count": len([item for item in usage_events if item["status"] != "ok"]),
         },
     }
 

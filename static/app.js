@@ -433,13 +433,15 @@ function renderSaasAccount(data) {
   const wallet = data?.wallet || {};
   const keys = data?.api_keys || [];
   const transactions = data?.transactions || [];
+  const usageEvents = data?.usage_events || [];
   const activeKeys = keys.filter((key) => key.status === "active").length;
+  const blockedUsage = usageEvents.filter((event) => event.status !== "ok").length;
   $("#saasSummary").innerHTML = [
     metric("Saldo", wallet.balance || 0, Number(wallet.balance || 0) > 0 ? "green" : ""),
     metric("Plano", wallet.plan_name || "internal"),
     metric("Chaves ativas", activeKeys, activeKeys ? "green" : ""),
-    metric("Chaves totais", keys.length),
-    metric("Lancamentos", transactions.length),
+    metric("Uso API", usageEvents.length),
+    metric("Bloqueios", blockedUsage, blockedUsage ? "amber" : ""),
   ].join("");
 
   $("#saasApiKeysTable").innerHTML = keys.length
@@ -475,6 +477,21 @@ function renderSaasAccount(data) {
         }),
       )
     : `<div class="empty-state">Nenhum lancamento de credito.</div>`;
+
+  $("#saasUsageTable").innerHTML = usageEvents.length
+    ? table(
+        ["Data", "Status", "HTTP", "Endpoint", "Custo", "Chave", "Mensagem"],
+        usageEvents.map((event) => [
+          escapeHtml(event.created_at || "-"),
+          badge(event.status, event.status === "ok" ? "green" : "amber"),
+          escapeHtml(event.response_code || "-"),
+          escapeHtml(event.endpoint || "-"),
+          escapeHtml(event.cost ?? 0),
+          escapeHtml(event.api_key_mask || event.api_key_name || "-"),
+          escapeHtml(event.message || "-"),
+        ]),
+      )
+    : `<div class="empty-state">Nenhuma chamada de API registrada.</div>`;
 
   $$("[data-revoke-saas-key]").forEach((button) => {
     button.addEventListener("click", () => revokeSaasApiKey(button.dataset.revokeSaasKey));
