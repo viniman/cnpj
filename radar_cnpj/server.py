@@ -71,6 +71,7 @@ from .services import (
     list_lists,
     list_meetings,
     list_notifications,
+    list_official_import_checkpoints,
     list_playbook_execution_plans,
     okr_dashboard,
     playbook_library,
@@ -334,6 +335,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(list_meetings(conn, params))
                 elif parsed.path == "/api/sources/official":
                     self.send_json(catalog())
+                elif parsed.path == "/api/sources/official/checkpoints":
+                    self.send_json(list_official_import_checkpoints(conn, params))
                 elif len(parts) == 5 and parts[1] == "sources" and parts[2] == "official" and parts[3] == "snapshots":
                     self.send_json({"items": list_snapshot_files(parts[4])})
                 else:
@@ -530,6 +533,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                             chunk=data.get("chunk", 1),
                             limit=data.get("limit", 1000),
                             mode=data.get("mode", "domains"),
+                            resume=data.get("resume") is True,
+                            offset=data.get("offset"),
                         )
                     )
                 elif parsed.path == "/api/sources/brasilapi/cnpj":

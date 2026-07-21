@@ -8,7 +8,12 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 from .database import now_iso
-from .services import import_official_zip_directory, upsert_company
+from .services import (
+    get_official_import_checkpoint,
+    import_official_zip_directory,
+    record_official_import_checkpoint,
+    upsert_company,
+)
 
 
 OFFICIAL_SHARE_TOKEN = "YggdBLfdninEJX9"
@@ -206,7 +211,7 @@ def catalog():
     }
 
 
-def sync_official_snapshot(conn, snapshot=None, chunk=1, limit=1000, mode="domains"):
+def sync_official_snapshot(conn, snapshot=None, chunk=1, limit=1000, mode="domains", resume=False, offset=None):
     selected_snapshot = snapshot or (latest_snapshot() or {}).get("name")
     if not selected_snapshot:
         raise ValueError("Nenhum snapshot oficial encontrado")
@@ -231,7 +236,12 @@ def sync_official_snapshot(conn, snapshot=None, chunk=1, limit=1000, mode="domai
 
     downloaded = download_files(conn, selected_snapshot, filenames)
     imported = None
+    checkpoint = None
     if mode in ("chunk", "full"):
+        selected_offset = max(int(offset or 0), 0)
+        if resume and offset is None:
+            existing_checkpoint = get_official_import_checkpoint(conn, selected_snapshot, chunk)
+            selected_offset = int((existing_checkpoint or {}).get("next_offset") or 0)
         imported = import_official_zip_directory(
             conn,
             local_snapshot_dir(selected_snapshot),
@@ -240,12 +250,15 @@ def sync_official_snapshot(conn, snapshot=None, chunk=1, limit=1000, mode="domai
             legal_basis="Legitimo interesse B2B com base em dados publicos oficiais",
             chunk=chunk,
             limit=limit,
+            offset=selected_offset,
         )
+        checkpoint = record_official_import_checkpoint(conn, selected_snapshot, chunk, imported, limit)
     return {
         "snapshot": selected_snapshot,
         "mode": mode,
         "downloaded": downloaded,
         "imported": imported,
+        "checkpoint": checkpoint,
     }
 
 
@@ -326,4 +339,3 @@ def build_phone(primary, secondary=None):
     if secondary:
         return str(secondary)
     return ""
-

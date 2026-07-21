@@ -190,6 +190,24 @@ def init_db():
                 UNIQUE (snapshot, filename)
             );
 
+            CREATE TABLE IF NOT EXISTS official_import_checkpoints (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                snapshot TEXT NOT NULL,
+                chunk INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                next_offset INTEGER NOT NULL DEFAULT 0,
+                limit_per_run INTEGER NOT NULL DEFAULT 0,
+                imported_rows INTEGER NOT NULL DEFAULT 0,
+                error_rows INTEGER NOT NULL DEFAULT 0,
+                last_job_id INTEGER,
+                message TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                finished_at TEXT,
+                UNIQUE (snapshot, chunk),
+                FOREIGN KEY (last_job_id) REFERENCES import_jobs(id)
+            );
+
             CREATE TABLE IF NOT EXISTS email_validations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 email TEXT NOT NULL,
@@ -1116,6 +1134,8 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);
+            CREATE INDEX IF NOT EXISTS idx_official_import_checkpoints_updated
+                ON official_import_checkpoints(status, updated_at);
             """
         )
         seed_core(conn)
