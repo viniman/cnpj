@@ -2,6 +2,7 @@ const state = {
   view: "dashboard",
   companies: [],
   selectedCompanies: new Set(),
+  savedFilters: [],
   lists: [],
   currentListId: null,
   templates: [],
@@ -110,6 +111,7 @@ async function loadViewData(view = state.view) {
   }
   if (view === "companies") {
     await loadLists();
+    await loadSavedFilters();
     await loadCompanies();
   }
   if (view === "lists") await loadLists(true);
@@ -1386,22 +1388,158 @@ function table(headers, rows) {
     .join("")}</tbody></table>`;
 }
 
-function companyFilters() {
-  const params = new URLSearchParams();
+function currentCompanyFilters() {
   const values = {
-    query: $("#filterQuery").value,
-    state: $("#filterState").value,
-    city: $("#filterCity").value,
-    cnae: $("#filterCnae").value,
+    query: $("#filterQuery").value.trim(),
+    state: $("#filterState").value.trim().toUpperCase(),
+    city: $("#filterCity").value.trim(),
+    cnae: $("#filterCnae").value.trim(),
+    sector: $("#filterSector").value.trim(),
     status: $("#filterStatus").value,
     size: $("#filterSize").value,
+    min_score: $("#filterMinScore").value,
   };
+  const filters = {};
   Object.entries(values).forEach(([key, value]) => {
-    if (value) params.set(key, value);
+    if (value) filters[key] = value;
   });
-  if ($("#filterHasEmail").checked) params.set("has_email", "1");
+  if ($("#filterHasEmail").checked) filters.has_email = "1";
+  if ($("#filterHasPhone").checked) filters.has_phone = "1";
+  return filters;
+}
+
+function companyFilters() {
+  const params = new URLSearchParams();
+  Object.entries(currentCompanyFilters()).forEach(([key, value]) => params.set(key, value));
   params.set("limit", "80");
   return params;
+}
+
+function describeCompanyFilters(filters = {}) {
+  const labels = {
+    query: "Busca",
+    state: "UF",
+    city: "Cidade",
+    cnae: "CNAE",
+    sector: "Setor",
+    status: "Situacao",
+    size: "Porte",
+    has_email: "Com email",
+    has_phone: "Com telefone",
+    min_score: "Score min.",
+  };
+  const parts = Object.entries(filters)
+    .filter(([, value]) => value !== undefined && value !== null && value !== "")
+    .map(([key, value]) => {
+      const label = labels[key] || key;
+      if (key === "has_email" || key === "has_phone") return label;
+      return `${label}: ${value}`;
+    });
+  if (!parts.length) return "-";
+  return parts.map((part) => badge(part, "purple")).join(" ");
+}
+
+function applyCompanyFiltersToForm(filters = {}) {
+  $("#filterQuery").value = filters.query || "";
+  $("#filterState").value = filters.state || "";
+  $("#filterCity").value = filters.city || "";
+  $("#filterCnae").value = filters.cnae || "";
+  $("#filterSector").value = filters.sector || "";
+  $("#filterStatus").value = filters.status || "";
+  $("#filterSize").value = filters.size || "";
+  $("#filterMinScore").value = filters.min_score || "";
+  $("#filterHasEmail").checked = Boolean(filters.has_email);
+  $("#filterHasPhone").checked = Boolean(filters.has_phone);
+}
+
+async function loadSavedFilters() {
+  const data = await api("/api/saved-filters");
+  state.savedFilters = data.items || [];
+  renderSavedFilters();
+  return data;
+}
+
+function renderSavedFilters() {
+  const select = $("#savedFilterSelect");
+  if (select) {
+    select.innerHTML = state.savedFilters.length
+      ? `<option value="">Selecione um segmento</option>${state.savedFilters
+          .map((filter) => `<option value="${filter.id}">${escapeHtml(filter.name)} (${filter.total_at_creation || 0})</option>`)
+          .join("")}`
+      : `<option value="">Nenhum segmento salvo</option>`;
+  }
+  const container = $("#savedFiltersTable");
+  if (!container) return;
+  if (!state.savedFilters.length) {
+    container.innerHTML = `<div class="empty-state">Nenhum segmento salvo neste workspace.</div>`;
+    return;
+  }
+  container.innerHTML = table(
+    ["Segmento", "Filtros", "Empresas", "Criado", ""],
+    state.savedFilters.map((filter) => [
+      `<strong>${escapeHtml(filter.name)}</strong>`,
+      describeCompanyFilters(filter.filters || {}),
+      badge(filter.total_at_creation || 0, "green"),
+      escapeHtml(fmt(filter.created_at)),
+      `<div class="row-actions"><button class="row-action" data-apply-saved-filter="${filter.id}">Aplicar</button><button class="row-action" data-create-icp-saved-filter="${filter.id}">Criar ICP</button></div>`,
+    ]),
+  );
+  $$("[data-apply-saved-filter]").forEach((button) => {
+    button.addEventListener("click", () => applySavedFilterById(button.dataset.applySavedFilter));
+  });
+  $$("[data-create-icp-saved-filter]").forEach((button) => {
+    button.addEventListener("click", () => createIcpFromSavedFilterId(button.dataset.createIcpSavedFilter));
+  });
+}
+
+async function createSavedFilterFromForm() {
+  const name = $("#savedFilterName").value.trim();
+  const filters = currentCompanyFilters();
+  if (!name) return showStatus("Informe um nome para o segmento.", "warn");
+  if (!Object.keys(filters).length) return showStatus("Aplique ao menos um filtro antes de salvar.", "warn");
+  const saved = await api("/api/saved-filters", {
+    method: "POST",
+    body: JSON.stringify({ name, filters }),
+  });
+  $("#savedFilterName").value = "";
+  showStatus(`Segmento "${saved.name}" salvo com ${saved.total_at_creation || 0} empresas.`);
+  await loadSavedFilters();
+}
+
+async function applySavedFilterById(id) {
+  const saved = state.savedFilters.find((item) => String(item.id) === String(id));
+  if (!saved) return showStatus("Selecione um segmento salvo.", "warn");
+  applyCompanyFiltersToForm(saved.filters || {});
+  showStatus(`Segmento "${saved.name}" aplicado.`);
+  await loadCompanies();
+}
+
+async function applySavedFilterFromSelect() {
+  const id = $("#savedFilterSelect").value;
+  if (!id) return showStatus("Selecione um segmento salvo.", "warn");
+  await applySavedFilterById(id);
+}
+
+async function createIcpFromSavedFilterId(id) {
+  const saved = state.savedFilters.find((item) => String(item.id) === String(id));
+  if (!saved) return showStatus("Selecione um segmento salvo.", "warn");
+  const payload = {
+    name: $("#savedFilterIcpName").value.trim(),
+    max_leads: Number($("#savedFilterIcpMaxLeads").value || 50),
+  };
+  if (!payload.name) delete payload.name;
+  const result = await api(`/api/saved-filters/${id}/icp`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  $("#savedFilterIcpName").value = "";
+  showStatus(`ICP "${result.icp_rule?.name || saved.name}" criado a partir do segmento.`);
+}
+
+async function createIcpFromSavedFilterForm() {
+  const id = $("#savedFilterSelect").value;
+  if (!id) return showStatus("Selecione um segmento salvo.", "warn");
+  await createIcpFromSavedFilterId(id);
 }
 
 async function loadCompanies() {
@@ -2731,6 +2869,10 @@ function wireEvents() {
   $("#workspaceContextSelect").addEventListener("keydown", (event) => {
     if (event.key === "Enter") $("#setWorkspaceContextBtn").click();
   });
+  $("#saveCurrentFilterBtn").addEventListener("click", createSavedFilterFromForm);
+  $("#refreshSavedFiltersBtn").addEventListener("click", loadSavedFilters);
+  $("#applySavedFilterBtn").addEventListener("click", applySavedFilterFromSelect);
+  $("#createIcpFromSavedFilterBtn").addEventListener("click", createIcpFromSavedFilterForm);
   $("#addToListBtn").addEventListener("click", addSelectedToList);
   $("#createListBtn").addEventListener("click", createListFromForm);
   $("#importBtn").addEventListener("click", importFromForm);

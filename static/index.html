@@ -513,10 +513,11 @@
 
         <section id="companies" class="view">
           <div class="filter-grid">
-            <input id="filterQuery" class="input" placeholder="Razao social, CNPJ, socio, email" />
+            <input id="filterQuery" class="input search-input" placeholder="Razao social, CNPJ, socio, email" />
             <input id="filterState" class="input" placeholder="UF" maxlength="2" />
             <input id="filterCity" class="input" placeholder="Cidade" />
             <input id="filterCnae" class="input" placeholder="CNAE" />
+            <input id="filterSector" class="input" placeholder="Setor" />
             <select id="filterStatus" class="input">
               <option value="">Situacao</option>
               <option value="Ativa">Ativa</option>
@@ -531,9 +532,30 @@
               <option value="MEDIO">MEDIO</option>
               <option value="GRANDE">GRANDE</option>
             </select>
+            <input id="filterMinScore" class="input" type="number" min="0" max="100" placeholder="Score min." />
             <label class="check-row"><input type="checkbox" id="filterHasEmail" /> Com email</label>
+            <label class="check-row"><input type="checkbox" id="filterHasPhone" /> Com telefone</label>
             <button id="searchBtn" class="button primary">Filtrar</button>
           </div>
+
+          <section class="panel saved-segment-panel">
+            <div class="panel-head">
+              <h2>Segmentos salvos e ICP</h2>
+              <button id="refreshSavedFiltersBtn" class="button">Atualizar</button>
+            </div>
+            <div class="segment-controls">
+              <input id="savedFilterName" class="input" placeholder="Nome do segmento atual" />
+              <button id="saveCurrentFilterBtn" class="button primary">Salvar filtros atuais</button>
+              <select id="savedFilterSelect" class="input"></select>
+              <button id="applySavedFilterBtn" class="button">Aplicar segmento</button>
+              <input id="savedFilterIcpName" class="input" placeholder="Nome do ICP" />
+              <input id="savedFilterIcpMaxLeads" class="input" type="number" min="1" max="500" value="50" />
+              <button id="createIcpFromSavedFilterBtn" class="button">Criar ICP</button>
+            </div>
+            <div id="savedFiltersTable" class="table-wrap">
+              <div class="empty-state">Nenhum segmento salvo neste workspace.</div>
+            </div>
+          </section>
 
           <div class="toolbar">
             <div id="resultCount" class="muted">0 empresas</div>

@@ -365,9 +365,13 @@ h3 {
 
 .filter-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) 80px 1fr 120px 150px 140px 130px auto;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.filter-grid .search-input {
+  grid-column: span 2;
 }
 
 .check-row {
@@ -380,6 +384,24 @@ h3 {
   gap: 8px;
   padding: 0 10px;
   white-space: nowrap;
+}
+
+.saved-segment-panel {
+  margin-bottom: 12px;
+}
+
+.segment-controls {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) auto minmax(200px, 1fr) auto minmax(180px, 1fr) 100px auto;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .toolbar {
@@ -867,6 +889,7 @@ tr:hover td {
   }
 
   .filter-grid,
+  .segment-controls,
   .metric-grid,
   .form-grid,
   .form-grid.two {
@@ -888,6 +911,7 @@ tr:hover td {
   .workspace-switcher,
   .compact,
   .filter-grid,
+  .segment-controls,
   .metric-grid,
   .form-grid,
   .form-grid.two {
@@ -903,5 +927,9 @@ tr:hover td {
   .workspace-select {
     max-width: none;
     width: 100%;
+  }
+
+  .filter-grid .search-input {
+    grid-column: auto;
   }
 }
