@@ -28,7 +28,7 @@ from .email_experiments import (
     lead_score,
 )
 from .email_hygiene import classify_email, normalize_email
-from .email_scoring import score_email
+from .email_scoring import PREFIX_RULES, ascii_key, score_email
 from .email_templates import (
     COMPLIANCE_FOOTER_TEMPLATE,
     SUPPORTED_VARIABLES,
@@ -60,6 +60,11 @@ COMPANY_FILTER_KEYS = {
     "has_email",
     "has_phone",
     "min_score",
+}
+DEFAULT_SCORING_THRESHOLDS = {
+    "min_eligible_email_score": 30,
+    "shared_email_company_threshold": 3,
+    "shared_domain_company_threshold": 5,
 }
 DEFAULT_SAAS_PLANS = [
     {
@@ -1334,6 +1339,165 @@ def known_shared_domain_set(conn):
     return {normalize_domain(row["domain"]) for row in rows}
 
 
+def prefix_rules_json_from_algorithm(rules=None):
+    rules = rules or PREFIX_RULES
+    return {
+        prefix: {"area": area, "score": int(score), "label": label}
+        for prefix, (area, score, label) in sorted(rules.items())
+    }
+
+
+def normalize_prefix_label(value, default="role_inbox"):
+    label = str(value or default).strip().lower().replace("-", "_").replace(" ", "_")
+    label = re.sub(r"[^a-z0-9_]+", "", label)
+    return label or default
+
+
+def score_value(value, default=50):
+    try:
+        score = int(value)
+    except (TypeError, ValueError):
+        score = default
+    if score < 0 or score > 100:
+        raise ValueError("Score de prefixo deve ficar entre 0 e 100")
+    return score
+
+
+def normalize_workspace_prefix_rules(raw_rules=None, base_rules=None):
+    normalized = dict(base_rules or prefix_rules_json_from_algorithm())
+    if raw_rules is None:
+        return normalized
+    if not isinstance(raw_rules, dict):
+        raise ValueError("Regras de prefixo devem ser um objeto JSON")
+    for raw_prefix, raw_rule in raw_rules.items():
+        prefix = ascii_key(str(raw_prefix or ""))
+        if not prefix:
+            continue
+        existing = normalized.get(prefix, {})
+        if isinstance(raw_rule, dict):
+            area = str(raw_rule.get("area") or existing.get("area") or "nao classificado").strip()
+            label = normalize_prefix_label(raw_rule.get("label") or existing.get("label") or "role_inbox")
+            score = score_value(raw_rule.get("score"), existing.get("score", 50))
+        elif isinstance(raw_rule, (list, tuple)) and len(raw_rule) >= 3:
+            area = str(raw_rule[0] or existing.get("area") or "nao classificado").strip()
+            score = score_value(raw_rule[1], existing.get("score", 50))
+            label = normalize_prefix_label(raw_rule[2] or existing.get("label") or "role_inbox")
+        else:
+            raise ValueError("Regra de prefixo invalida para %s" % prefix)
+        normalized[prefix] = {"area": area, "score": score, "label": label}
+    return normalized
+
+
+def normalize_scoring_thresholds(raw_thresholds=None, base_thresholds=None):
+    thresholds = dict(base_thresholds or DEFAULT_SCORING_THRESHOLDS)
+    if raw_thresholds is None:
+        return thresholds
+    if not isinstance(raw_thresholds, dict):
+        raise ValueError("Thresholds de scoring devem ser um objeto JSON")
+    for key, default in DEFAULT_SCORING_THRESHOLDS.items():
+        if key in raw_thresholds:
+            try:
+                value = int(raw_thresholds.get(key))
+            except (TypeError, ValueError):
+                value = default
+            thresholds[key] = max(0, min(1000, value))
+    return thresholds
+
+
+def scoring_config_row_to_dict(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["email_prefix_rules"] = json.loads(data.pop("email_prefix_rules_json") or "{}")
+    data["thresholds"] = json.loads(data.pop("thresholds_json") or "{}")
+    data["prefix_count"] = len(data["email_prefix_rules"])
+    return data
+
+
+def scoring_prefix_rules_for_algorithm(config):
+    return {
+        prefix: (
+            str(rule.get("area") or "nao classificado"),
+            int(rule.get("score") or 0),
+            normalize_prefix_label(rule.get("label") or "role_inbox"),
+        )
+        for prefix, rule in (config.get("email_prefix_rules") or {}).items()
+        if isinstance(rule, dict)
+    }
+
+
+def ensure_workspace_scoring_config(conn, org_id=None):
+    org_id = int(org_id or current_org_id(conn))
+    row = conn.execute(
+        "SELECT * FROM workspace_scoring_configs WHERE org_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
+        (org_id,),
+    ).fetchone()
+    if row:
+        return scoring_config_row_to_dict(row)
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO workspace_scoring_configs (
+            org_id, name, status, email_prefix_rules_json, thresholds_json, created_at, updated_at
+        )
+        VALUES (?, ?, 'active', ?, ?, ?, ?)
+        """,
+        (
+            org_id,
+            "Default de scoring B2B",
+            json.dumps(prefix_rules_json_from_algorithm(), ensure_ascii=True),
+            json.dumps(DEFAULT_SCORING_THRESHOLDS, ensure_ascii=True),
+            timestamp,
+            timestamp,
+        ),
+    )
+    audit(conn, "create_workspace_scoring_config", "workspace_scoring_config", cursor.lastrowid, {"name": "Default de scoring B2B"}, org_id=org_id)
+    return scoring_config_row_to_dict(
+        conn.execute("SELECT * FROM workspace_scoring_configs WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    )
+
+
+def get_workspace_scoring_config(conn):
+    return ensure_workspace_scoring_config(conn)
+
+
+def update_workspace_scoring_config(conn, payload):
+    payload = payload or {}
+    org_id = current_org_id(conn)
+    current = ensure_workspace_scoring_config(conn, org_id)
+    name = (payload.get("name") or current["name"] or "Scoring do workspace").strip()
+    prefix_rules = normalize_workspace_prefix_rules(
+        payload.get("email_prefix_rules") if "email_prefix_rules" in payload else payload.get("prefix_rules"),
+        base_rules=current.get("email_prefix_rules") or prefix_rules_json_from_algorithm(),
+    )
+    thresholds = normalize_scoring_thresholds(payload.get("thresholds"), current.get("thresholds") or DEFAULT_SCORING_THRESHOLDS)
+    timestamp = now_iso()
+    conn.execute(
+        """
+        UPDATE workspace_scoring_configs
+        SET name = ?, email_prefix_rules_json = ?, thresholds_json = ?, updated_at = ?
+        WHERE id = ? AND org_id = ?
+        """,
+        (
+            name,
+            json.dumps(prefix_rules, ensure_ascii=True),
+            json.dumps(thresholds, ensure_ascii=True),
+            timestamp,
+            current["id"],
+            org_id,
+        ),
+    )
+    audit(
+        conn,
+        "update_workspace_scoring_config",
+        "workspace_scoring_config",
+        current["id"],
+        {"name": name, "prefix_count": len(prefix_rules), "thresholds": thresholds},
+        org_id=org_id,
+    )
+    return get_workspace_scoring_config(conn)
+
+
 def normalize_domain(value):
     return str(value or "").strip().lower()
 
@@ -1467,11 +1631,13 @@ def score_email_record(conn, email, company_id=None):
     if not email and company_id:
         row = conn.execute("SELECT email FROM companies WHERE id = ?", (company_id,)).fetchone()
         email = normalize_email(row["email"] if row else "")
+    scoring_config = get_workspace_scoring_config(conn)
     suppression, opt_out = suppression_sets(conn)
     hygiene = classify_email(email, suppression, opt_out)
     same_email, same_domain = email_context_counts(conn, email)
     partner_names = company_partner_names(conn, company_id) if company_id else []
     known_domains = known_shared_domain_set(conn)
+    prefix_rules = scoring_prefix_rules_for_algorithm(scoring_config)
     scoring = score_email(
         email,
         partner_names=partner_names,
@@ -1481,7 +1647,12 @@ def score_email_record(conn, email, company_id=None):
         known_shared_domains=known_domains,
         suppression_set=suppression,
         opt_out_set=opt_out,
+        prefix_rules=prefix_rules,
+        prefix_rules_source="workspace",
     )
+    scoring["scoring_config_id"] = scoring_config["id"]
+    scoring["scoring_config_name"] = scoring_config["name"]
+    scoring["workspace_prefix_rules_applied"] = scoring.get("prefix_rule_source") == "workspace"
     if "shared_domain" in scoring["labels"]:
         upsert_known_shared_domain(
             conn,
