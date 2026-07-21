@@ -39,7 +39,7 @@ from .email_templates import (
 )
 from .exporter import rows_to_csv_bytes, rows_to_xlsx_bytes
 from .receita_importer import parse_receita_directory, parse_receita_zip_directory
-from .scoring import estimate_market_value, infer_sector, score_company
+from .scoring import DEFAULT_COMPANY_SCORE_RULES, estimate_market_value, infer_sector, score_company
 
 
 ORG_ID = 1
@@ -741,6 +741,7 @@ def seed_sample(conn):
 
 
 def search_companies(conn, params):
+    org_id = current_org_id(conn)
     limit = min(int(params.get("limit", 50) or 50), 200)
     offset = max(int(params.get("offset", 0) or 0), 0)
     where = []
@@ -750,17 +751,17 @@ def search_companies(conn, params):
     if query:
         like = "%%%s%%" % query.lower()
         where.append(
-            "(lower(legal_name) LIKE ? OR lower(trade_name) LIKE ? OR cnpj LIKE ? OR lower(email) LIKE ? OR lower(city) LIKE ?)"
+            "(lower(c.legal_name) LIKE ? OR lower(c.trade_name) LIKE ? OR c.cnpj LIKE ? OR lower(c.email) LIKE ? OR lower(c.city) LIKE ?)"
         )
         values.extend([like, like, "%%%s%%" % query, like, like])
 
     for key, column in [
-        ("state", "state"),
-        ("city", "city"),
-        ("cnae", "main_cnae_code"),
-        ("status", "status"),
-        ("size", "size"),
-        ("sector", "sector"),
+        ("state", "c.state"),
+        ("city", "c.city"),
+        ("cnae", "c.main_cnae_code"),
+        ("status", "c.status"),
+        ("size", "c.size"),
+        ("sector", "c.sector"),
     ]:
         value = (params.get(key) or "").strip()
         if value:
@@ -768,29 +769,38 @@ def search_companies(conn, params):
             values.append("%%%s%%" % value.lower())
 
     if str(params.get("has_email", "")).lower() in ("1", "true", "yes", "sim"):
-        where.append("email IS NOT NULL AND email != ''")
+        where.append("c.email IS NOT NULL AND c.email != ''")
     if str(params.get("has_phone", "")).lower() in ("1", "true", "yes", "sim"):
-        where.append("phone IS NOT NULL AND phone != ''")
+        where.append("c.phone IS NOT NULL AND c.phone != ''")
 
     min_score = params.get("min_score")
     if min_score:
-        where.append("opportunity_score >= ?")
+        where.append("COALESCE(cws.opportunity_score, c.opportunity_score) >= ?")
         values.append(int(min_score))
 
     sql_where = "WHERE " + " AND ".join(where) if where else ""
-    total = conn.execute("SELECT COUNT(*) AS total FROM companies %s" % sql_where, values).fetchone()["total"]
+    sql_from = """
+        FROM companies c
+        LEFT JOIN company_workspace_scores cws ON cws.company_id = c.id AND cws.org_id = ?
+    """
+    total = conn.execute("SELECT COUNT(*) AS total %s %s" % (sql_from, sql_where), [org_id] + values).fetchone()["total"]
     rows = conn.execute(
         """
-        SELECT id, cnpj, legal_name, trade_name, status, city, state, main_cnae_code,
-               main_cnae_description, size, email, phone, sector, opportunity_score,
-               source_name, collected_at
-        FROM companies
+        SELECT c.id, c.cnpj, c.legal_name, c.trade_name, c.status, c.city, c.state, c.main_cnae_code,
+               c.main_cnae_description, c.size, c.email, c.phone, c.sector,
+               COALESCE(cws.opportunity_score, c.opportunity_score) AS opportunity_score,
+               c.opportunity_score AS base_opportunity_score,
+               cws.id AS workspace_company_score_id,
+               cws.scoring_config_id AS company_scoring_config_id,
+               cws.scored_at AS company_score_scored_at,
+               c.source_name, c.collected_at
         %s
-        ORDER BY opportunity_score DESC, legal_name ASC
+        %s
+        ORDER BY COALESCE(cws.opportunity_score, c.opportunity_score) DESC, c.legal_name ASC
         LIMIT ? OFFSET ?
         """
-        % sql_where,
-        values + [limit, offset],
+        % (sql_from, sql_where),
+        [org_id] + values + [limit, offset],
     ).fetchall()
     return {"total": total, "limit": limit, "offset": offset, "items": [dict_row(row) for row in rows]}
 
@@ -934,6 +944,7 @@ def get_company(conn, company_id):
         return None
     data = dict_row(company)
     data["score_reasons"] = json.loads(data.get("score_reasons") or "[]")
+    data = apply_company_workspace_score_overlay(conn, data)
     data["partners"] = [
         dict_row(row)
         for row in conn.execute(
@@ -1496,6 +1507,304 @@ def update_workspace_scoring_config(conn, payload):
         org_id=org_id,
     )
     return get_workspace_scoring_config(conn)
+
+
+def company_score_rules_from_algorithm(rules=None):
+    return json.loads(json.dumps(rules or DEFAULT_COMPANY_SCORE_RULES, ensure_ascii=True))
+
+
+def bounded_score_value(value, default=0, min_value=-100, max_value=100, label="Peso"):
+    try:
+        score = int(value)
+    except (TypeError, ValueError):
+        score = int(default)
+    if score < min_value or score > max_value:
+        raise ValueError("%s deve ficar entre %s e %s" % (label, min_value, max_value))
+    return score
+
+
+def positive_float_value(value, default=0, label="Valor"):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        number = float(default)
+    if number < 0:
+        raise ValueError("%s deve ser maior ou igual a zero" % label)
+    return number
+
+
+def normalize_company_score_rules(raw_rules=None, base_rules=None):
+    normalized = company_score_rules_from_algorithm(base_rules or DEFAULT_COMPANY_SCORE_RULES)
+    if raw_rules is None:
+        return normalized
+    if not isinstance(raw_rules, dict):
+        raise ValueError("Regras de score de empresa devem ser um objeto JSON")
+
+    if "base_score" in raw_rules:
+        normalized["base_score"] = bounded_score_value(raw_rules.get("base_score"), normalized.get("base_score", 20), 0, 100, "Score base")
+
+    if "status" in raw_rules:
+        if not isinstance(raw_rules.get("status"), dict):
+            raise ValueError("status deve ser um objeto JSON")
+        status = dict(normalized.get("status") or {})
+        if "active_bonus" in raw_rules["status"]:
+            status["active_bonus"] = bounded_score_value(raw_rules["status"].get("active_bonus"), status.get("active_bonus", 20), -100, 100, "Bonus de empresa ativa")
+        if "inactive_penalty" in raw_rules["status"]:
+            status["inactive_penalty"] = bounded_score_value(raw_rules["status"].get("inactive_penalty"), status.get("inactive_penalty", -15), -100, 100, "Penalidade de situacao")
+        normalized["status"] = status
+
+    if "contact" in raw_rules:
+        if not isinstance(raw_rules.get("contact"), dict):
+            raise ValueError("contact deve ser um objeto JSON")
+        contact = dict(normalized.get("contact") or {})
+        for key, label in [("email_bonus", "Bonus de email"), ("phone_bonus", "Bonus de telefone")]:
+            if key in raw_rules["contact"]:
+                contact[key] = bounded_score_value(raw_rules["contact"].get(key), contact.get(key, 0), -100, 100, label)
+        normalized["contact"] = contact
+
+    if "size_bonus" in raw_rules:
+        if not isinstance(raw_rules.get("size_bonus"), dict):
+            raise ValueError("size_bonus deve ser um objeto JSON")
+        size_bonus = dict(normalized.get("size_bonus") or {})
+        for raw_key, raw_value in raw_rules["size_bonus"].items():
+            key = str(raw_key or "").strip().upper()
+            if not key:
+                continue
+            size_bonus[key] = bounded_score_value(raw_value, size_bonus.get(key, 0), -100, 100, "Peso de porte")
+        normalized["size_bonus"] = size_bonus
+
+    if "sector_bonus" in raw_rules:
+        if not isinstance(raw_rules.get("sector_bonus"), dict):
+            raise ValueError("sector_bonus deve ser um objeto JSON")
+        sector_bonus = dict(normalized.get("sector_bonus") or {})
+        for raw_key, raw_value in raw_rules["sector_bonus"].items():
+            key = str(raw_key or "").strip()
+            if not key:
+                continue
+            sector_bonus[key] = bounded_score_value(raw_value, sector_bonus.get(key, 0), -100, 100, "Peso de setor")
+        normalized["sector_bonus"] = sector_bonus
+
+    if "capital_bonus" in raw_rules:
+        if not isinstance(raw_rules.get("capital_bonus"), list):
+            raise ValueError("capital_bonus deve ser uma lista JSON")
+        capital_rules = []
+        for item in raw_rules["capital_bonus"]:
+            if not isinstance(item, dict):
+                raise ValueError("Cada faixa de capital deve ser um objeto JSON")
+            capital_rules.append(
+                {
+                    "min": positive_float_value(item.get("min"), 0, "Capital minimo"),
+                    "bonus": bounded_score_value(item.get("bonus"), 0, -100, 100, "Bonus de capital"),
+                    "reason": str(item.get("reason") or "capital social").strip() or "capital social",
+                }
+            )
+        normalized["capital_bonus"] = sorted(capital_rules, key=lambda rule: rule["min"], reverse=True)
+
+    if "age_bonus" in raw_rules:
+        if not isinstance(raw_rules.get("age_bonus"), list):
+            raise ValueError("age_bonus deve ser uma lista JSON")
+        age_rules = []
+        for item in raw_rules["age_bonus"]:
+            if not isinstance(item, dict):
+                raise ValueError("Cada faixa de idade deve ser um objeto JSON")
+            rule = {
+                "bonus": bounded_score_value(item.get("bonus"), 0, -100, 100, "Bonus de idade"),
+                "reason": str(item.get("reason") or "idade da empresa").strip() or "idade da empresa",
+            }
+            if "max_years_exclusive" in item:
+                rule["max_years_exclusive"] = positive_float_value(item.get("max_years_exclusive"), 0, "Maximo de anos")
+            elif "max_years" in item:
+                rule["max_years"] = positive_float_value(item.get("max_years"), 0, "Maximo de anos")
+            age_rules.append(rule)
+        normalized["age_bonus"] = age_rules
+
+    return normalized
+
+
+def company_score_config_row_to_dict(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["rules"] = json.loads(data.pop("rules_json") or "{}")
+    data["sector_count"] = len(data["rules"].get("sector_bonus") or {})
+    data["capital_band_count"] = len(data["rules"].get("capital_bonus") or [])
+    return data
+
+
+def ensure_workspace_company_score_config(conn, org_id=None):
+    org_id = int(org_id or current_org_id(conn))
+    row = conn.execute(
+        "SELECT * FROM workspace_company_score_configs WHERE org_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1",
+        (org_id,),
+    ).fetchone()
+    if row:
+        return company_score_config_row_to_dict(row)
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO workspace_company_score_configs (
+            org_id, name, status, rules_json, created_at, updated_at
+        )
+        VALUES (?, ?, 'active', ?, ?, ?)
+        """,
+        (
+            org_id,
+            "Default de score de empresa B2B",
+            json.dumps(company_score_rules_from_algorithm(), ensure_ascii=True),
+            timestamp,
+            timestamp,
+        ),
+    )
+    audit(conn, "create_workspace_company_score_config", "workspace_company_score_config", cursor.lastrowid, {"name": "Default de score de empresa B2B"}, org_id=org_id)
+    return company_score_config_row_to_dict(
+        conn.execute("SELECT * FROM workspace_company_score_configs WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    )
+
+
+def get_workspace_company_score_config(conn):
+    return ensure_workspace_company_score_config(conn)
+
+
+def update_workspace_company_score_config(conn, payload):
+    payload = payload or {}
+    org_id = current_org_id(conn)
+    current = ensure_workspace_company_score_config(conn, org_id)
+    name = (payload.get("name") or current["name"] or "Score de empresa do workspace").strip()
+    rules = normalize_company_score_rules(payload.get("rules"), current.get("rules") or DEFAULT_COMPANY_SCORE_RULES)
+    timestamp = now_iso()
+    conn.execute(
+        """
+        UPDATE workspace_company_score_configs
+        SET name = ?, rules_json = ?, updated_at = ?
+        WHERE id = ? AND org_id = ?
+        """,
+        (
+            name,
+            json.dumps(rules, ensure_ascii=True),
+            timestamp,
+            current["id"],
+            org_id,
+        ),
+    )
+    audit(
+        conn,
+        "update_workspace_company_score_config",
+        "workspace_company_score_config",
+        current["id"],
+        {"name": name, "sector_count": len(rules.get("sector_bonus") or {})},
+        org_id=org_id,
+    )
+    return get_workspace_company_score_config(conn)
+
+
+def persist_company_workspace_score(conn, company, config=None, org_id=None):
+    org_id = int(org_id or current_org_id(conn))
+    config = config or ensure_workspace_company_score_config(conn, org_id)
+    data = dict_row(company) if not isinstance(company, dict) else dict(company)
+    company_id = int(data.get("id") or data.get("company_id") or 0)
+    if not company_id:
+        raise ValueError("Empresa sem id para scoring")
+    score, reasons = score_company(data, config.get("rules") or DEFAULT_COMPANY_SCORE_RULES)
+    timestamp = now_iso()
+    conn.execute(
+        """
+        INSERT INTO company_workspace_scores (
+            org_id, company_id, scoring_config_id, opportunity_score, score_reasons_json, scored_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(org_id, company_id) DO UPDATE SET
+            scoring_config_id = excluded.scoring_config_id,
+            opportunity_score = excluded.opportunity_score,
+            score_reasons_json = excluded.score_reasons_json,
+            scored_at = excluded.scored_at
+        """,
+        (
+            org_id,
+            company_id,
+            config["id"],
+            score,
+            json.dumps(reasons, ensure_ascii=True),
+            timestamp,
+        ),
+    )
+    return {
+        "company_id": company_id,
+        "opportunity_score": score,
+        "score_reasons": reasons,
+        "scoring_config_id": config["id"],
+        "scoring_config_name": config["name"],
+        "scored_at": timestamp,
+    }
+
+
+def apply_company_workspace_score_overlay(conn, company, org_id=None):
+    org_id = int(org_id or current_org_id(conn))
+    data = dict(company)
+    company_id = int(data.get("id") or data.get("company_id") or 0)
+    data["base_opportunity_score"] = data.get("opportunity_score")
+    data["workspace_score_applied"] = False
+    if not company_id:
+        return data
+    row = conn.execute(
+        """
+        SELECT cws.*, wcsc.name AS scoring_config_name
+        FROM company_workspace_scores cws
+        LEFT JOIN workspace_company_score_configs wcsc ON wcsc.id = cws.scoring_config_id
+        WHERE cws.org_id = ? AND cws.company_id = ?
+        """,
+        (org_id, company_id),
+    ).fetchone()
+    if not row:
+        return data
+    data["opportunity_score"] = row["opportunity_score"]
+    data["score_reasons"] = json.loads(row["score_reasons_json"] or "[]")
+    data["workspace_company_score_id"] = row["id"]
+    data["company_scoring_config_id"] = row["scoring_config_id"]
+    data["company_scoring_config_name"] = row["scoring_config_name"]
+    data["company_score_scored_at"] = row["scored_at"]
+    data["workspace_score_applied"] = True
+    return data
+
+
+def rescore_workspace_companies(conn, payload=None):
+    payload = payload or {}
+    org_id = current_org_id(conn)
+    limit = min(max(int(payload.get("limit", 500) or 500), 1), 5000)
+    list_id = payload.get("list_id")
+    config = ensure_workspace_company_score_config(conn, org_id)
+    if list_id:
+        list_row = conn.execute("SELECT id FROM lists WHERE id = ? AND org_id = ?", (int(list_id), org_id)).fetchone()
+        if not list_row:
+            raise ValueError("Lista nao encontrada")
+        rows = conn.execute(
+            """
+            SELECT c.*
+            FROM list_companies lc
+            JOIN companies c ON c.id = lc.company_id
+            WHERE lc.list_id = ?
+            ORDER BY c.id ASC
+            LIMIT ?
+            """,
+            (int(list_id), limit),
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM companies ORDER BY id ASC LIMIT ?", (limit,)).fetchall()
+    results = [persist_company_workspace_score(conn, row, config=config, org_id=org_id) for row in rows]
+    audit(
+        conn,
+        "rescore_workspace_companies",
+        "company_workspace_score",
+        list_id,
+        {"count": len(results), "limit": limit, "scoring_config_id": config["id"]},
+        org_id=org_id,
+    )
+    return {
+        "scored": len(results),
+        "limit": limit,
+        "list_id": int(list_id) if list_id else None,
+        "scoring_config": config,
+        "items": results[:20],
+    }
 
 
 def normalize_domain(value):
@@ -3350,32 +3659,40 @@ def icp_candidate_rows(conn, criteria, list_id=None):
             """
             SELECT c.id AS company_id, c.cnpj, c.legal_name, c.trade_name, c.status,
                    c.city, c.state, c.main_cnae_code, c.main_cnae_description,
-                   c.size, c.email, c.sector, c.opportunity_score,
+                   c.size, c.email, c.sector,
+                   COALESCE(cws.opportunity_score, c.opportunity_score) AS opportunity_score,
+                   c.opportunity_score AS base_opportunity_score,
+                   cws.id AS workspace_company_score_id,
                    l.id AS lead_id, l.status AS lead_status, l.block_reason AS lead_block_reason,
                    ce.digital_maturity_score
             FROM list_companies lc
             JOIN companies c ON c.id = lc.company_id
+            LEFT JOIN company_workspace_scores cws ON cws.company_id = c.id AND cws.org_id = ?
             LEFT JOIN leads l ON l.company_id = c.id AND l.list_id = lc.list_id AND l.org_id = ?
             LEFT JOIN company_enrichment ce ON ce.company_id = c.id
             WHERE lc.list_id = ?
-            ORDER BY c.opportunity_score DESC, c.legal_name ASC
+            ORDER BY COALESCE(cws.opportunity_score, c.opportunity_score) DESC, c.legal_name ASC
             LIMIT ?
             """,
-            (org_id, int(list_id), limit),
+            (org_id, org_id, int(list_id), limit),
         ).fetchall()
     return conn.execute(
         """
         SELECT c.id AS company_id, c.cnpj, c.legal_name, c.trade_name, c.status,
                c.city, c.state, c.main_cnae_code, c.main_cnae_description,
-               c.size, c.email, c.sector, c.opportunity_score,
+               c.size, c.email, c.sector,
+               COALESCE(cws.opportunity_score, c.opportunity_score) AS opportunity_score,
+               c.opportunity_score AS base_opportunity_score,
+               cws.id AS workspace_company_score_id,
                NULL AS lead_id, NULL AS lead_status, NULL AS lead_block_reason,
                ce.digital_maturity_score
         FROM companies c
+        LEFT JOIN company_workspace_scores cws ON cws.company_id = c.id AND cws.org_id = ?
         LEFT JOIN company_enrichment ce ON ce.company_id = c.id
-        ORDER BY c.opportunity_score DESC, c.legal_name ASC
+        ORDER BY COALESCE(cws.opportunity_score, c.opportunity_score) DESC, c.legal_name ASC
         LIMIT ?
         """,
-        (limit,),
+        (org_id, limit),
     ).fetchall()
 
 
