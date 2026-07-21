@@ -7,7 +7,10 @@ from radar_cnpj.services import (
     apply_playbook,
     create_playbook,
     create_playbook_version,
+    create_workspace,
+    get_playbook,
     playbook_library,
+    set_current_workspace,
 )
 
 
@@ -107,6 +110,60 @@ class PlaybookLibraryTest(unittest.TestCase):
             library = playbook_library(conn)
             self.assertEqual(library["active_application"]["id"], application["id"])
             self.assertEqual(library["active_application"]["content"]["icp"]["states"], ["SP"])
+        finally:
+            conn.close()
+
+    def test_playbooks_follow_active_workspace(self):
+        conn = connect()
+        try:
+            internal_library = playbook_library(conn)
+            internal_default_id = internal_library["playbooks"][0]["id"]
+            internal_playbook = create_playbook(
+                conn,
+                {"name": "Playbook compartilhavel", "description": "Interno", "content": self.sample_content("SP")},
+            )
+            internal_application = apply_playbook(conn, internal_playbook["id"], {"note": "Aplicacao interna"})
+
+            workspace = create_workspace(conn, {"name": "Nine Playbooks"})
+            set_current_workspace(conn, workspace["id"])
+
+            scoped_empty = playbook_library(conn)
+            self.assertEqual(scoped_empty["company_profile"]["org_id"], workspace["id"])
+            self.assertEqual(len(scoped_empty["playbooks"]), 1)
+            self.assertEqual(scoped_empty["playbooks"][0]["name"], "Outbound B2B Servicos Locais")
+            self.assertEqual(scoped_empty["active_application"], None)
+            self.assertIsNone(get_playbook(conn, internal_default_id))
+            self.assertIsNone(get_playbook(conn, internal_playbook["id"]))
+            with self.assertRaises(ValueError):
+                create_playbook_version(conn, internal_playbook["id"], {"content": self.sample_content("RJ")})
+            with self.assertRaises(ValueError):
+                apply_playbook(conn, internal_playbook["id"], {"note": "Nao deveria cruzar"})
+
+            scoped_playbook = create_playbook(
+                conn,
+                {"name": "Playbook compartilhavel", "description": "Nine", "content": self.sample_content("SC")},
+            )
+            scoped_version = create_playbook_version(
+                conn,
+                scoped_playbook["id"],
+                {"description": "Ajuste Nine", "content": self.sample_content("PR")},
+            )
+            scoped_application = apply_playbook(
+                conn,
+                scoped_playbook["id"],
+                {"version_id": scoped_version["id"], "note": "Aplicacao Nine"},
+            )
+            self.assertEqual(scoped_playbook["org_id"], workspace["id"])
+            self.assertEqual(scoped_application["org_id"], workspace["id"])
+            self.assertEqual(scoped_application["content"]["icp"]["states"], ["PR"])
+
+            set_current_workspace(conn, 1)
+            restored = playbook_library(conn)
+            self.assertEqual(restored["active_application"]["id"], internal_application["id"])
+            self.assertEqual(restored["active_application"]["note"], "Aplicacao interna")
+            self.assertIsNone(get_playbook(conn, scoped_playbook["id"]))
+            with self.assertRaises(ValueError):
+                apply_playbook(conn, scoped_playbook["id"], {"note": "Nao deveria voltar"})
         finally:
             conn.close()
 
