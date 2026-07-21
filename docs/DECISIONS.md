@@ -806,3 +806,30 @@ Consequencias:
 - A UI pode mostrar impacto antes de criar artefatos.
 - Planos aplicados viram trilha de auditoria para explicar configuracoes.
 - Fases futuras podem adicionar edicao granular e aprovacao multiusuario.
+
+## ADR-032 - Chaves de API nao guardam token em texto puro
+
+Data: 2026-07-21
+
+Decisao:
+
+- Tokens de API devem ser retornados completos apenas na criacao.
+- O banco guarda somente hash SHA-256, prefixo e mascara para exibicao.
+- Creditos devem ser alterados por ledger append-only, com saldo negativo
+  recusado no backend.
+
+Racional:
+
+- A camada SaaS futura precisa suportar uso programatico sem transformar o
+  banco local em cofre de segredos reversiveis.
+- Prefixo e mascara permitem suporte operacional sem expor credencial.
+- Ledger de creditos torna cobranca e consumo auditaveis e evita "saldo magico"
+  editado diretamente pela interface.
+
+Consequencias:
+
+- Operador precisa copiar o token no momento da criacao; depois ele nao sera
+  recuperavel.
+- Revogar chave preserva historico em vez de apagar registro.
+- Fases futuras podem validar chave recebida por header comparando hash e podem
+  debitar creditos usando a mesma funcao de ledger.

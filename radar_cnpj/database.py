@@ -826,6 +826,46 @@ def init_db():
                 FOREIGN KEY (version_id) REFERENCES playbook_versions(id)
             );
 
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                token_hash TEXT NOT NULL UNIQUE,
+                token_prefix TEXT NOT NULL,
+                masked_token TEXT NOT NULL,
+                scopes_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL,
+                revoked_at TEXT,
+                last_used_at TEXT,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS credit_wallets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL UNIQUE,
+                balance INTEGER NOT NULL DEFAULT 0,
+                plan_name TEXT NOT NULL DEFAULT 'internal',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS credit_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                wallet_id INTEGER NOT NULL,
+                amount INTEGER NOT NULL,
+                reason TEXT NOT NULL,
+                reference_type TEXT,
+                reference_id TEXT,
+                metadata_json TEXT NOT NULL,
+                balance_after INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (wallet_id) REFERENCES credit_wallets(id)
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -944,6 +984,9 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_workspace_snapshots_created ON workspace_metric_snapshots(org_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_workspace_onboarding_runs_org ON workspace_onboarding_runs(org_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_playbook_execution_plans_org ON playbook_execution_plans(org_id, status, created_at);
+            CREATE INDEX IF NOT EXISTS idx_api_keys_org_status ON api_keys(org_id, status);
+            CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(token_prefix);
+            CREATE INDEX IF NOT EXISTS idx_credit_transactions_wallet ON credit_transactions(wallet_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);

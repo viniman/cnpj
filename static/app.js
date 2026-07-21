@@ -22,6 +22,7 @@ const state = {
   notifications: null,
   workspaceContext: null,
   workspaceComparison: null,
+  saasAccount: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -100,6 +101,7 @@ async function loadViewData(view = state.view) {
       loadCommandCenter(),
       loadNotifications(),
       loadWorkspaceComparison(),
+      loadSaasAccount(),
       loadOkrs(),
       loadPlaybooks(),
       loadPlaybookExecutionPlans(),
@@ -360,6 +362,12 @@ async function loadWorkspaceComparison() {
   renderWorkspaceComparison(data);
 }
 
+async function loadSaasAccount() {
+  const data = await api("/api/saas/account");
+  state.saasAccount = data;
+  renderSaasAccount(data);
+}
+
 function renderWorkspaceComparison(data) {
   const workspaces = data?.workspaces || [];
   const snapshots = data?.snapshots || [];
@@ -419,6 +427,104 @@ function renderWorkspaceComparison(data) {
         ]),
       )
     : `<div class="empty-state">Nenhum snapshot executivo.</div>`;
+}
+
+function renderSaasAccount(data) {
+  const wallet = data?.wallet || {};
+  const keys = data?.api_keys || [];
+  const transactions = data?.transactions || [];
+  const activeKeys = keys.filter((key) => key.status === "active").length;
+  $("#saasSummary").innerHTML = [
+    metric("Saldo", wallet.balance || 0, Number(wallet.balance || 0) > 0 ? "green" : ""),
+    metric("Plano", wallet.plan_name || "internal"),
+    metric("Chaves ativas", activeKeys, activeKeys ? "green" : ""),
+    metric("Chaves totais", keys.length),
+    metric("Lancamentos", transactions.length),
+  ].join("");
+
+  $("#saasApiKeysTable").innerHTML = keys.length
+    ? table(
+        ["Nome", "Status", "Mascara", "Escopos", "Criada", "Revogada", "Ultimo uso", ""],
+        keys.map((key) => [
+          escapeHtml(key.name || "-"),
+          badge(key.status, key.status === "active" ? "green" : "purple"),
+          escapeHtml(key.masked_token || "-"),
+          escapeHtml((key.scopes || []).join(", ") || "-"),
+          escapeHtml(key.created_at || "-"),
+          escapeHtml(key.revoked_at || "-"),
+          escapeHtml(key.last_used_at || "-"),
+          key.status === "active"
+            ? `<button class="row-action" data-revoke-saas-key="${escapeHtml(key.id)}">Revogar</button>`
+            : badge("revogada", "purple"),
+        ]),
+      )
+    : `<div class="empty-state">Nenhuma chave de API neste workspace.</div>`;
+
+  $("#saasTransactionsTable").innerHTML = transactions.length
+    ? table(
+        ["Data", "Valor", "Saldo", "Motivo", "Referencia"],
+        transactions.map((transaction) => {
+          const amount = Number(transaction.amount || 0);
+          return [
+            escapeHtml(transaction.created_at || "-"),
+            badge(amount > 0 ? `+${amount}` : amount, amount > 0 ? "green" : "amber"),
+            escapeHtml(transaction.balance_after ?? "-"),
+            escapeHtml(transaction.reason || "-"),
+            escapeHtml([transaction.reference_type, transaction.reference_id].filter(Boolean).join(" #") || "-"),
+          ];
+        }),
+      )
+    : `<div class="empty-state">Nenhum lancamento de credito.</div>`;
+
+  $$("[data-revoke-saas-key]").forEach((button) => {
+    button.addEventListener("click", () => revokeSaasApiKey(button.dataset.revokeSaasKey));
+  });
+}
+
+function renderCreatedSaasToken(token) {
+  $("#saasCreatedToken").innerHTML = token
+    ? previewHtml(token)
+    : `<div class="empty-state">Nenhum token criado nesta sessao.</div>`;
+}
+
+async function createSaasApiKeyFromForm() {
+  const result = await api("/api/saas/api-keys", {
+    method: "POST",
+    body: JSON.stringify({
+      name: $("#saasApiKeyName").value.trim(),
+      scopes: commaValues("#saasApiKeyScopes"),
+    }),
+  });
+  renderCreatedSaasToken(result.token);
+  $("#saasApiKeyName").value = "";
+  showStatus("Chave de API criada.");
+  await loadSaasAccount();
+}
+
+async function revokeSaasApiKey(keyId) {
+  await api(`/api/saas/api-keys/${keyId}/revoke`, {
+    method: "POST",
+    body: JSON.stringify({ reason: "Revogada pelo Command Center" }),
+  });
+  renderCreatedSaasToken(null);
+  showStatus("Chave de API revogada.");
+  await loadSaasAccount();
+}
+
+async function adjustSaasCreditsFromForm() {
+  const amount = Number($("#saasCreditAmount").value || 0);
+  if (!amount) return showStatus("Informe um valor de creditos diferente de zero.", "warn");
+  await api("/api/saas/credits/adjust", {
+    method: "POST",
+    body: JSON.stringify({
+      amount,
+      reason: $("#saasCreditReason").value.trim(),
+    }),
+  });
+  $("#saasCreditAmount").value = "";
+  $("#saasCreditReason").value = "";
+  showStatus("Ajuste de creditos registrado.");
+  await loadSaasAccount();
 }
 
 function renderWorkspaceOnboardingResult(result) {
@@ -2545,6 +2651,9 @@ function wireEvents() {
   $("#generateNotificationsBtn").addEventListener("click", generateNotificationsFromSignals);
   $("#refreshNotificationsBtn").addEventListener("click", loadNotifications);
   $("#refreshWorkspaceComparisonBtn").addEventListener("click", loadWorkspaceComparison);
+  $("#refreshSaasAccountBtn").addEventListener("click", loadSaasAccount);
+  $("#createSaasApiKeyBtn").addEventListener("click", createSaasApiKeyFromForm);
+  $("#adjustSaasCreditsBtn").addEventListener("click", adjustSaasCreditsFromForm);
   $("#runWorkspaceOnboardingBtn").addEventListener("click", runWorkspaceOnboardingFromForm);
   $("#createWorkspaceBtn").addEventListener("click", createWorkspaceFromForm);
   $("#createWorkspaceSnapshotBtn").addEventListener("click", createWorkspaceSnapshotFromForm);

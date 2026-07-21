@@ -9,6 +9,7 @@ from .services import (
     add_companies_to_list,
     add_suppression,
     activate_agent_config,
+    adjust_credit_wallet,
     agent_governance,
     apply_playbook,
     apply_playbook_execution_plan,
@@ -17,6 +18,7 @@ from .services import (
     create_icp_rule,
     create_agent_config,
     create_agent_simulation,
+    create_api_key,
     create_list,
     create_campaign,
     create_email_template,
@@ -75,7 +77,9 @@ from .services import (
     record_inbound_reply,
     reject_sequence_step,
     render_email_template,
+    revoke_api_key,
     run_workspace_onboarding,
+    saas_account,
     score_emails,
     search_companies,
     seed_sample,
@@ -181,6 +185,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(playbook_library(conn))
                 elif parsed.path == "/api/playbook-execution-plans":
                     self.send_json(list_playbook_execution_plans(conn, params))
+                elif parsed.path == "/api/saas/account":
+                    self.send_json(saas_account(conn, params))
                 elif parsed.path == "/api/notifications":
                     self.send_json(list_notifications(conn, params))
                 elif parsed.path == "/api/workspace-context":
@@ -400,6 +406,12 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, create_playbook_execution_plan(conn, int(parts[2]), data), 201)
                 elif len(parts) == 4 and parts[1] == "playbook-execution-plans" and parts[3] == "apply":
                     self.send_json_commit(conn, apply_playbook_execution_plan(conn, int(parts[2]), data), 201)
+                elif parsed.path == "/api/saas/api-keys":
+                    self.send_json_commit(conn, create_api_key(conn, data), 201)
+                elif len(parts) == 5 and parts[1] == "saas" and parts[2] == "api-keys" and parts[4] == "revoke":
+                    self.send_json_commit(conn, revoke_api_key(conn, int(parts[3]), data))
+                elif parsed.path == "/api/saas/credits/adjust":
+                    self.send_json_commit(conn, adjust_credit_wallet(conn, data), 201)
                 elif parsed.path == "/api/notifications/generate":
                     self.send_json_commit(conn, generate_notifications(conn), 201)
                 elif len(parts) == 4 and parts[1] == "notifications" and parts[3] == "mark-read":

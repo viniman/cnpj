@@ -142,6 +142,28 @@ Consultar comparacao executiva de workspaces:
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/workspaces/comparison"
 ```
 
+Consultar fundacao SaaS local:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/saas/account"
+```
+
+Criar chave de API e ajustar creditos:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/saas/api-keys" `
+  -Body '{"name":"Integracao interna","scopes":["companies:read","emails:read","exports:create"]}' `
+  -ContentType "application/json"
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/saas/credits/adjust" `
+  -Body '{"amount":100,"reason":"Credito manual inicial"}' `
+  -ContentType "application/json"
+```
+
 Criar workspace para comparacao:
 
 ```powershell
@@ -716,6 +738,10 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `GET /api/playbook-execution-plans`
 - `POST /api/playbooks/{id}/execution-plans`
 - `POST /api/playbook-execution-plans/{id}/apply`
+- `GET /api/saas/account`
+- `POST /api/saas/api-keys`
+- `POST /api/saas/api-keys/{id}/revoke`
+- `POST /api/saas/credits/adjust`
 - `GET /api/notifications`
 - `POST /api/notifications/generate`
 - `POST /api/notifications/{id}/mark-read`
@@ -842,6 +868,9 @@ python -m unittest discover -s tests
 - Planos de execucao de playbook criam uma previa auditavel antes de
   materializar ICP, template, sequencia e OKR; apenas a acao explicita de
   aplicar o plano cria esses artefatos.
+- A fundacao SaaS tambem usa o workspace ativo: chaves de API, carteira e
+  ledger de creditos nao atravessam empresas. Token completo aparece apenas na
+  criacao; depois so prefixo/mascara ficam disponiveis.
 - O onboarding operacional cria uma nova empresa pronta para revisao no Command
   Center: workspace, playbook aplicado, ICP, template, sequencia, OKR e default
   de agente, sem envio real.
