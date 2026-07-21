@@ -27,6 +27,13 @@ A auditoria exibida no MVP local deve seguir o workspace ativo por padrao. Uma
 visao global futura precisa ser explicita, protegida por permissao e diferente
 da tela operacional usada no dia a dia.
 
+## Implementado nesta fase
+
+- `audit_events` agora resolve `org_id` via `current_org_id(conn)`.
+- `/api/audit` passa a respeitar o workspace ativo sem mudar contrato HTTP.
+- Teste de contexto cria eventos de lista em dois workspaces e prova que a
+  leitura operacional nao cruza empresas internas.
+
 ## Criterios de aceite
 
 - `/api/audit` e `audit_events` leem `current_org_id(conn)`.

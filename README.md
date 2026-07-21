@@ -790,6 +790,8 @@ python -m unittest discover -s tests
   empresa tem configuracao ativa, simulacoes e custos proprios.
 - Playbooks tambem usam o workspace ativo; biblioteca, versoes, perfil
   operacional e aplicacao ativa nao atravessam empresas selecionadas na topbar.
+- Auditoria operacional tambem usa o workspace ativo; `/api/audit` mostra os
+  eventos da empresa selecionada na topbar.
 
 ## Proximas fases sugeridas
 

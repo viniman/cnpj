@@ -1691,3 +1691,32 @@ Meta da fase:
 Documento principal:
 
 - `docs/AUDIT_CONTEXT_SPEC.md`
+
+Commits:
+
+- `9c69f3a docs: define audit context phase`
+- `326211a feat: scope audit events to active workspace`
+
+Implementado:
+
+- `audit_events` migrado para `current_org_id(conn)`.
+- API `/api/audit` mantendo o contrato atual, mas lendo o workspace ativo.
+- Teste multi-workspace em `tests/test_workspace_context.py` provando que
+  eventos de auditoria operacional nao vazam entre empresas internas.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_workspace_context
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 74 tests
+OK
+```
