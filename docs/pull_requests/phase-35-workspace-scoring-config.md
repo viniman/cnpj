@@ -7,15 +7,15 @@ e-mail, mantendo defaults seguros e aplicacao no backend.
 
 ## Implementado
 
-- [ ] Documento `docs/WORKSPACE_SCORING_CONFIG_SPEC.md`.
-- [ ] ADR sobre scoring configuravel por workspace.
-- [ ] Tabela `workspace_scoring_configs`.
-- [ ] Default idempotente por workspace.
-- [ ] Servicos para ler/atualizar configuracao.
-- [ ] Aplicacao da configuracao em `score_email_record`.
-- [ ] Endpoints `GET/POST /api/scoring/config`.
-- [ ] UI local para visualizar e salvar regras.
-- [ ] Testes automatizados da fase.
+- [x] Documento `docs/WORKSPACE_SCORING_CONFIG_SPEC.md`.
+- [x] ADR sobre scoring configuravel por workspace.
+- [x] Tabela `workspace_scoring_configs`.
+- [x] Default idempotente por workspace.
+- [x] Servicos para ler/atualizar configuracao.
+- [x] Aplicacao da configuracao em `score_email_record`.
+- [x] Endpoints `GET/POST /api/scoring/config`.
+- [x] UI local para visualizar e salvar regras.
+- [x] Testes automatizados da fase.
 
 ## Como testar localmente
 
@@ -30,8 +30,23 @@ node --check static\app.js
 
 ## Checklist de aceite
 
-- [ ] Default e criado por workspace.
-- [ ] Prefixo customizado altera score persistido.
-- [ ] Customizacao nao vaza entre workspaces.
-- [ ] Algoritmo puro sem banco continua compativel.
-- [ ] UI permite salvar e recarregar configuracao ativa.
+- [x] Default e criado por workspace.
+- [x] Prefixo customizado altera score persistido.
+- [x] Customizacao nao vaza entre workspaces.
+- [x] Algoritmo puro sem banco continua compativel.
+- [x] UI permite salvar e recarregar configuracao ativa.
+
+## Verificacao realizada
+
+```text
+python -m unittest tests.test_workspace_scoring_config tests.test_email_scoring
+Ran 8 tests
+OK
+
+python -m unittest discover -s tests
+Ran 105 tests
+OK
+
+node --check static\app.js
+OK
+```

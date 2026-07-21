@@ -27,7 +27,7 @@ Proximos hardenings:
 
 Prioridade imediata.
 
-Status: fase 35 iniciada em `feature/35-workspace-scoring-config`.
+Status: fase 35 implementada localmente em `feature/35-workspace-scoring-config`.
 
 Meta:
 

@@ -189,6 +189,18 @@ Consultar contrato OpenAPI da API publica local:
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/public/openapi.json"
 ```
 
+Consultar e atualizar configuracao de scoring do workspace:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/scoring/config"
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/scoring/config" `
+  -Body '{"name":"Scoring RH","email_prefix_rules":{"rh":{"area":"decisor de recursos humanos","score":82,"label":"decision_maker"}}}' `
+  -ContentType "application/json"
+```
+
 Salvar segmento de empresas e converter para ICP:
 
 ```powershell
@@ -347,6 +359,11 @@ Os resultados ficam persistidos em:
 - `email_classifications`
 - `email_score_log`
 - `known_shared_domains`
+
+Cada workspace tambem pode ajustar pesos de prefixos na aba `Higiene`, painel
+`Config scoring`. A configuracao ativa fica em `workspace_scoring_configs` e e
+aplicada por `score_email_record` antes de campanhas, listas e ICPs usarem o
+score persistido.
 
 ## Enriquecimento de empresas
 
@@ -808,6 +825,8 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/saas/credits/adjust`
 - `GET /api/public/companies`
 - `GET /api/public/openapi.json`
+- `GET /api/scoring/config`
+- `POST /api/scoring/config`
 - `GET /api/saved-filters`
 - `POST /api/saved-filters`
 - `POST /api/saved-filters/{id}/icp`
@@ -947,6 +966,9 @@ python -m unittest discover -s tests
   de agente, sem envio real.
 - Auditoria operacional tambem usa o workspace ativo; `/api/audit` mostra os
   eventos da empresa selecionada na topbar.
+- Configuracao de scoring tambem usa o workspace ativo; pesos de prefixo como
+  `rh@`, `financeiro@` ou `comercial@` podem mudar por empresa interna sem
+  alterar o algoritmo puro.
 - Segmentos salvos tambem usam o workspace ativo; filtros normalizados ficam em
   `saved_filters`, podem ser reaplicados na busca e podem gerar `icp_rules`
   preservando os filtros originais em `criteria.source_filters`.
