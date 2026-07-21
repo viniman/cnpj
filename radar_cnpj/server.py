@@ -51,6 +51,7 @@ from .services import (
     get_email_template,
     get_icp_rule,
     get_list,
+    get_workspace_company_score_config,
     get_workspace_scoring_config,
     lead_timeline,
     get_sequence,
@@ -85,6 +86,7 @@ from .services import (
     record_inbound_reply,
     reject_sequence_step,
     render_email_template,
+    rescore_workspace_companies,
     revoke_api_key,
     run_workspace_onboarding,
     saas_account,
@@ -94,6 +96,7 @@ from .services import (
     simulate_campaign,
     update_meeting_status,
     update_notification_status,
+    update_workspace_company_score_config,
     update_workspace_scoring_config,
     validate_emails,
     set_current_workspace,
@@ -229,6 +232,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(list_saved_filters(conn, params))
                 elif parsed.path == "/api/scoring/config":
                     self.send_json(get_workspace_scoring_config(conn))
+                elif parsed.path == "/api/scoring/company-config":
+                    self.send_json(get_workspace_company_score_config(conn))
                 elif len(parts) == 3 and parts[1] == "companies":
                     company = get_company(conn, int(parts[2]))
                     if not company:
@@ -422,6 +427,10 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, create_icp_from_saved_filter(conn, int(parts[2]), data), 201)
                 elif parsed.path == "/api/scoring/config":
                     self.send_json_commit(conn, update_workspace_scoring_config(conn, data))
+                elif parsed.path == "/api/scoring/company-config":
+                    self.send_json_commit(conn, update_workspace_company_score_config(conn, data))
+                elif parsed.path == "/api/scoring/company-rescore":
+                    self.send_json_commit(conn, rescore_workspace_companies(conn, data))
                 elif parsed.path == "/api/okrs":
                     self.send_json_commit(conn, create_okr(conn, data), 201)
                 elif parsed.path == "/api/agent-governance/configs":

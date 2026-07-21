@@ -27,7 +27,8 @@ Proximos hardenings:
 
 Prioridade imediata.
 
-Status: fase 35 implementada localmente em `feature/35-workspace-scoring-config`.
+Status: fase 36 implementada localmente em
+`feature/36-workspace-company-score-config`.
 
 Meta:
 
@@ -45,6 +46,7 @@ Fases:
 5. Exposicao na UI e API.
 6. Segmentos salvos a partir de filtros combinados e conversao para ICP.
 7. Motor de score configuravel por workspace.
+8. Score de empresa configuravel por workspace, com overlay por tenant.
 
 ## Camada 2 - Enriquecimento responsavel
 

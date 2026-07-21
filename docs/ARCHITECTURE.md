@@ -58,6 +58,9 @@ Tabelas principais:
 - `email_classifications`, `email_score_log`, `known_shared_domains`: scoring avancado de e-mail.
 - `workspace_scoring_configs`: dicionario de prefixos e thresholds de scoring
   por workspace ativo.
+- `workspace_company_score_configs`, `company_workspace_scores`: regras de
+  score comercial de empresa por workspace e overlay calculado sem sobrescrever
+  o score base global.
 - `company_enrichment`, `scraping_jobs`, `scraping_cache`: enriquecimento responsavel e cache.
 - `leads`, `campaigns`, `campaign_variants`, `sends`, `events`,
   `conversions`, `throttle_config`, `pause_events`: CRM de experimento
@@ -116,6 +119,9 @@ Tabelas principais:
 - O scoring de e-mail usa configuracao do workspace ativo quando persistido por
   `score_email_record`; o algoritmo puro preserva defaults quando chamado sem
   banco.
+- O score de empresa usa overlay por workspace quando recalculado; busca,
+  detalhe e ICP caem para `companies.opportunity_score` quando o overlay ainda
+  nao existe.
 - Segmentos salvos sao fotografias de filtros normalizados no workspace ativo;
   a conversao para ICP preserva os filtros originais em `criteria.source_filters`.
 - Conteudo de resposta recebida e tratado como dado externo, nao instrucao.

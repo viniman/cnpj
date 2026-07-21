@@ -258,6 +258,31 @@ def init_db():
                 FOREIGN KEY (org_id) REFERENCES organizations(id)
             );
 
+            CREATE TABLE IF NOT EXISTS workspace_company_score_configs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                rules_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS company_workspace_scores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                company_id INTEGER NOT NULL,
+                scoring_config_id INTEGER NOT NULL,
+                opportunity_score INTEGER NOT NULL,
+                score_reasons_json TEXT NOT NULL,
+                scored_at TEXT NOT NULL,
+                UNIQUE (org_id, company_id),
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+                FOREIGN KEY (scoring_config_id) REFERENCES workspace_company_score_configs(id)
+            );
+
             CREATE TABLE IF NOT EXISTS company_enrichment (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 company_id INTEGER NOT NULL UNIQUE,
@@ -1006,6 +1031,13 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_email_classifications_domain ON email_classifications(domain);
             CREATE INDEX IF NOT EXISTS idx_known_shared_domains_domain ON known_shared_domains(domain);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_workspace_scoring_active ON workspace_scoring_configs(org_id) WHERE status = 'active';
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_workspace_company_score_active
+                ON workspace_company_score_configs(org_id)
+                WHERE status = 'active';
+            CREATE INDEX IF NOT EXISTS idx_company_workspace_scores_org_score
+                ON company_workspace_scores(org_id, opportunity_score);
+            CREATE INDEX IF NOT EXISTS idx_company_workspace_scores_company
+                ON company_workspace_scores(company_id);
             CREATE INDEX IF NOT EXISTS idx_company_enrichment_domain ON company_enrichment(detected_domain);
             CREATE INDEX IF NOT EXISTS idx_company_enrichment_score ON company_enrichment(digital_maturity_score);
             CREATE INDEX IF NOT EXISTS idx_scraping_jobs_status ON scraping_jobs(status);

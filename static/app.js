@@ -25,6 +25,7 @@ const state = {
   workspaceComparison: null,
   saasAccount: null,
   scoringConfig: null,
+  companyScoringConfig: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -125,7 +126,7 @@ async function loadViewData(view = state.view) {
   if (view === "sequences") await loadSequenceWorkspace();
   if (view === "icp") await loadIcpWorkspace();
   if (view === "replies") await loadReplyWorkspace();
-  if (view === "hygiene") await loadScoringConfig();
+  if (view === "hygiene") await Promise.all([loadScoringConfig(), loadCompanyScoringConfig()]);
   if (view === "audit") await loadAudit();
 }
 
@@ -2867,6 +2868,68 @@ async function saveScoringConfigFromForm() {
   }
 }
 
+async function loadCompanyScoringConfig() {
+  const config = await api("/api/scoring/company-config");
+  state.companyScoringConfig = config;
+  renderCompanyScoringConfig(config);
+}
+
+function renderCompanyScoringConfig(config) {
+  if (!config) return;
+  const rules = config.rules || {};
+  $("#companyScoringConfigName").value = config.name || "";
+  $("#companyScoringRulesJson").value = prettyJson(rules);
+  $("#companyScoringConfigSummary").textContent = `${config.sector_count || 0} setores / ${config.capital_band_count || 0} faixas / atualizado em ${fmt(config.updated_at)}`;
+  const sectorRows = Object.entries(rules.sector_bonus || {})
+    .map(([sector, bonus]) => ({ sector, bonus }))
+    .sort((a, b) => Number(b.bonus || 0) - Number(a.bonus || 0));
+  const contactRows = [
+    { signal: "email", bonus: rules.contact?.email_bonus || 0 },
+    { signal: "telefone", bonus: rules.contact?.phone_bonus || 0 },
+    { signal: "base", bonus: rules.base_score || 0 },
+  ];
+  $("#companyScoringConfigTable").innerHTML = table(
+    ["Sinal", "Peso"],
+    [
+      ...contactRows.map((row) => [escapeHtml(row.signal), badge(row.bonus, scoreTone(Number(row.bonus || 0)))]),
+      ...sectorRows.slice(0, 10).map((row) => [escapeHtml(row.sector), badge(row.bonus, scoreTone(Number(row.bonus || 0)))]),
+    ],
+  );
+}
+
+async function saveCompanyScoringConfigFromForm() {
+  try {
+    const payload = {
+      name: $("#companyScoringConfigName").value.trim(),
+      rules: parseJsonField("#companyScoringRulesJson", "Regras de empresa"),
+    };
+    const config = await api("/api/scoring/company-config", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    state.companyScoringConfig = config;
+    renderCompanyScoringConfig(config);
+    showStatus("Config de score de empresa salva.");
+  } catch (err) {
+    showStatus(err.message, "warn");
+  }
+}
+
+async function rescoreCompaniesFromForm() {
+  try {
+    const limit = Number($("#companyRescoreLimit").value || 500);
+    const result = await api("/api/scoring/company-rescore", {
+      method: "POST",
+      body: JSON.stringify({ limit }),
+    });
+    $("#companyRescoreSummary").textContent = `${result.scored || 0} empresas recalculadas com ${result.scoring_config?.name || "config ativa"}.`;
+    showStatus("Score de empresas recalculado.");
+    if (state.view === "companies") await loadCompanies();
+  } catch (err) {
+    showStatus(err.message, "warn");
+  }
+}
+
 function renderEmailResults(items) {
   if (!items.length) {
     $("#emailResults").innerHTML = `<div class="empty-state">Nenhum email para validar.</div>`;
@@ -3006,6 +3069,9 @@ function wireEvents() {
   $("#scoreEmailsBtn").addEventListener("click", scoreFreeEmails);
   $("#refreshScoringConfigBtn").addEventListener("click", loadScoringConfig);
   $("#saveScoringConfigBtn").addEventListener("click", saveScoringConfigFromForm);
+  $("#refreshCompanyScoringConfigBtn").addEventListener("click", loadCompanyScoringConfig);
+  $("#saveCompanyScoringConfigBtn").addEventListener("click", saveCompanyScoringConfigFromForm);
+  $("#rescoreCompaniesBtn").addEventListener("click", rescoreCompaniesFromForm);
   $("#suppressionBtn").addEventListener("click", addSuppression);
   $("#refreshAuditBtn").addEventListener("click", loadAudit);
   $("#listDetail").addEventListener("click", async (event) => {
