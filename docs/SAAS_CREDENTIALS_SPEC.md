@@ -35,6 +35,21 @@ interface. Mesmo no localhost, o token nunca deve ser salvo em texto puro e o
 saldo deve ser alterado por ledger append-only. A fase seguinte podera aplicar
 esse ledger em endpoints publicos e rate limits.
 
+## Implementado nesta fase
+
+- Tabelas `api_keys`, `credit_wallets` e `credit_transactions`.
+- Servicos para criar/listar/revogar chaves de API no workspace ativo.
+- Token completo retornado apenas na criacao; listagens mostram somente
+  mascara, prefixo e escopos.
+- Servicos de carteira e ledger com saldo negativo bloqueado no backend.
+- Endpoint agregado `GET /api/saas/account`.
+- Endpoints internos:
+  - `POST /api/saas/api-keys`
+  - `POST /api/saas/api-keys/{id}/revoke`
+  - `POST /api/saas/credits/adjust`
+- Painel `SaaS e API` no Command Center.
+- Testes dedicados em `tests/test_saas_credentials.py`.
+
 ## Modelo de dados
 
 - `api_keys`: `org_id`, nome, hash do token, prefixo, mascara, escopos,

@@ -143,7 +143,7 @@ Meta:
 
 - API publica, chaves de API, creditos, planos e paridade parcial com Snov.io.
 
-Status: fase 30 iniciada localmente em `feature/30-saas-credentials-foundation`.
+Status: fase 30 implementada localmente em `feature/30-saas-credentials-foundation`.
 
 Fases:
 

@@ -86,6 +86,8 @@ Tabelas principais:
   com os IDs de playbook, ICP, template, sequencia, OKR e configuracao criados.
 - `playbook_execution_plans`: planos revisaveis para materializar playbooks em
   ICP, template, sequencia e OKR, com diff, status e artefatos criados.
+- `api_keys`, `credit_wallets`, `credit_transactions`: fundacao SaaS local com
+  chaves por workspace, saldo de creditos e ledger append-only.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -158,6 +160,9 @@ Tabelas principais:
 - Planos de execucao de playbook separam preview de aplicacao: criar plano nao
   cria artefatos operacionais, e aplicar plano e uma acao explicita auditada no
   workspace ativo.
+- Chaves de API nao guardam token completo; o banco conserva apenas hash,
+  prefixo e mascara. Creditos sao alterados por ledger e debitos acima do saldo
+  sao recusados no backend.
 - A auditoria operacional lida por `/api/audit` usa `current_org_id(conn)`;
   uma visao global administrativa exigira endpoint e permissao proprios.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo

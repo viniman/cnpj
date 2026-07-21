@@ -1909,3 +1909,39 @@ Meta da fase:
 Documento principal:
 
 - `docs/SAAS_CREDENTIALS_SPEC.md`
+
+Commits:
+
+- `e55177b docs: define SaaS credentials phase`
+- `1f72750 feat: add SaaS API keys and credit wallets`
+- `1cc8b45 feat: add SaaS credentials command UI`
+
+Implementado:
+
+- Tabelas `api_keys`, `credit_wallets` e `credit_transactions`.
+- Chaves de API com token completo retornado apenas uma vez.
+- Persistencia apenas de hash SHA-256, prefixo e mascara.
+- Revogacao auditavel de chave sem deletar historico.
+- Carteira idempotente por workspace ativo.
+- Ledger append-only de credito/debito com saldo negativo recusado no backend.
+- Endpoint agregado `GET /api/saas/account`.
+- Endpoints internos para criar/revogar chave e ajustar creditos.
+- Painel `SaaS e API` no Command Center.
+- Testes dedicados em `tests/test_saas_credentials.py`.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_saas_credentials
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 84 tests
+OK
+```
