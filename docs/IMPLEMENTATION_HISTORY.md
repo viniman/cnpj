@@ -2057,3 +2057,42 @@ Resultado esperado nesta etapa:
 Ran 92 tests
 OK
 ```
+
+## 2026-07-21 - Inicio da fase 33 de planos SaaS
+
+Branch: `feature/33-saas-plan-model`
+
+Estado inicial:
+
+- Fase 32 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Roadmap da camada SaaS aponta `Planos e modelo comercial validavel` como
+  proxima fase.
+
+Meta da fase:
+
+- Criar catalogo local de planos SaaS.
+- Criar assinatura ativa por workspace.
+- Aplicar creditos incluidos via ledger append-only.
+- Mostrar plano atual e catalogo no painel `SaaS e API`.
+
+Documento principal:
+
+- `docs/SAAS_PLAN_MODEL_SPEC.md`
+
+Commits planejados:
+
+- `docs: define SaaS plan model phase`
+- `feat: add SaaS plan subscriptions`
+- `feat: show SaaS plan model in command UI`
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_saas_plans
+python -m unittest discover -s tests
+node --check static\app.js
+```
