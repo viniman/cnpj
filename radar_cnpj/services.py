@@ -38,6 +38,7 @@ from .email_templates import (
     validate_editable_template,
 )
 from .exporter import rows_to_csv_bytes, rows_to_xlsx_bytes
+from .postgres_staging import build_postgres_staging_plan
 from .receita_importer import parse_receita_directory, parse_receita_zip_directory
 from .scoring import DEFAULT_COMPANY_SCORE_RULES, estimate_market_value, infer_sector, score_company
 
@@ -854,6 +855,35 @@ def record_official_import_checkpoint(conn, snapshot, chunk, import_result, limi
         },
     )
     return checkpoint
+
+
+def latest_source_file_snapshot(conn):
+    row = conn.execute(
+        """
+        SELECT snapshot
+        FROM source_files
+        ORDER BY updated_at DESC, id DESC
+        LIMIT 1
+        """
+    ).fetchone()
+    return row["snapshot"] if row else ""
+
+
+def official_postgres_staging_plan(conn, params=None):
+    params = params or {}
+    snapshot = str(params.get("snapshot") or "").strip() or latest_source_file_snapshot(conn)
+    rows = []
+    if snapshot:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM source_files
+            WHERE snapshot = ?
+            ORDER BY filename ASC
+            """,
+            (snapshot,),
+        ).fetchall()
+    return build_postgres_staging_plan(snapshot, rows)
 
 
 def seed_sample(conn):

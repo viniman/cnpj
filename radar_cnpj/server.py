@@ -74,6 +74,7 @@ from .services import (
     list_official_import_checkpoints,
     list_playbook_execution_plans,
     okr_dashboard,
+    official_postgres_staging_plan,
     playbook_library,
     list_priority_queue,
     list_reply_classifications,
@@ -337,6 +338,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(catalog())
                 elif parsed.path == "/api/sources/official/checkpoints":
                     self.send_json(list_official_import_checkpoints(conn, params))
+                elif parsed.path == "/api/sources/official/postgres-plan":
+                    self.send_json(official_postgres_staging_plan(conn, params))
                 elif len(parts) == 5 and parts[1] == "sources" and parts[2] == "official" and parts[3] == "snapshots":
                     self.send_json({"items": list_snapshot_files(parts[4])})
                 else:
