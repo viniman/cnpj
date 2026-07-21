@@ -997,6 +997,7 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_company_enrichment_score ON company_enrichment(digital_maturity_score);
             CREATE INDEX IF NOT EXISTS idx_scraping_jobs_status ON scraping_jobs(status);
             CREATE INDEX IF NOT EXISTS idx_scraping_cache_expires ON scraping_cache(expires_at);
+            CREATE INDEX IF NOT EXISTS idx_saved_filters_org ON saved_filters(org_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
             CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email);
             CREATE INDEX IF NOT EXISTS idx_campaigns_status ON campaigns(status);

@@ -28,11 +28,13 @@ from .services import (
     create_leads_from_list,
     create_meeting,
     create_meeting_from_handoff,
+    create_icp_from_saved_filter,
     clone_playbook_to_workspace,
     create_playbook,
     create_playbook_execution_plan,
     create_playbook_version,
     create_sequence,
+    create_saved_filter,
     create_workspace,
     create_workspace_snapshot,
     command_center_action,
@@ -71,6 +73,7 @@ from .services import (
     playbook_library,
     list_priority_queue,
     list_reply_classifications,
+    list_saved_filters,
     list_sequences,
     prepare_next_journey_step,
     public_openapi_spec,
@@ -220,6 +223,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(okr_dashboard(conn))
                 elif parsed.path == "/api/companies":
                     self.send_json(search_companies(conn, params))
+                elif parsed.path == "/api/saved-filters":
+                    self.send_json(list_saved_filters(conn, params))
                 elif len(parts) == 3 and parts[1] == "companies":
                     company = get_company(conn, int(parts[2]))
                     if not company:
@@ -407,6 +412,10 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, reject_sequence_step(conn, int(parts[2]), data.get("note") or ""))
                 elif parsed.path == "/api/icp-rules":
                     self.send_json_commit(conn, create_icp_rule(conn, data), 201)
+                elif parsed.path == "/api/saved-filters":
+                    self.send_json_commit(conn, create_saved_filter(conn, data), 201)
+                elif len(parts) == 4 and parts[1] == "saved-filters" and parts[3] == "icp":
+                    self.send_json_commit(conn, create_icp_from_saved_filter(conn, int(parts[2]), data), 201)
                 elif parsed.path == "/api/okrs":
                     self.send_json_commit(conn, create_okr(conn, data), 201)
                 elif parsed.path == "/api/agent-governance/configs":
