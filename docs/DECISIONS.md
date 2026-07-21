@@ -730,3 +730,28 @@ Consequencias:
 - Ao trocar workspace, `/api/audit` acompanha a empresa ativa.
 - Eventos globais/administrativos precisarao de endpoint proprio no futuro.
 - Testes de contexto devem cobrir que eventos nao vazam entre workspaces.
+
+## ADR-029 - Reuso de playbook entre empresas e clonagem auditavel
+
+Data: 2026-07-20
+
+Decisao:
+
+- Playbooks nao serao compartilhados por referencia entre workspaces.
+- Reuso entre empresas deve criar um novo playbook no workspace de destino.
+- A clonagem preserva metadados de origem e exige acao explicita do operador.
+
+Racional:
+
+- O prompt de governanca pede biblioteca compartilhavel entre empresas suas,
+  mas nao compartilhamento silencioso.
+- Referencia compartilhada dificultaria auditoria e poderia alterar duas
+  empresas com uma edicao futura.
+- Clonagem cria um ponto de partida reaproveitavel sem quebrar isolamento.
+
+Consequencias:
+
+- O clone tem ciclo de versao independente a partir da versao 1.
+- Aplicar o clone no destino continua sendo uma acao separada.
+- Fases futuras podem comparar performance entre playbook original e clones
+  por metadados de origem.

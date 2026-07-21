@@ -1720,3 +1720,25 @@ Resultado esperado nesta etapa:
 Ran 74 tests
 OK
 ```
+
+## 2026-07-20 - Inicio da fase 27 de clonagem de playbooks
+
+Branch: `feature/27-playbook-clone-foundation`
+
+Estado inicial:
+
+- Fase 26 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Testes antes da nova fase: `Ran 74 tests`, `OK` usando `TEMP/TMP` em `D:`
+  porque o drive `C:` esta sem espaco livre no ambiente local.
+
+Meta da fase:
+
+- Permitir reuso explicito de playbook entre empresas internas.
+- Criar clone independente no workspace de destino.
+- Preservar auditoria e impedir compartilhamento implicito de estado.
+
+Documento principal:
+
+- `docs/PLAYBOOK_CLONE_SPEC.md`
