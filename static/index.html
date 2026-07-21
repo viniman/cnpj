@@ -616,6 +616,10 @@
                 <input id="officialLimit" class="input" type="number" min="1" value="1000" />
               </label>
               <label>
+                Offset manual
+                <input id="officialOffset" class="input" type="number" min="0" placeholder="checkpoint automatico" />
+              </label>
+              <label>
                 Modo
                 <select id="officialMode" class="input">
                   <option value="domains">Baixar dominios</option>
@@ -623,15 +627,20 @@
                   <option value="full">Baixar base completa</option>
                 </select>
               </label>
+              <label class="check-row"><input type="checkbox" id="officialResume" /> Retomar checkpoint</label>
             </div>
             <div class="toolbar">
               <div class="toolbar-actions">
                 <button id="syncOfficialBtn" class="button primary">Sincronizar oficial</button>
                 <button id="downloadDomainsBtn" class="button">Baixar dominios</button>
+                <button id="refreshOfficialCheckpointsBtn" class="button">Atualizar checkpoints</button>
               </div>
               <div id="officialSummary" class="muted">Aguardando descoberta da fonte oficial.</div>
             </div>
             <div id="officialFiles" class="table-wrap"></div>
+            <div id="officialCheckpoints" class="table-wrap">
+              <div class="empty-state">Nenhum checkpoint de importacao oficial.</div>
+            </div>
           </section>
 
           <section class="panel api-panel">

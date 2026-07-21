@@ -686,20 +686,27 @@ def import_official_zip_directory(
     legal_basis="Legitimo interesse B2B",
     chunk=1,
     limit=1000,
+    offset=0,
 ):
     started = now_iso()
+    limit = max(int(limit or 1000), 1)
+    offset = max(int(offset or 0), 0)
     cursor = conn.execute(
         """
         INSERT INTO import_jobs (source_name, source_path, source_url, status, started_at, message)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (source_name, path, source_url, "running", started, "Importacao oficial iniciada"),
+        (source_name, path, source_url, "running", started, "Importacao oficial iniciada no offset %s" % offset),
     )
     job_id = cursor.lastrowid
     imported = 0
     errors = 0
+    parsed_rows = 0
+    completed_chunk = False
     try:
-        payloads = parse_receita_zip_directory(path, chunk=chunk, limit=limit)
+        payloads = parse_receita_zip_directory(path, chunk=chunk, limit=limit, offset=offset)
+        parsed_rows = len(payloads)
+        completed_chunk = parsed_rows < limit
         for payload in payloads:
             try:
                 upsert_company(conn, payload, source_name, source_url, legal_basis)
@@ -707,26 +714,146 @@ def import_official_zip_directory(
             except Exception:
                 errors += 1
         status = "completed"
-        message = "Importadas %s empresas oficiais com %s erros" % (imported, errors)
+        message = "Importadas %s empresas oficiais com %s erros a partir do offset %s" % (imported, errors, offset)
     except Exception as exc:
         status = "failed"
         message = str(exc)
+    next_offset = offset + parsed_rows
     conn.execute(
         """
         UPDATE import_jobs
         SET status = ?, total_rows = ?, imported_rows = ?, error_rows = ?, message = ?, finished_at = ?
         WHERE id = ?
         """,
-        (status, imported + errors, imported, errors, message, now_iso(), job_id),
+        (status, parsed_rows or imported + errors, imported, errors, message, now_iso(), job_id),
     )
     audit(
         conn,
         "import_official_zip_directory",
         "import_job",
         job_id,
-        {"path": path, "chunk": chunk, "limit": limit, "imported": imported, "errors": errors},
+        {
+            "path": path,
+            "chunk": chunk,
+            "limit": limit,
+            "offset": offset,
+            "next_offset": next_offset,
+            "imported": imported,
+            "errors": errors,
+            "completed_chunk": completed_chunk,
+        },
     )
-    return {"id": job_id, "status": status, "imported_rows": imported, "error_rows": errors, "message": message}
+    return {
+        "id": job_id,
+        "status": status,
+        "imported_rows": imported,
+        "error_rows": errors,
+        "total_rows": parsed_rows or imported + errors,
+        "message": message,
+        "offset": offset,
+        "next_offset": next_offset,
+        "completed_chunk": completed_chunk,
+    }
+
+
+def official_import_checkpoint_row_to_dict(row):
+    return dict_row(row)
+
+
+def get_official_import_checkpoint(conn, snapshot, chunk):
+    row = conn.execute(
+        """
+        SELECT *
+        FROM official_import_checkpoints
+        WHERE snapshot = ? AND chunk = ?
+        """,
+        (str(snapshot or "").strip(), int(chunk or 0)),
+    ).fetchone()
+    return official_import_checkpoint_row_to_dict(row)
+
+
+def list_official_import_checkpoints(conn, params=None):
+    params = params or {}
+    where = []
+    values = []
+    if params.get("snapshot"):
+        where.append("snapshot = ?")
+        values.append(str(params.get("snapshot")).strip())
+    if params.get("status"):
+        where.append("status = ?")
+        values.append(str(params.get("status")).strip())
+    sql = "SELECT * FROM official_import_checkpoints"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY updated_at DESC, id DESC LIMIT ?"
+    values.append(min(int(params.get("limit", 50) or 50), 200))
+    rows = conn.execute(sql, values).fetchall()
+    return {"items": [official_import_checkpoint_row_to_dict(row) for row in rows]}
+
+
+def record_official_import_checkpoint(conn, snapshot, chunk, import_result, limit_per_run):
+    snapshot = str(snapshot or "").strip()
+    chunk = int(chunk or 0)
+    existing = get_official_import_checkpoint(conn, snapshot, chunk)
+    offset = int(import_result.get("offset") or 0)
+    imported = int(import_result.get("imported_rows") or 0)
+    errors = int(import_result.get("error_rows") or 0)
+    next_offset = int(import_result.get("next_offset") or offset)
+    if existing and offset == int(existing.get("next_offset") or 0):
+        imported += int(existing.get("imported_rows") or 0)
+        errors += int(existing.get("error_rows") or 0)
+    status = "failed" if import_result.get("status") == "failed" else "completed" if import_result.get("completed_chunk") else "pending"
+    timestamp = now_iso()
+    finished_at = timestamp if status in ("completed", "failed") else None
+    conn.execute(
+        """
+        INSERT INTO official_import_checkpoints (
+            snapshot, chunk, status, next_offset, limit_per_run, imported_rows,
+            error_rows, last_job_id, message, created_at, updated_at, finished_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(snapshot, chunk) DO UPDATE SET
+            status = excluded.status,
+            next_offset = excluded.next_offset,
+            limit_per_run = excluded.limit_per_run,
+            imported_rows = excluded.imported_rows,
+            error_rows = excluded.error_rows,
+            last_job_id = excluded.last_job_id,
+            message = excluded.message,
+            updated_at = excluded.updated_at,
+            finished_at = excluded.finished_at
+        """,
+        (
+            snapshot,
+            chunk,
+            status,
+            next_offset,
+            int(limit_per_run or 0),
+            imported,
+            errors,
+            import_result.get("id"),
+            import_result.get("message") or "",
+            timestamp,
+            timestamp,
+            finished_at,
+        ),
+    )
+    checkpoint = get_official_import_checkpoint(conn, snapshot, chunk)
+    audit(
+        conn,
+        "record_official_import_checkpoint",
+        "official_import_checkpoint",
+        checkpoint["id"],
+        {
+            "snapshot": snapshot,
+            "chunk": chunk,
+            "status": status,
+            "offset": offset,
+            "next_offset": next_offset,
+            "import_job_id": import_result.get("id"),
+        },
+    )
+    return checkpoint
 
 
 def seed_sample(conn):

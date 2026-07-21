@@ -95,7 +95,7 @@ STATUS_MAP = {
 }
 
 
-def parse_receita_zip_directory(directory, chunk=1, limit=1000):
+def parse_receita_zip_directory(directory, chunk=1, limit=1000, offset=0):
     """Parse Receita Federal ZIP files downloaded from the official share."""
     cnae_zip = find_zip(directory, "Cnaes")
     municipio_zip = find_zip(directory, "Municipios")
@@ -113,6 +113,9 @@ def parse_receita_zip_directory(directory, chunk=1, limit=1000):
     naturezas = read_domain_zip(natureza_zip)
     qualificacoes = read_domain_zip(qualificacao_zip)
 
+    offset = max(int(offset or 0), 0)
+    limit = max(int(limit or 1000), 1)
+    active_seen = 0
     wanted_roots = set()
     establishments = []
     for row in iter_zip_csv_rows(estabelecimentos_zip):
@@ -121,6 +124,9 @@ def parse_receita_zip_directory(directory, chunk=1, limit=1000):
         status = row[5].strip()
         # For prospecting lists, active establishments are the useful default.
         if status not in ("02", "2"):
+            continue
+        if active_seen < offset:
+            active_seen += 1
             continue
         cnpj_root = row[0].strip()
         cnae_code = row[11].strip()
@@ -152,7 +158,8 @@ def parse_receita_zip_directory(directory, chunk=1, limit=1000):
             }
         )
         wanted_roots.add(cnpj_root)
-        if len(establishments) >= int(limit or 1000):
+        active_seen += 1
+        if len(establishments) >= limit:
             break
 
     companies_by_root = {}

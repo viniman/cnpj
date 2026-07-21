@@ -2422,3 +2422,72 @@ OK
 node --check static\app.js
 OK
 ```
+
+## 2026-07-21 - Fase 39 de checkpoints de importacao oficial
+
+Branch: `feature/39-official-import-checkpoints`
+
+Estado inicial:
+
+- Fase 38 mesclada localmente no `master`.
+- A fonte oficial da Receita ja era descoberta automaticamente.
+- O fluxo `mode=chunk` baixava e importava um lote limitado, mas nao guardava
+  de forma estruturada onde continuar em execucoes seguintes.
+
+Meta da fase:
+
+- Criar checkpoints por `snapshot + chunk`.
+- Permitir retomar uma importacao oficial a partir do `next_offset` salvo.
+- Exibir o estado da importacao oficial na UI local.
+- Manter a compatibilidade com o MVP em SQLite e preparar a fase futura de
+  PostgreSQL/staging.
+
+Documento principal:
+
+- `docs/OFFICIAL_IMPORT_CHECKPOINT_SPEC.md`
+
+Commits:
+
+- `83627a1 docs: define official import checkpoint phase`
+- `f5fb929 feat: add official import checkpoints`
+- `3968a70 feat: add official import checkpoint UI`
+- `b62751c docs: add official import checkpoint notes`
+
+Implementado:
+
+- Tabela `official_import_checkpoints`.
+- Parser oficial com `offset` para pular estabelecimentos ativos ja
+  consumidos.
+- `import_official_zip_directory` retornando `offset`, `next_offset`,
+  `total_rows` e `completed_chunk`.
+- Checkpoint acumulando importados/erros, status, limite usado e ultimo job.
+- `resume=true` em `sync_official_snapshot`.
+- Endpoint `GET /api/sources/official/checkpoints`.
+- Tela `Importacao` com offset manual, checkbox de retomada, tabela de
+  checkpoints e acao `Retomar`.
+- Testes sem rede com ZIPs oficiais minimos em diretorio temporario.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_official_sources tests.test_official_import_checkpoints
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado desta etapa:
+
+```text
+python -m unittest tests.test_official_sources tests.test_official_import_checkpoints
+Ran 4 tests
+OK
+
+python -m unittest discover -s tests
+Ran 119 tests
+OK
+
+node --check static\app.js
+OK
+```
