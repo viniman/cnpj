@@ -1796,3 +1796,36 @@ Meta da fase:
 Documento principal:
 
 - `docs/WORKSPACE_ONBOARDING_SPEC.md`
+
+Commits:
+
+- `53aa859 docs: define workspace onboarding phase`
+- `6e06d34 feat: add workspace onboarding backend`
+- `fac731b feat: add onboarding wizard UI`
+
+Implementado:
+
+- Tabela `workspace_onboarding_runs`.
+- Servico `run_workspace_onboarding`.
+- Endpoint `POST /api/workspaces/onboarding`.
+- Wizard cria workspace, ativa contexto e compoe playbook, ICP, template,
+  sequencia, OKR e configuracao default do agente.
+- Painel `Onboarding operacional` no Command Center.
+- Testes dedicados em `tests/test_workspace_onboarding.py`.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_workspace_onboarding
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 77 tests
+OK
+```

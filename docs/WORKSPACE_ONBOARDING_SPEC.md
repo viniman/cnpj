@@ -37,6 +37,20 @@ Onboarding e composicao de servicos existentes, nao um caminho paralelo. O
 wizard chama as mesmas funcoes de playbook, ICP, template, sequencia e OKR,
 mantendo contexto ativo, auditoria e aprovacao humana por passo.
 
+## Implementado nesta fase
+
+- Tabela `workspace_onboarding_runs` para registrar resumo do wizard.
+- Servico `run_workspace_onboarding`.
+- Endpoint `POST /api/workspaces/onboarding`.
+- Criacao de workspace e troca automatica para o novo contexto ativo.
+- Aplicacao de playbook default ou clone de playbook de origem.
+- Criacao de ICP inicial a partir do payload ou do playbook.
+- Criacao de template inicial com rodape de compliance preservado pelo backend.
+- Criacao de sequencia inicial com aprovacao humana obrigatoria nos passos.
+- Criacao de OKR inicial com KR ligado a KPI conhecido.
+- Painel `Onboarding operacional` no Command Center.
+- Testes automatizados cobrindo onboarding default e baseado em playbook clonado.
+
 ## Criterios de aceite
 
 - Onboarding cria novo workspace e o torna ativo.

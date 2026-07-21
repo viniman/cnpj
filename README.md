@@ -130,6 +130,16 @@ Invoke-RestMethod `
   -ContentType "application/json"
 ```
 
+Executar onboarding operacional:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/workspaces/onboarding" `
+  -Body '{"workspace":{"name":"Nine","vertical":"servicos locais","default_tone":"direto, B2B, consultivo"},"icp":{"criteria":{"states":["SP"],"cnaes":["620"],"min_email_score":30}}}' `
+  -ContentType "application/json"
+```
+
 ## Rodar localmente
 
 Com Python:
@@ -689,6 +699,7 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `POST /api/workspace-context`
 - `GET /api/workspaces/comparison`
 - `POST /api/workspaces`
+- `POST /api/workspaces/onboarding`
 - `POST /api/workspaces/{id}/snapshot`
 - `GET /api/companies`
 - `GET /api/companies/{id}`
@@ -803,6 +814,9 @@ python -m unittest discover -s tests
   operacional e aplicacao ativa nao atravessam empresas selecionadas na topbar.
 - Clonar playbook entre workspaces cria uma copia independente e auditavel no
   destino; nao aplica automaticamente ICP, cadencia, OKR ou governanca.
+- O onboarding operacional cria uma nova empresa pronta para revisao no Command
+  Center: workspace, playbook aplicado, ICP, template, sequencia, OKR e default
+  de agente, sem envio real.
 - Auditoria operacional tambem usa o workspace ativo; `/api/audit` mostra os
   eventos da empresa selecionada na topbar.
 

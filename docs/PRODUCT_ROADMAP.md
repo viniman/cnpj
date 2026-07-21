@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 28 iniciada localmente em `feature/28-workspace-onboarding-wizard`.
+Status: fase 28 implementada localmente em `feature/28-workspace-onboarding-wizard`.
 
 Fases:
 
