@@ -1274,6 +1274,33 @@
             </div>
             <div id="emailResults" class="table-wrap"></div>
           </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Config scoring</h2>
+              <button id="refreshScoringConfigBtn" class="button">Atualizar</button>
+            </div>
+            <div class="form-grid">
+              <label>
+                Nome
+                <input id="scoringConfigName" class="input" placeholder="Scoring B2B" />
+              </label>
+              <label>
+                Thresholds JSON
+                <textarea id="scoringThresholdsJson" class="textarea small-textarea"></textarea>
+              </label>
+            </div>
+            <div class="form-grid one">
+              <label>
+                Prefixos JSON
+                <textarea id="scoringPrefixRulesJson" class="textarea scoring-json"></textarea>
+              </label>
+            </div>
+            <div class="toolbar">
+              <button id="saveScoringConfigBtn" class="button primary">Salvar scoring</button>
+              <div id="scoringConfigSummary" class="muted">-</div>
+            </div>
+            <div id="scoringConfigTable" class="table-wrap"></div>
+          </section>
         </section>
 
         <section id="audit" class="view">

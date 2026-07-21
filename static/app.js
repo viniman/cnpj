@@ -24,6 +24,7 @@ const state = {
   workspaceContext: null,
   workspaceComparison: null,
   saasAccount: null,
+  scoringConfig: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -124,6 +125,7 @@ async function loadViewData(view = state.view) {
   if (view === "sequences") await loadSequenceWorkspace();
   if (view === "icp") await loadIcpWorkspace();
   if (view === "replies") await loadReplyWorkspace();
+  if (view === "hygiene") await loadScoringConfig();
   if (view === "audit") await loadAudit();
 }
 
@@ -2803,6 +2805,68 @@ async function scoreFreeEmails() {
   renderEmailResults(data.items.map((item) => ({ email: item.email, advanced: item })));
 }
 
+function prettyJson(value) {
+  return JSON.stringify(value || {}, null, 2);
+}
+
+function parseJsonField(selector, label) {
+  const raw = $(selector).value.trim();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`${label} precisa ser JSON valido.`);
+  }
+}
+
+async function loadScoringConfig() {
+  const config = await api("/api/scoring/config");
+  state.scoringConfig = config;
+  renderScoringConfig(config);
+}
+
+function renderScoringConfig(config) {
+  if (!config) return;
+  $("#scoringConfigName").value = config.name || "";
+  $("#scoringPrefixRulesJson").value = prettyJson(config.email_prefix_rules || {});
+  $("#scoringThresholdsJson").value = prettyJson(config.thresholds || {});
+  $("#scoringConfigSummary").textContent = `${config.prefix_count || 0} prefixos / atualizado em ${fmt(config.updated_at)}`;
+  const rules = Object.entries(config.email_prefix_rules || {})
+    .map(([prefix, rule]) => ({ prefix, ...(rule || {}) }))
+    .sort((a, b) => Number(b.score || 0) - Number(a.score || 0))
+    .slice(0, 12);
+  $("#scoringConfigTable").innerHTML = rules.length
+    ? table(
+        ["Prefixo", "Area", "Score", "Label"],
+        rules.map((rule) => [
+          badge(rule.prefix, "purple"),
+          escapeHtml(rule.area || "-"),
+          badge(rule.score || 0, scoreTone(Number(rule.score || 0))),
+          escapeHtml(rule.label || "-"),
+        ]),
+      )
+    : `<div class="empty-state">Nenhum prefixo configurado.</div>`;
+}
+
+async function saveScoringConfigFromForm() {
+  try {
+    const payload = {
+      name: $("#scoringConfigName").value.trim(),
+      email_prefix_rules: parseJsonField("#scoringPrefixRulesJson", "Prefixos"),
+      thresholds: parseJsonField("#scoringThresholdsJson", "Thresholds"),
+    };
+    const config = await api("/api/scoring/config", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    state.scoringConfig = config;
+    renderScoringConfig(config);
+    showStatus("Config de scoring salva.");
+  } catch (err) {
+    showStatus(err.message, "warn");
+  }
+}
+
 function renderEmailResults(items) {
   if (!items.length) {
     $("#emailResults").innerHTML = `<div class="empty-state">Nenhum email para validar.</div>`;
@@ -2940,6 +3004,8 @@ function wireEvents() {
   $("#seedBtnImport").addEventListener("click", seed);
   $("#validateEmailsBtn").addEventListener("click", validateFreeEmails);
   $("#scoreEmailsBtn").addEventListener("click", scoreFreeEmails);
+  $("#refreshScoringConfigBtn").addEventListener("click", loadScoringConfig);
+  $("#saveScoringConfigBtn").addEventListener("click", saveScoringConfigFromForm);
   $("#suppressionBtn").addEventListener("click", addSuppression);
   $("#refreshAuditBtn").addEventListener("click", loadAudit);
   $("#listDetail").addEventListener("click", async (event) => {
