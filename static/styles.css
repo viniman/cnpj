@@ -657,6 +657,32 @@ tr:hover td {
   line-height: 1.45;
 }
 
+.code-details {
+  padding: 0 16px 16px;
+}
+
+.code-details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.code-block {
+  margin: 0;
+  max-height: 340px;
+  overflow: auto;
+  border: 1px solid #27364c;
+  border-radius: 8px;
+  background: #101827;
+  color: #eef4ff;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre;
+}
+
 .kanban-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(220px, 1fr));

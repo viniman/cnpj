@@ -25,6 +25,7 @@ const state = {
   workspaceComparison: null,
   saasAccount: null,
   officialCheckpoints: [],
+  officialPostgresPlan: null,
   scoringConfig: null,
   companyScoringConfig: null,
   scoreConfigVersions: [],
@@ -120,7 +121,10 @@ async function loadViewData(view = state.view) {
     await loadCompanies();
   }
   if (view === "lists") await loadLists(true);
-  if (view === "import") await Promise.all([loadOfficialCatalog(), loadOfficialCheckpoints()]);
+  if (view === "import") {
+    await loadOfficialCatalog();
+    await Promise.all([loadOfficialCheckpoints(), loadPostgresPlan()]);
+  }
   if (view === "experiments") {
     await loadLists();
     await loadExperiments();
@@ -1877,6 +1881,84 @@ function renderOfficialCheckpoints(items) {
   );
 }
 
+async function loadPostgresPlan() {
+  const summary = $("#postgresPlanSummary");
+  if (!summary) return;
+  const snapshot = $("#officialSnapshot").value.trim();
+  const suffix = snapshot ? `?snapshot=${encodeURIComponent(snapshot)}` : "";
+  summary.textContent = "Montando plano PostgreSQL...";
+  try {
+    const data = await api(`/api/sources/official/postgres-plan${suffix}`);
+    state.officialPostgresPlan = data;
+    renderPostgresPlan(data);
+  } catch (err) {
+    summary.textContent = err.message;
+  }
+}
+
+function renderPostgresPlan(plan) {
+  const summaryNode = $("#postgresPlanSummary");
+  const metricsNode = $("#postgresPlanMetrics");
+  const copyNode = $("#postgresCopyPlan");
+  const guardrailsNode = $("#postgresPlanGuardrails");
+  const ddlNode = $("#postgresPlanDdl");
+  if (!summaryNode || !metricsNode || !copyNode || !guardrailsNode || !ddlNode) return;
+
+  const summary = plan.summary || {};
+  summaryNode.innerHTML = plan.snapshot
+    ? `Snapshot <strong>${escapeHtml(plan.snapshot)}</strong> / schema <strong>${escapeHtml(plan.schema_name)}</strong>`
+    : "Nenhum snapshot com arquivo oficial baixado.";
+  metricsNode.innerHTML = [
+    metric("Arquivos locais", summary.available_files || 0, (summary.available_files || 0) ? "green" : "amber"),
+    metric("Conhecidos", summary.recognized_files || 0),
+    metric("Indisponiveis", summary.unavailable_files || 0, (summary.unavailable_files || 0) ? "amber" : ""),
+    metric("Ausentes", summary.missing_files || 0, (summary.missing_files || 0) ? "amber" : "green"),
+    metric("Volume local", bytes(summary.total_available_bytes || 0)),
+  ].join("");
+
+  const items = plan.copy_plan || [];
+  if (!items.length) {
+    copyNode.innerHTML = `<div class="empty-state">Nenhum ZIP local disponivel para COPY neste snapshot.</div>`;
+  } else {
+    copyNode.innerHTML = table(
+      ["Arquivo", "Familia", "Chunk", "Tabela", "CSV detectado", "Tamanho", ""],
+      items.map((item, index) => [
+        escapeHtml(item.filename),
+        escapeHtml(item.family),
+        escapeHtml(item.chunk ?? "-"),
+        escapeHtml(item.table),
+        escapeHtml(item.csv_member || "-"),
+        bytes(item.size_bytes),
+        `<button class="row-action" data-copy-postgres-plan="${index}">Copiar comandos</button>`,
+      ]),
+    );
+  }
+
+  const guardrails = plan.guardrails || [];
+  guardrailsNode.innerHTML = guardrails.length
+    ? table(["Guardrail"], guardrails.map((item) => [escapeHtml(item)]))
+    : "";
+  ddlNode.textContent = plan.ddl_sql || "";
+}
+
+async function copyText(text, successMessage) {
+  if (!text) return showStatus("Nada para copiar.", "warn");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(text);
+  } else {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  }
+  showStatus(successMessage || "Copiado.");
+}
+
 async function syncOfficial(modeOverride) {
   const mode = modeOverride || $("#officialMode").value;
   const snapshot = $("#officialSnapshot").value.trim();
@@ -1898,6 +1980,7 @@ async function syncOfficial(modeOverride) {
   showStatus(`${result.downloaded.length} arquivos oficiais processados${imported}${checkpoint}.`);
   $("#officialOffset").value = "";
   await loadOfficialCheckpoints();
+  await loadPostgresPlan();
   await loadDashboard();
   await loadCompanies();
 }
@@ -3227,6 +3310,17 @@ function wireEvents() {
   $("#syncOfficialBtn").addEventListener("click", () => syncOfficial());
   $("#downloadDomainsBtn").addEventListener("click", () => syncOfficial("domains"));
   $("#refreshOfficialCheckpointsBtn").addEventListener("click", loadOfficialCheckpoints);
+  $("#loadPostgresPlanBtn").addEventListener("click", loadPostgresPlan);
+  $("#copyPostgresDdlBtn").addEventListener("click", () =>
+    copyText((state.officialPostgresPlan || {}).ddl_sql || "", "DDL PostgreSQL copiado."),
+  );
+  $("#postgresCopyPlan").addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-copy-postgres-plan]");
+    if (!button || !state.officialPostgresPlan) return;
+    const item = (state.officialPostgresPlan.copy_plan || [])[Number(button.dataset.copyPostgresPlan)];
+    if (!item) return;
+    await copyText([item.extract_command, item.copy_sql].filter(Boolean).join("\n\n"), "Comandos COPY copiados.");
+  });
   $("#officialCheckpoints").addEventListener("click", async (event) => {
     const button = event.target.closest("[data-official-resume]");
     if (!button) return;
