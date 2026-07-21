@@ -2176,3 +2176,32 @@ Resultado esperado nesta etapa:
 Ran 101 tests
 OK
 ```
+
+## 2026-07-21 - Inicio da fase 35 de scoring por workspace
+
+Branch: `feature/35-workspace-scoring-config`
+
+Estado inicial:
+
+- Fase 34 mesclada localmente no `master`.
+- O scoring de e-mail ja existe, mas o dicionario de prefixos ainda e fixo em
+  codigo.
+- O prompt de growth pede pesos editaveis por workspace, porque a importancia
+  de `rh@`, `financeiro@`, `comercial@` e outros prefixos muda conforme o ICP.
+
+Meta da fase:
+
+- Criar configuracao ativa de scoring por workspace.
+- Permitir atualizar regras de prefixo por API e UI local.
+- Aplicar a configuracao em `score_email_record`.
+- Manter o algoritmo puro compativel com os defaults.
+
+Documento principal:
+
+- `docs/WORKSPACE_SCORING_CONFIG_SPEC.md`
+
+Commits planejados:
+
+- `docs: define workspace scoring config phase`
+- `feat: add workspace scoring config backend`
+- `feat: add scoring config UI`
