@@ -34,6 +34,19 @@ O endpoint publico nunca deve depender de `workspace_context`: o workspace vem
 da chave de API validada. Isso evita que uma troca manual na topbar afete uma
 integracao programatica.
 
+## Implementado nesta fase
+
+- Tabela `api_usage_events`.
+- Classe `ApiAccessError` com status HTTP.
+- Guardrail `authorize_api_request` validando token, escopo, rate limit e
+  saldo de creditos.
+- Consumo de creditos por `org_id` da chave, sem depender do workspace ativo.
+- Endpoint publico local `GET /api/public/companies`.
+- Suporte a token por `X-API-Key` e `Authorization: Bearer`.
+- Registro de chamadas bem-sucedidas e bloqueadas no agregado SaaS.
+- Painel `SaaS e API` exibindo uso recente e bloqueios.
+- Testes dedicados em `tests/test_api_rate_credit.py`.
+
 ## Modelo de dados
 
 - `api_usage_events`: `org_id`, `api_key_id`, endpoint, escopo, custo,

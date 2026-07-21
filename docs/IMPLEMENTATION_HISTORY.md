@@ -1966,3 +1966,38 @@ Meta da fase:
 Documento principal:
 
 - `docs/API_RATE_CREDIT_SPEC.md`
+
+Commits:
+
+- `79aa5d2 docs: define API rate credit phase`
+- `d876cec feat: add API key rate limit and credit guardrails`
+- `ccd4f1e feat: show API usage in SaaS command UI`
+
+Implementado:
+
+- Tabela `api_usage_events`.
+- Excecao `ApiAccessError` com status HTTP para API publica local.
+- Autenticacao por `X-API-Key` ou `Authorization: Bearer`.
+- Validacao de chave ativa, escopo, saldo e rate limit antes da busca publica.
+- Endpoint `GET /api/public/companies` reutilizando os filtros de empresas.
+- Debito de 1 credito apenas em chamada bem-sucedida.
+- Registro de chamadas aceitas e bloqueadas no agregado SaaS.
+- Painel `SaaS e API` exibindo uso recente e bloqueios.
+- Testes dedicados em `tests/test_api_rate_credit.py`.
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_api_rate_credit
+python -m unittest discover -s tests
+node --check static\app.js
+```
+
+Resultado esperado nesta etapa:
+
+```text
+Ran 90 tests
+OK
+```

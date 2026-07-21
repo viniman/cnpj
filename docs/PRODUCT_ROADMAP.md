@@ -143,7 +143,7 @@ Meta:
 
 - API publica, chaves de API, creditos, planos e paridade parcial com Snov.io.
 
-Status: fase 31 iniciada localmente em `feature/31-api-rate-credit-guardrails`.
+Status: fase 31 implementada localmente em `feature/31-api-rate-credit-guardrails`.
 
 Fases:
 
