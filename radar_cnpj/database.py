@@ -810,6 +810,22 @@ def init_db():
                 FOREIGN KEY (agent_config_id) REFERENCES agent_config_versions(id)
             );
 
+            CREATE TABLE IF NOT EXISTS playbook_execution_plans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                playbook_id INTEGER NOT NULL,
+                version_id INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'draft',
+                plan_json TEXT NOT NULL,
+                diff_json TEXT NOT NULL,
+                created_artifacts_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                applied_at TEXT,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (playbook_id) REFERENCES playbooks(id),
+                FOREIGN KEY (version_id) REFERENCES playbook_versions(id)
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -927,6 +943,7 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_notifications_source ON notifications(org_id, notification_type, source_type, source_id);
             CREATE INDEX IF NOT EXISTS idx_workspace_snapshots_created ON workspace_metric_snapshots(org_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_workspace_onboarding_runs_org ON workspace_onboarding_runs(org_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_playbook_execution_plans_org ON playbook_execution_plans(org_id, status, created_at);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);
