@@ -1,8 +1,10 @@
 import csv
+import hashlib
 import io
 import json
 import os
 import re
+import secrets
 import unicodedata
 from datetime import datetime, timedelta
 
@@ -42,6 +44,8 @@ from .scoring import estimate_market_value, infer_sector, score_company
 
 ORG_ID = 1
 USER_ID = 1
+API_TOKEN_PREFIX = "rc_local_"
+DEFAULT_API_KEY_SCOPES = ["companies:read", "emails:read", "exports:create"]
 
 
 def dict_row(row):
@@ -6282,6 +6286,275 @@ def apply_playbook_execution_plan(conn, plan_id, payload=None):
         "objective": objective,
     }
     return result
+
+
+def api_token_hash(token):
+    return hashlib.sha256((token or "").encode("utf-8")).hexdigest()
+
+
+def generate_api_token():
+    return API_TOKEN_PREFIX + secrets.token_urlsafe(32)
+
+
+def mask_api_token(token):
+    token = token or ""
+    if len(token) <= 12:
+        return token
+    return "%s...%s" % (token[:16], token[-4:])
+
+
+def parse_api_key_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data.pop("token_hash", None)
+    data["scopes"] = json.loads(data.pop("scopes_json") or "[]")
+    return data
+
+
+def get_api_key(conn, key_id):
+    org_id = current_org_id(conn)
+    row = conn.execute("SELECT * FROM api_keys WHERE id = ? AND org_id = ?", (int(key_id), org_id)).fetchone()
+    return parse_api_key_row(row)
+
+
+def list_api_keys(conn, params=None):
+    org_id = current_org_id(conn)
+    params = params or {}
+    where = ["org_id = ?"]
+    values = [org_id]
+    if params.get("status"):
+        where.append("status = ?")
+        values.append(params.get("status"))
+    rows = conn.execute(
+        """
+        SELECT *
+        FROM api_keys
+        WHERE %s
+        ORDER BY id DESC
+        LIMIT ?
+        """
+        % " AND ".join(where),
+        values + [min(int(params.get("limit", 50) or 50), 200)],
+    ).fetchall()
+    return {"items": [parse_api_key_row(row) for row in rows]}
+
+
+def create_api_key(conn, payload):
+    payload = payload or {}
+    org_id = current_org_id(conn)
+    name = (payload.get("name") or "").strip() or "Chave API local"
+    scopes = payload.get("scopes") or DEFAULT_API_KEY_SCOPES
+    if not isinstance(scopes, list) or not all(isinstance(scope, str) and scope.strip() for scope in scopes):
+        raise ValueError("Escopos da chave devem ser uma lista de textos")
+    scopes = [scope.strip() for scope in scopes]
+    token = generate_api_token()
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO api_keys (
+            org_id, name, token_hash, token_prefix, masked_token, scopes_json,
+            status, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            org_id,
+            name,
+            api_token_hash(token),
+            token[:16],
+            mask_api_token(token),
+            json.dumps(scopes, ensure_ascii=True),
+            "active",
+            timestamp,
+        ),
+    )
+    audit(
+        conn,
+        "create_api_key",
+        "api_key",
+        cursor.lastrowid,
+        {"name": name, "token_prefix": token[:16], "scopes": scopes},
+        org_id=org_id,
+    )
+    result = get_api_key(conn, cursor.lastrowid)
+    result["token"] = token
+    return result
+
+
+def revoke_api_key(conn, key_id, payload=None):
+    org_id = current_org_id(conn)
+    key = get_api_key(conn, int(key_id))
+    if not key:
+        raise ValueError("Chave de API nao encontrada")
+    if key["status"] != "revoked":
+        timestamp = now_iso()
+        conn.execute(
+            """
+            UPDATE api_keys
+            SET status = 'revoked', revoked_at = ?
+            WHERE id = ? AND org_id = ?
+            """,
+            (timestamp, int(key_id), org_id),
+        )
+        audit(
+            conn,
+            "revoke_api_key",
+            "api_key",
+            int(key_id),
+            {"reason": (payload or {}).get("reason") or "revogacao manual"},
+            org_id=org_id,
+        )
+    return get_api_key(conn, int(key_id))
+
+
+def get_active_api_key_by_token(conn, token):
+    row = conn.execute(
+        """
+        SELECT *
+        FROM api_keys
+        WHERE token_hash = ? AND status = 'active'
+        """,
+        (api_token_hash(token),),
+    ).fetchone()
+    if not row:
+        return None
+    timestamp = now_iso()
+    conn.execute("UPDATE api_keys SET last_used_at = ? WHERE id = ?", (timestamp, row["id"]))
+    return parse_api_key_row(row)
+
+
+def parse_credit_wallet_row(row):
+    return dict_row(row)
+
+
+def parse_credit_transaction_row(row):
+    data = dict_row(row)
+    if not data:
+        return None
+    data["metadata"] = json.loads(data.pop("metadata_json") or "{}")
+    return data
+
+
+def ensure_credit_wallet(conn, org_id=None):
+    org_id = int(org_id or current_org_id(conn))
+    row = conn.execute("SELECT * FROM credit_wallets WHERE org_id = ?", (org_id,)).fetchone()
+    if row:
+        return parse_credit_wallet_row(row)
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO credit_wallets (org_id, balance, plan_name, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (org_id, 0, "internal", timestamp, timestamp),
+    )
+    row = conn.execute("SELECT * FROM credit_wallets WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return parse_credit_wallet_row(row)
+
+
+def list_credit_transactions(conn, params=None):
+    params = params or {}
+    org_id = current_org_id(conn)
+    wallet = ensure_credit_wallet(conn, org_id)
+    rows = conn.execute(
+        """
+        SELECT *
+        FROM credit_transactions
+        WHERE org_id = ? AND wallet_id = ?
+        ORDER BY id DESC
+        LIMIT ?
+        """,
+        (org_id, wallet["id"], min(int(params.get("limit", 50) or 50), 200)),
+    ).fetchall()
+    return {"items": [parse_credit_transaction_row(row) for row in rows]}
+
+
+def adjust_credit_wallet(conn, payload):
+    payload = payload or {}
+    org_id = current_org_id(conn)
+    wallet = ensure_credit_wallet(conn, org_id)
+    amount = int(payload.get("amount") or 0)
+    if amount == 0:
+        raise ValueError("Informe um valor de creditos diferente de zero")
+    reason = (payload.get("reason") or "").strip() or "Ajuste manual de creditos"
+    balance_after = int(wallet["balance"] or 0) + amount
+    if balance_after < 0:
+        raise ValueError("Saldo insuficiente para debitar creditos")
+    timestamp = now_iso()
+    cursor = conn.execute(
+        """
+        INSERT INTO credit_transactions (
+            org_id, wallet_id, amount, reason, reference_type, reference_id,
+            metadata_json, balance_after, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            org_id,
+            wallet["id"],
+            amount,
+            reason,
+            payload.get("reference_type") or "manual",
+            str(payload.get("reference_id") or ""),
+            json.dumps(payload.get("metadata") or {}, ensure_ascii=True),
+            balance_after,
+            timestamp,
+        ),
+    )
+    conn.execute(
+        """
+        UPDATE credit_wallets
+        SET balance = ?, updated_at = ?
+        WHERE id = ? AND org_id = ?
+        """,
+        (balance_after, timestamp, wallet["id"], org_id),
+    )
+    audit(
+        conn,
+        "adjust_credit_wallet",
+        "credit_wallet",
+        wallet["id"],
+        {"amount": amount, "reason": reason, "balance_after": balance_after},
+        org_id=org_id,
+    )
+    updated_wallet = ensure_credit_wallet(conn, org_id)
+    transaction = parse_credit_transaction_row(
+        conn.execute("SELECT * FROM credit_transactions WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    )
+    return {"wallet": updated_wallet, "transaction": transaction}
+
+
+def consume_credits(conn, amount, reason, reference_type="", reference_id="", metadata=None):
+    amount = int(amount or 0)
+    if amount <= 0:
+        raise ValueError("Consumo de creditos deve ser positivo")
+    return adjust_credit_wallet(
+        conn,
+        {
+            "amount": -amount,
+            "reason": reason,
+            "reference_type": reference_type,
+            "reference_id": reference_id,
+            "metadata": metadata or {},
+        },
+    )
+
+
+def saas_account(conn, params=None):
+    wallet = ensure_credit_wallet(conn)
+    transactions = list_credit_transactions(conn, params)["items"]
+    keys = list_api_keys(conn, params)["items"]
+    return {
+        "wallet": wallet,
+        "api_keys": keys,
+        "transactions": transactions,
+        "summary": {
+            "balance": wallet["balance"],
+            "active_api_keys": len([item for item in keys if item["status"] == "active"]),
+            "transaction_count": len(transactions),
+        },
+    }
 
 
 NOTIFICATION_STATUSES = {"pending", "sent", "read", "dismissed"}
