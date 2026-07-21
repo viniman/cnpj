@@ -2323,6 +2323,7 @@ Commits:
 - `eb0f3cf docs: define scoring config history phase`
 - `60c4c8c feat: add scoring config version history`
 - `7f57ed7 feat: add scoring config history UI`
+- `6f8ac75 fix: make score config bootstrap idempotent`
 
 Implementado:
 
@@ -2335,6 +2336,8 @@ Implementado:
   `POST /api/scoring/config-versions/{id}/rollback`.
 - Aba `Higiene` com painel `Historico scoring`, filtro por tipo e acao de
   restaurar versao.
+- Bootstrap de versao inicial idempotente mesmo quando a UI carrega configs em
+  paralelo.
 - Testes dedicados em `tests/test_scoring_config_versions.py`.
 
 Como verificar:
