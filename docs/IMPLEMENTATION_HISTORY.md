@@ -2001,3 +2001,40 @@ Resultado esperado nesta etapa:
 Ran 90 tests
 OK
 ```
+
+## 2026-07-21 - Inicio da fase 32 de documentacao OpenAPI publica
+
+Branch: `feature/32-public-openapi-docs`
+
+Estado inicial:
+
+- Fase 31 mesclada localmente no `master`.
+- Nao ha remoto Git configurado; PRs seguem registrados em
+  `docs/pull_requests/`.
+- Roadmap da camada SaaS aponta `API REST documentada` como proxima fase.
+
+Meta da fase:
+
+- Expor contrato OpenAPI local da API publica.
+- Documentar autenticacao, escopo, custo, rate limit e erros da busca publica.
+- Mostrar o contrato no painel interno `SaaS e API`.
+
+Documento principal:
+
+- `docs/PUBLIC_OPENAPI_SPEC.md`
+
+Commits planejados:
+
+- `docs: define public OpenAPI phase`
+- `feat: add public OpenAPI contract endpoint`
+- `feat: show public API docs in SaaS panel`
+
+Como verificar:
+
+```powershell
+$env:TEMP='D:\Projects\vagou\receita-federal-cnpj\.tmp-tests'
+$env:TMP=$env:TEMP
+python -m unittest tests.test_public_openapi
+python -m unittest discover -s tests
+node --check static\app.js
+```

@@ -860,3 +860,28 @@ Consequencias:
   `api_usage_events`.
 - A proxima fase pode documentar esses contratos em OpenAPI sem redesenhar os
   trilhos.
+
+## ADR-034 - OpenAPI local e o contrato da API publica
+
+Data: 2026-07-21
+
+Decisao:
+
+- O contrato da API publica deve ser exposto em JSON OpenAPI por endpoint local.
+- A especificacao deve documentar escopo, custo em creditos e rate limit como
+  extensoes `x-*`.
+- A documentacao publica local nao consome creditos e nao exige chave de API.
+
+Racional:
+
+- A camada SaaS pede API REST documentada antes de planos comerciais.
+- Integradores precisam descobrir o contrato antes de criar chamadas pagas.
+- Custo e rate limit sao parte do comportamento de negocio, nao notas soltas em
+  documentacao externa.
+
+Consequencias:
+
+- Novos endpoints publicos devem atualizar a especificacao no mesmo commit da
+  implementacao.
+- Testes passam a verificar a presenca dos contratos publicos essenciais.
+- Uma futura Swagger UI pode reutilizar o mesmo JSON sem novo desenho de API.
