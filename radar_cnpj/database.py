@@ -788,6 +788,28 @@ def init_db():
                 FOREIGN KEY (current_org_id) REFERENCES organizations(id)
             );
 
+            CREATE TABLE IF NOT EXISTS workspace_onboarding_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,
+                playbook_id INTEGER,
+                playbook_application_id INTEGER,
+                icp_rule_id INTEGER,
+                template_id INTEGER,
+                sequence_id INTEGER,
+                objective_id INTEGER,
+                agent_config_id INTEGER,
+                summary_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (playbook_id) REFERENCES playbooks(id),
+                FOREIGN KEY (playbook_application_id) REFERENCES workspace_playbook_applications(id),
+                FOREIGN KEY (icp_rule_id) REFERENCES icp_rules(id),
+                FOREIGN KEY (template_id) REFERENCES email_templates(id),
+                FOREIGN KEY (sequence_id) REFERENCES sequences(id),
+                FOREIGN KEY (objective_id) REFERENCES objectives(id),
+                FOREIGN KEY (agent_config_id) REFERENCES agent_config_versions(id)
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -904,6 +926,7 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(org_id, status);
             CREATE INDEX IF NOT EXISTS idx_notifications_source ON notifications(org_id, notification_type, source_type, source_id);
             CREATE INDEX IF NOT EXISTS idx_workspace_snapshots_created ON workspace_metric_snapshots(org_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_workspace_onboarding_runs_org ON workspace_onboarding_runs(org_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);

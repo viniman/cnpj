@@ -72,6 +72,7 @@ from .services import (
     record_inbound_reply,
     reject_sequence_step,
     render_email_template,
+    run_workspace_onboarding,
     score_emails,
     search_companies,
     seed_sample,
@@ -400,6 +401,8 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, set_current_workspace(conn, int(data.get("org_id") or 0)))
                 elif parsed.path == "/api/workspaces":
                     self.send_json_commit(conn, create_workspace(conn, data), 201)
+                elif parsed.path == "/api/workspaces/onboarding":
+                    self.send_json_commit(conn, run_workspace_onboarding(conn, data), 201)
                 elif len(parts) == 4 and parts[1] == "workspaces" and parts[3] == "snapshot":
                     self.send_json_commit(conn, create_workspace_snapshot(conn, int(parts[2])), 201)
                 elif len(parts) == 4 and parts[1] == "icp-rules" and parts[3] == "prioritize":

@@ -86,6 +86,62 @@
 
           <section class="panel">
             <div class="panel-head">
+              <h2>Onboarding operacional</h2>
+              <button id="runWorkspaceOnboardingBtn" class="button primary">Criar empresa operacional</button>
+            </div>
+            <div class="form-grid">
+              <label>
+                Nome
+                <input id="onboardingWorkspaceName" class="input" placeholder="Nine" />
+              </label>
+              <label>
+                Vertical
+                <input id="onboardingVertical" class="input" placeholder="servicos locais" />
+              </label>
+              <label>
+                Dominio de envio
+                <input id="onboardingSendingDomain" class="input" placeholder="mail.empresa.com.br" />
+              </label>
+              <label>
+                Remetente
+                <input id="onboardingSender" class="input" placeholder="Time comercial" />
+              </label>
+              <label>
+                Tom padrao
+                <input id="onboardingTone" class="input" placeholder="direto, B2B, consultivo" />
+              </label>
+              <label>
+                Cor
+                <input id="onboardingBrandColor" class="input" placeholder="#2458d3" />
+              </label>
+              <label>
+                Playbook base
+                <select id="onboardingSourcePlaybook" class="input"></select>
+              </label>
+              <label>
+                UF do ICP
+                <input id="onboardingStates" class="input" placeholder="SP, RJ" />
+              </label>
+              <label>
+                CNAEs do ICP
+                <input id="onboardingCnaes" class="input" placeholder="620, 631" />
+              </label>
+              <label>
+                Score minimo de email
+                <input id="onboardingMinEmailScore" class="input" type="number" min="0" max="100" value="30" />
+              </label>
+              <label>
+                Meta inicial
+                <input id="onboardingTarget" class="input" type="number" min="1" value="10" />
+              </label>
+            </div>
+            <div id="workspaceOnboardingResult" class="table-wrap">
+              <div class="empty-state">Nenhum onboarding executado nesta sessao.</div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
               <h2>Notificacoes proativas</h2>
               <div class="toolbar-actions">
                 <button id="generateNotificationsBtn" class="button primary">Gerar alertas</button>

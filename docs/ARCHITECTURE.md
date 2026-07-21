@@ -82,6 +82,8 @@ Tabelas principais:
   status e metadados de auditoria.
 - `workspace_metric_snapshots`: snapshots manuais das metricas executivas por
   workspace.
+- `workspace_onboarding_runs`: historico do wizard de onboarding operacional,
+  com os IDs de playbook, ICP, template, sequencia, OKR e configuracao criados.
 - `import_jobs`, `export_jobs`, `audit_logs`: rastreabilidade.
 
 ## Compliance por design
@@ -148,6 +150,9 @@ Tabelas principais:
 - Reuso de playbooks entre empresas ocorre por clonagem auditavel: o destino
   recebe novo playbook independente, sem referencia compartilhada nem aplicacao
   automatica.
+- O wizard de onboarding compoe servicos existentes e registra
+  `workspace_onboarding_runs`; ele nao cria envio real nem contorna aprovacao
+  humana de sequencias.
 - A auditoria operacional lida por `/api/audit` usa `current_org_id(conn)`;
   uma visao global administrativa exigira endpoint e permissao proprios.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo
