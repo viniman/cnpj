@@ -40,4 +40,15 @@ node --check static\app.js
 
 ## Verificacao realizada
 
-Pendente ate a execucao final da fase.
+```text
+python -m unittest tests.test_official_sources tests.test_official_import_checkpoints
+Ran 4 tests
+OK
+
+python -m unittest discover -s tests
+Ran 119 tests
+OK
+
+node --check static\app.js
+OK
+```
