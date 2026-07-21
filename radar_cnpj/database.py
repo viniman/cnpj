@@ -866,6 +866,23 @@ def init_db():
                 FOREIGN KEY (wallet_id) REFERENCES credit_wallets(id)
             );
 
+            CREATE TABLE IF NOT EXISTS api_usage_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER,
+                api_key_id INTEGER,
+                endpoint TEXT NOT NULL,
+                scope TEXT NOT NULL,
+                cost INTEGER NOT NULL DEFAULT 0,
+                status TEXT NOT NULL,
+                response_code INTEGER NOT NULL,
+                message TEXT,
+                window_start TEXT,
+                metadata_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (org_id) REFERENCES organizations(id),
+                FOREIGN KEY (api_key_id) REFERENCES api_keys(id)
+            );
+
             CREATE TABLE IF NOT EXISTS suppression_list (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
@@ -987,6 +1004,8 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_api_keys_org_status ON api_keys(org_id, status);
             CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(token_prefix);
             CREATE INDEX IF NOT EXISTS idx_credit_transactions_wallet ON credit_transactions(wallet_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_api_usage_key_created ON api_usage_events(api_key_id, created_at);
+            CREATE INDEX IF NOT EXISTS idx_api_usage_org_status ON api_usage_events(org_id, status, created_at);
             CREATE INDEX IF NOT EXISTS idx_list_companies_list ON list_companies(list_id);
             CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
             CREATE INDEX IF NOT EXISTS idx_source_files_snapshot ON source_files(snapshot);
