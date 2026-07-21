@@ -5,6 +5,8 @@ import unittest
 from radar_cnpj.database import connect, init_db
 from radar_cnpj.services import (
     apply_playbook,
+    audit_events,
+    clone_playbook_to_workspace,
     create_playbook,
     create_playbook_version,
     create_workspace,
@@ -164,6 +166,56 @@ class PlaybookLibraryTest(unittest.TestCase):
             self.assertIsNone(get_playbook(conn, scoped_playbook["id"]))
             with self.assertRaises(ValueError):
                 apply_playbook(conn, scoped_playbook["id"], {"note": "Nao deveria voltar"})
+        finally:
+            conn.close()
+
+    def test_clone_playbook_to_workspace_is_explicit_and_isolated(self):
+        conn = connect()
+        try:
+            source_playbook = create_playbook(
+                conn,
+                {"name": "Playbook que converteu", "description": "Origem", "content": self.sample_content("SP")},
+            )
+            source_version = create_playbook_version(
+                conn,
+                source_playbook["id"],
+                {"description": "Versao MG", "content": self.sample_content("MG", target=25)},
+            )
+            target = create_workspace(conn, {"name": "Destino Playbook"})
+
+            clone = clone_playbook_to_workspace(
+                conn,
+                source_playbook["id"],
+                {
+                    "target_org_id": target["id"],
+                    "version_id": source_version["id"],
+                    "name": "Playbook clonado para destino",
+                    "description": "Clone auditavel",
+                },
+            )
+            self.assertEqual(clone["org_id"], target["id"])
+            self.assertEqual(clone["source"], "cloned")
+            self.assertEqual(clone["active_version"]["version_number"], 1)
+            self.assertEqual(clone["active_version"]["content"]["icp"]["states"], ["MG"])
+            self.assertIsNone(get_playbook(conn, clone["id"]))
+            self.assertTrue(
+                any(item["action"] == "clone_playbook_to_workspace" for item in audit_events(conn))
+            )
+
+            with self.assertRaises(ValueError):
+                clone_playbook_to_workspace(conn, source_playbook["id"], {"target_org_id": 1})
+            with self.assertRaises(ValueError):
+                clone_playbook_to_workspace(conn, source_playbook["id"], {"target_org_id": 999})
+
+            set_current_workspace(conn, target["id"])
+            cloned_in_target = get_playbook(conn, clone["id"])
+            self.assertEqual(cloned_in_target["name"], "Playbook clonado para destino")
+            self.assertEqual(playbook_library(conn)["active_application"], None)
+            self.assertTrue(
+                any(item["action"] == "receive_cloned_playbook" for item in audit_events(conn))
+            )
+            with self.assertRaises(ValueError):
+                clone_playbook_to_workspace(conn, source_playbook["id"], {"target_org_id": 1})
         finally:
             conn.close()
 

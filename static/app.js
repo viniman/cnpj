@@ -432,6 +432,7 @@ async function createWorkspaceFromForm() {
   showStatus("Workspace criado para comparacao executiva.");
   await loadWorkspaceContext();
   await loadWorkspaceComparison();
+  if (state.view === "command") await loadPlaybooks();
 }
 
 async function createWorkspaceSnapshotFromForm() {
@@ -461,6 +462,9 @@ function selectedPlaybook() {
 function syncPlaybookVersionForm(playbook) {
   const active = playbook?.active_version;
   $("#playbookVersionContent").value = active ? JSON.stringify(active.content || {}, null, 2) : "{}";
+  if ($("#playbookCloneName")) {
+    $("#playbookCloneName").placeholder = playbook ? `${playbook.name} (copia)` : "Nome opcional no destino";
+  }
 }
 
 function renderSelectedPlaybookVersions(playbook) {
@@ -506,6 +510,7 @@ function renderPlaybooks(data) {
   const selected = selectedPlaybook();
   syncPlaybookVersionForm(selected);
   renderSelectedPlaybookVersions(selected);
+  renderPlaybookCloneTargets(profile.org_id);
 
   $("#playbooksTable").innerHTML = playbooks.length
     ? table(
@@ -528,6 +533,18 @@ function renderPlaybooks(data) {
       renderSelectedPlaybookVersions(playbook);
     });
   });
+}
+
+function renderPlaybookCloneTargets(activeOrgId) {
+  const select = $("#playbookCloneTarget");
+  if (!select) return;
+  const activeId = Number(activeOrgId || state.workspaceContext?.active_workspace?.id || 0);
+  const options = (state.workspaceContext?.workspaces || []).filter((workspace) => Number(workspace.id) !== activeId);
+  select.innerHTML = options.length
+    ? options
+        .map((workspace) => `<option value="${escapeHtml(workspace.id)}">${escapeHtml(workspaceName(workspace))}</option>`)
+        .join("")
+    : `<option value="">Nenhum destino disponivel</option>`;
 }
 
 function parseJsonField(selector, message) {
@@ -583,6 +600,25 @@ async function applyPlaybookFromForm(playbookId = null, versionId = null) {
   });
   showStatus("Playbook aplicado ao workspace.");
   await loadPlaybooks();
+}
+
+async function clonePlaybookFromForm() {
+  const playbook = selectedPlaybook();
+  if (!playbook) return showStatus("Selecione um playbook.", "warn");
+  const targetOrgId = Number($("#playbookCloneTarget").value || 0);
+  if (!targetOrgId) return showStatus("Selecione um workspace de destino.", "warn");
+  const clone = await api(`/api/playbooks/${playbook.id}/clone`, {
+    method: "POST",
+    body: JSON.stringify({
+      target_org_id: targetOrgId,
+      name: $("#playbookCloneName").value.trim() || undefined,
+      description: $("#playbookCloneDescription").value.trim() || undefined,
+    }),
+  });
+  $("#playbookCloneName").value = "";
+  $("#playbookCloneDescription").value = "";
+  showStatus(`Playbook clonado para o workspace ${targetOrgId} como ${clone.name}.`);
+  await Promise.all([loadPlaybooks(), loadWorkspaceComparison()]);
 }
 
 async function loadAgentGovernance() {
@@ -2368,6 +2404,7 @@ function wireEvents() {
   $("#createPlaybookBtn").addEventListener("click", createPlaybookFromForm);
   $("#createPlaybookVersionBtn").addEventListener("click", createPlaybookVersionFromForm);
   $("#applyPlaybookBtn").addEventListener("click", () => applyPlaybookFromForm());
+  $("#clonePlaybookBtn").addEventListener("click", clonePlaybookFromForm);
   $("#refreshAgentGovernanceBtn").addEventListener("click", loadAgentGovernance);
   $("#createAgentConfigBtn").addEventListener("click", createAgentConfigFromForm);
   $("#createAgentSimulationBtn").addEventListener("click", createAgentSimulationFromForm);

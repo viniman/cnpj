@@ -5215,9 +5215,9 @@ def parse_playbook_row(conn, row):
     return data
 
 
-def ensure_default_playbooks(conn):
-    org_id = current_org_id(conn)
-    ensure_company_profile(conn)
+def ensure_default_playbooks_for_org(conn, org_id):
+    org_id = int(org_id)
+    ensure_company_profile_for_org(conn, org_id)
     existing = conn.execute(
         "SELECT id FROM playbooks WHERE org_id = ? LIMIT 1",
         (org_id,),
@@ -5280,6 +5280,10 @@ def ensure_default_playbooks(conn):
                 {"name": item["name"]},
                 org_id=org_id,
             )
+
+
+def ensure_default_playbooks(conn):
+    ensure_default_playbooks_for_org(conn, current_org_id(conn))
 
 
 def next_playbook_version(conn, playbook_id):
@@ -5426,6 +5430,113 @@ def create_playbook_version(conn, playbook_id, payload):
             """,
             (cursor.lastrowid, org_id),
         ).fetchone()
+    )
+
+
+def clone_playbook_to_workspace(conn, playbook_id, payload):
+    source_org_id = current_org_id(conn)
+    ensure_default_playbooks(conn)
+    payload = payload or {}
+    target_org_id = int(payload.get("target_org_id") or 0)
+    if not target_org_id:
+        raise ValueError("Workspace de destino e obrigatorio")
+    if target_org_id == source_org_id:
+        raise ValueError("Workspace de destino deve ser diferente do atual")
+    target = conn.execute("SELECT id FROM organizations WHERE id = ?", (target_org_id,)).fetchone()
+    if not target:
+        raise ValueError("Workspace de destino nao encontrado")
+    playbook = conn.execute(
+        "SELECT * FROM playbooks WHERE id = ? AND org_id = ?",
+        (int(playbook_id), source_org_id),
+    ).fetchone()
+    if not playbook:
+        raise ValueError("Playbook de origem nao encontrado")
+    version_id = int(payload.get("version_id") or 0)
+    if version_id:
+        version = conn.execute(
+            "SELECT * FROM playbook_versions WHERE id = ? AND playbook_id = ?",
+            (version_id, int(playbook_id)),
+        ).fetchone()
+    else:
+        version = conn.execute(
+            """
+            SELECT *
+            FROM playbook_versions
+            WHERE playbook_id = ? AND status = 'active'
+            ORDER BY version_number DESC
+            LIMIT 1
+            """,
+            (int(playbook_id),),
+        ).fetchone()
+    if not version:
+        raise ValueError("Versao do playbook nao encontrada")
+
+    ensure_default_playbooks_for_org(conn, target_org_id)
+    name = (payload.get("name") or "%s (copia)" % playbook["name"]).strip()
+    if not name:
+        raise ValueError("Nome do clone e obrigatorio")
+    if conn.execute("SELECT id FROM playbooks WHERE org_id = ? AND name = ?", (target_org_id, name)).fetchone():
+        raise ValueError("Ja existe um playbook com esse nome no destino")
+
+    timestamp = now_iso()
+    description = (
+        payload.get("description")
+        or "Clonado de %s no workspace %s." % (playbook["name"], source_org_id)
+    ).strip()
+    content = json.loads(version["content_json"] or "{}")
+    cursor = conn.execute(
+        """
+        INSERT INTO playbooks (
+            org_id, name, description, status, source, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            target_org_id,
+            name,
+            description,
+            "active",
+            "cloned",
+            timestamp,
+            timestamp,
+        ),
+    )
+    cloned_playbook_id = cursor.lastrowid
+    conn.execute(
+        """
+        INSERT INTO playbook_versions (
+            playbook_id, version_number, status, description, content_json,
+            created_at, activated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            cloned_playbook_id,
+            1,
+            "active",
+            payload.get("version_description")
+            or "Clone da v%s do playbook %s." % (version["version_number"], playbook["id"]),
+            json.dumps(content, ensure_ascii=True),
+            timestamp,
+            timestamp,
+        ),
+    )
+    metadata = {
+        "source_org_id": source_org_id,
+        "target_org_id": target_org_id,
+        "source_playbook_id": int(playbook_id),
+        "source_version_id": version["id"],
+        "source_version_number": version["version_number"],
+        "cloned_playbook_id": cloned_playbook_id,
+    }
+    audit(conn, "clone_playbook_to_workspace", "playbook", int(playbook_id), metadata, org_id=source_org_id)
+    audit(conn, "receive_cloned_playbook", "playbook", cloned_playbook_id, metadata, org_id=target_org_id)
+    return parse_playbook_row(
+        conn,
+        conn.execute(
+            "SELECT * FROM playbooks WHERE id = ? AND org_id = ?",
+            (cloned_playbook_id, target_org_id),
+        ).fetchone(),
     )
 
 

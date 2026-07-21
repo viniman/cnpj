@@ -107,7 +107,7 @@ Meta:
 
 - Transformar a plataforma em produto multi-workspace com transparencia total.
 
-Status: fase 26 implementada localmente em `feature/26-audit-context-foundation`.
+Status: fase 27 implementada localmente em `feature/27-playbook-clone-foundation`.
 
 Fases:
 
@@ -133,6 +133,7 @@ Fases:
 20. Governanca do agente e custos por workspace ativo.
 21. Playbooks e aplicacao ativa por workspace ativo.
 22. Auditoria operacional por workspace ativo.
+23. Clonagem auditavel de playbooks entre workspaces.
 
 ## Camada 6 - SaaS monetizavel
 

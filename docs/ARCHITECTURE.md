@@ -145,6 +145,9 @@ Tabelas principais:
 - Playbooks, versoes, perfil operacional e aplicacao ativa leem
   `current_org_id(conn)`; defaults sao idempotentes por workspace e IDs de
   outro contexto sao recusados.
+- Reuso de playbooks entre empresas ocorre por clonagem auditavel: o destino
+  recebe novo playbook independente, sem referencia compartilhada nem aplicacao
+  automatica.
 - A auditoria operacional lida por `/api/audit` usa `current_org_id(conn)`;
   uma visao global administrativa exigira endpoint e permissao proprios.
 - Empresas continuam globais nesta fase e entram no escopo operacional pelo
