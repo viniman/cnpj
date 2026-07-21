@@ -643,6 +643,28 @@
             </div>
           </section>
 
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Plano PostgreSQL staging</h2>
+              <button id="loadPostgresPlanBtn" class="button">Gerar plano</button>
+            </div>
+            <div class="toolbar">
+              <div class="toolbar-actions">
+                <button id="copyPostgresDdlBtn" class="button">Copiar DDL</button>
+              </div>
+              <div id="postgresPlanSummary" class="muted">Nenhum plano gerado.</div>
+            </div>
+            <div id="postgresPlanMetrics" class="metric-grid compact-metrics"></div>
+            <div id="postgresCopyPlan" class="table-wrap">
+              <div class="empty-state">Baixe arquivos oficiais para montar o plano COPY.</div>
+            </div>
+            <div id="postgresPlanGuardrails" class="table-wrap"></div>
+            <details class="code-details">
+              <summary>DDL de staging</summary>
+              <pre id="postgresPlanDdl" class="code-block"></pre>
+            </details>
+          </section>
+
           <section class="panel api-panel">
             <div class="panel-head">
               <h2>Consulta por API</h2>
