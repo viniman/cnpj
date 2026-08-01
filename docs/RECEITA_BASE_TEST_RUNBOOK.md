@@ -116,6 +116,17 @@ Critério de aceite:
 
 ## 7. Rodar importação completa
 
+Antes de rodar esta etapa, confirme espaço em disco suficiente para:
+
+- os ZIPs oficiais já baixados;
+- a extração temporária de cada arquivo;
+- o crescimento do volume Docker/Postgres.
+
+Na validação de 2026-08-01, o ambiente local tinha cerca de 6,5 GB livres no D:
+e 7,2 GB livres no C:, enquanto o snapshot compactado `2026-07` tinha 7,64 GB.
+Esse ambiente validou o smoke import, mas não tinha capacidade segura para a
+carga completa.
+
 Depois do smoke test passar:
 
 ```powershell
@@ -160,6 +171,7 @@ Critério de aceite:
 - [ ] Migrations aplicam sem drift de checksum.
 - [ ] Smoke import passa.
 - [ ] Contagens do smoke import são maiores que zero.
+- [ ] Espaço em disco suficiente para carga completa.
 - [ ] Importação completa passa.
 - [ ] Contagens completas são maiores que zero.
 
@@ -171,3 +183,5 @@ Critério de aceite:
 - A validação real com Postgres depende do Docker Desktop/Linux engine ativo.
 - Os dados ainda entram no schema bruto `receita_staging`; a normalização para
   schemas operacionais será uma etapa posterior.
+- O ambiente local usado nesta validação não tinha espaço livre suficiente para
+  a carga completa.
