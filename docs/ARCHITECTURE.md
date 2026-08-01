@@ -25,6 +25,25 @@ e schema `receita_staging`. A aplicacao Python recebe
 Essa separacao preserva estabilidade do MVP enquanto abre o caminho para
 `COPY`, workers e API de produto.
 
+## Arquitetura alvo decidida
+
+O caminho alvo apos a fase 41 e migrar a plataforma para PostgreSQL como banco
+central de escala, com schemas separados por responsabilidade:
+
+- `receita_staging`: copia bruta controlada dos arquivos oficiais da Receita.
+- `app`: dados operacionais do produto, como empresas normalizadas, listas,
+  leads, cadencias, usuarios, workspaces e templates.
+- `billing`: planos, creditos, assinaturas, chaves de API e consumo.
+- `audit`: trilhas de auditoria, exportacoes, jobs e decisoes automatizadas.
+
+Python permanece como motor de ETL, download, parsing e jobs recorrentes da
+Receita. NestJS deve ser o backend principal do produto e dono das migrations
+Prisma do schema operacional. Next.js deve ser a interface premium de cliente e
+pode tambem assumir um super admin futuro. O SQLite deve sair do caminho
+principal depois que Postgres cobrir importacao, busca e operacao.
+
+Detalhes e proximas fases estao em `docs/NEXT_ARCHITECTURE_LEDGER.md`.
+
 ## Diagrama
 
 ```mermaid
@@ -222,14 +241,17 @@ Tabelas principais:
 
 ## Evolucao para escala
 
-1. Migrar SQLite para PostgreSQL 16.
-2. Criar tabelas de staging para Empresas, Estabelecimentos, Socios, CNAEs,
+1. Migrar runtime principal para PostgreSQL 16.
+2. Criar migrations SQL reais para o schema `receita_staging`.
+3. Criar tabelas de staging para Empresas, Estabelecimentos, Socios, CNAEs,
    Municipios, Naturezas, Motivos, Paises, Qualificacoes e Simples.
-3. Usar `COPY` para carga bruta e upsert em lotes.
-4. Adicionar Redis + BullMQ/Celery para jobs resumiveis.
-5. Usar pg_trgm/unaccent no Postgres e, se necessario, Meilisearch ou Typesense.
-6. Adicionar autenticacao real, RBAC e hash de senha.
-7. Adicionar backups, OpenTelemetry e testes E2E.
+4. Usar `COPY` para carga bruta e upsert em lotes.
+5. Criar historico mensal e diffs por CNPJ.
+6. Criar schema operacional com NestJS/Prisma.
+7. Adicionar Redis + BullMQ/Celery para jobs resumiveis.
+8. Usar pg_trgm/unaccent no Postgres e, se necessario, Meilisearch ou Typesense.
+9. Adicionar autenticacao real, RBAC e hash de senha.
+10. Adicionar backups, OpenTelemetry e testes E2E.
 
 ### Plano PostgreSQL staging/COPY
 
