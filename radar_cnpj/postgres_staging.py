@@ -426,6 +426,28 @@ def build_postgres_staging_plan(snapshot, source_files, schema_name=SCHEMA_NAME,
     return {
         "snapshot": snapshot,
         "schema_name": schema_name,
+        "commands": {
+            "preflight": (
+                "powershell -NoProfile -ExecutionPolicy Bypass -File "
+                "scripts\\check_receita_staging_preflight.ps1 -Snapshot %s"
+                % powershell_quote(snapshot)
+            ),
+            "preflight_without_docker": (
+                "powershell -NoProfile -ExecutionPolicy Bypass -File "
+                "scripts\\check_receita_staging_preflight.ps1 -Snapshot %s -SkipDockerCheck"
+                % powershell_quote(snapshot)
+            ),
+            "smoke_import": (
+                "powershell -NoProfile -ExecutionPolicy Bypass -File "
+                "scripts\\import_postgres_staging_snapshot.ps1 -Snapshot %s -Families cnaes,municipios,naturezas"
+                % powershell_quote(snapshot)
+            ),
+            "snapshot_import": (
+                "powershell -NoProfile -ExecutionPolicy Bypass -File "
+                "scripts\\import_postgres_staging_snapshot.ps1 -Snapshot %s"
+                % powershell_quote(snapshot)
+            ),
+        },
         "ddl_sql": postgres_staging_schema(schema_name),
         "copy_plan": items,
         "unavailable_files": unavailable,
