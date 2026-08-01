@@ -86,6 +86,9 @@ class PostgresMigrationsTest(unittest.TestCase):
         self.assertIn("bytes] Iniciando", script)
         self.assertIn("Families", script)
         self.assertIn("Limit", script)
+        self.assertIn("$plannerArgs", script)
+        self.assertIn('if ($Families)', script)
+        self.assertIn('$plannerArgs += @("--families", $Families)', script)
         self.assertIn("snapshot_manifests", planner)
         self.assertIn("FAMILY_ORDER", planner)
 
