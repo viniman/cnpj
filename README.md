@@ -4,6 +4,17 @@ MVP local para pesquisar, filtrar, qualificar e exportar dados publicos de CNPJ 
 
 O projeto foi montado para uso interno em localhost. Ele ja inclui dashboard, busca de empresas, detalhe com socios, listas, higiene de email, supressao, exportacao CSV/XLSX e auditoria.
 
+## Documentos de direcao
+
+- `docs/NEXT_ARCHITECTURE_LEDGER.md`: livro razao com arquitetura alvo,
+  Postgres, Python ETL, NestJS, Next.js, historico mensal e diferenciais.
+- `docs/PHASE_HISTORY_INDEX.md`: indice das fases 01 a 42 e seus documentos
+  historicos.
+- `docs/DEVELOPMENT_GUIDELINES.md`: padroes de issues, branches, commits e
+  PRs sem marca de ferramenta ou IA.
+- `docs/UI_INTERFACE_PRINCIPLES.md`: principios de interface para o futuro
+  produto em Next.js e para a limpeza do super admin Python.
+
 ## Centro de Comando
 
 A aba `Comando` agrega a operacao em uma tela unica:

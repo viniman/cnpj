@@ -1130,3 +1130,109 @@ Consequencias:
 - Operadores podem usar `docker compose up -d postgres` para preparar apenas o
   banco de escala.
 - A proxima fase pode focar em worker/COPY real sem mexer na UI principal.
+
+## ADR-044 - PostgreSQL central com schemas separados
+
+Data: 2026-08-01
+
+Decisao:
+
+- A evolucao imediata deve usar um unico PostgreSQL central com schemas
+  separados por responsabilidade.
+- `receita_staging` guarda dados brutos controlados da Receita.
+- `app` guarda dados operacionais de produto.
+- `billing` guarda plano, creditos, assinatura e consumo.
+- `audit` guarda trilhas auditaveis e eventos operacionais.
+
+Racional:
+
+- Um banco unico reduz infraestrutura e acelera a migracao local.
+- Schemas preservam separacao logica sem impedir joins e transformacoes.
+- O desenho continua portavel para separar staging ou billing em outro banco
+  quando volume, backup, seguranca ou performance justificarem.
+
+Consequencias:
+
+- Migrations devem respeitar ownership por schema.
+- Cargas pesadas da Receita precisam de controle para nao afetar operacao.
+- Permissoes futuras devem restringir acesso por schema e papel.
+
+## ADR-045 - Python ETL, NestJS produto e Next.js interfaces
+
+Data: 2026-08-01
+
+Decisao:
+
+- Python permanece como motor de download, parsing, ETL, jobs recorrentes e
+  processamento pesado da Receita.
+- NestJS com Prisma deve ser dono do backend de produto e das migrations
+  operacionais.
+- Next.js deve ser a interface premium de cliente e pode substituir ou
+  complementar o super admin no futuro.
+- O painel Python atual permanece como laboratorio/super admin ate que os
+  fluxos estejam cobertos por Postgres, NestJS e Next.js.
+
+Racional:
+
+- Python e pragmatico para dados e arquivos grandes.
+- NestJS/Prisma trazem organizacao forte para API, auth, billing, multi-tenant
+  e migrations de produto.
+- Next.js permite SSR, melhor UX e uma experiencia de produto mais robusta.
+
+Consequencias:
+
+- Regras de produto devem se concentrar no NestJS.
+- Python nao deve criar schema operacional ad hoc.
+- Interfaces de cliente saem do Python apenas quando houver substituto em
+  Next.js.
+
+## ADR-046 - Historico mensal da Receita como diferencial
+
+Data: 2026-08-01
+
+Decisao:
+
+- O produto deve manter snapshots mensais da Receita e calcular diffs por CNPJ.
+- Historico de socios, especialmente entradas e saidas, deve ser tratado como
+  feature premium.
+- Alertas de mudanca cadastral e societaria devem alimentar busca, listas, ICP
+  e cadencias.
+
+Racional:
+
+- Muitos concorrentes mostram apenas o estado atual do CNPJ.
+- Mudancas recentes indicam timing comercial e ajudam investigacao de contas.
+- Historico societario melhora experiencia de pesquisa e inteligencia B2B.
+
+Consequencias:
+
+- O pipeline precisa guardar snapshot, origem e data de carga.
+- O schema operacional deve modelar eventos de mudanca, nao apenas sobrescrever
+  campos atuais.
+- Importar meses antigos pode virar job de backlog apos estabilizar o snapshot
+  mais recente.
+
+## ADR-047 - Desenvolvimento sem marca de ferramenta ou IA
+
+Data: 2026-08-01
+
+Decisao:
+
+- Branches, commits, PRs e coautoria nao devem expor ferramentas internas,
+  agentes de IA ou fornecedores usados na implementacao.
+- O projeto deve seguir nomes semanticos e Conventional Commits.
+- O guia oficial fica em `docs/DEVELOPMENT_GUIDELINES.md`.
+
+Racional:
+
+- O historico publico deve ser limpo, profissional e compativel com praticas da
+  comunidade.
+- A rastreabilidade deve descrever produto, codigo e decisoes, nao ferramentas
+  auxiliares.
+
+Consequencias:
+
+- Novas branches devem usar nomes como `feature/<numero>-<slug>`,
+  `fix/<slug>`, `docs/<slug>`, `refactor/<slug>` ou `chore/<slug>`.
+- PRs devem registrar objetivo, mudancas, riscos e testes.
+- Coautoria automatica de agente nao deve ser adicionada.

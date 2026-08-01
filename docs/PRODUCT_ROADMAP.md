@@ -7,7 +7,7 @@ responsaveis, agente SDR e command center multi-empresa.
 
 ## Camada 0 - Fundacao atual
 
-Status: iniciado.
+Status: MVP local entregue e migracao Postgres iniciada.
 
 Entregue no baseline:
 
@@ -19,10 +19,30 @@ Entregue no baseline:
 Proximos hardenings:
 
 - Usar Postgres local como banco de escala para staging/COPY.
+- Criar migrations SQL reais para `receita_staging`.
 - Separar API e worker de importacao.
 - Importar snapshots oficiais em lotes retomaveis antes da migracao completa.
+- Calcular diffs mensais por CNPJ e manter historico de mudancas.
 - Criar autenticacao real e RBAC.
 - Documentar API em OpenAPI.
+- Publicar `llms.txt` para API AI-first.
+
+## Decisoes pos-fase 41
+
+O plano alvo consolidado esta em `docs/NEXT_ARCHITECTURE_LEDGER.md`.
+
+- PostgreSQL sera o banco central de escala, inicialmente com schemas separados
+  no mesmo database.
+- Python continua como motor de ETL, download, parsing e jobs recorrentes da
+  Receita.
+- NestJS + Prisma sera o backend de produto e dono das migrations
+  operacionais.
+- Next.js sera a interface premium de cliente e pode assumir o super admin no
+  futuro.
+- SQLite sera removido do fluxo principal apos a migracao para Postgres.
+- "Sequencias" deve migrar para "Cadencias" antes do novo schema operacional.
+- Historico mensal, socios antigos e alertas de mudanca sao diferenciais de
+  produto, nao apenas detalhes tecnicos.
 
 ## Camada 1 - Growth e scoring de e-mail
 
@@ -102,13 +122,14 @@ Status: fase 08 iniciada em `feature/08-meeting-scheduling-foundation`.
 
 Fases:
 
-1. `sequences`, `sequence_steps`, `lead_journey`, `approval_queue`.
-2. Inscricao de listas em sequencias com aprovacao humana por passo.
-3. Log `agent_actions` com motivo, ferramenta e resultado.
-4. `icp_rules` estruturado e priorizacao de leads elegiveis.
-5. Classificacao de respostas e handoff humano.
-6. Reunioes e agenda operacional a partir de handoff humano.
-7. Autonomia gradual somente apos testes e confianca.
+1. Migrar nomenclatura de sequencias para cadencias no produto.
+2. `cadences`, `cadence_steps`, jornadas de lead e `approval_queue`.
+3. Inscricao de listas em cadencias com aprovacao humana por passo.
+4. Log `agent_actions` com motivo, ferramenta e resultado.
+5. `icp_rules` estruturado e priorizacao de leads elegiveis.
+6. Classificacao de respostas e handoff humano.
+7. Reunioes e agenda operacional a partir de handoff humano.
+8. Autonomia gradual somente apos testes e confianca.
 
 ## Camada 5 - Command Center multi-empresa
 
@@ -160,6 +181,16 @@ Fases:
 2. Rate limit e consumo de credito no backend.
 3. API REST documentada.
 4. Planos e modelo comercial validavel.
+5. `llms.txt`, exemplos e contrato publico AI-first.
+6. Primeiros usos gratuitos e cobranca por creditos apos limite gratuito.
+
+## Diferenciais de produto
+
+A base de diferenciais futuros esta registrada em
+`docs/NEXT_ARCHITECTURE_LEDGER.md`. Os principais vetores sao historico mensal,
+socios antigos, alertas de mudanca, grafo societario, deteccao de email de
+contador, score explicavel, ICP vivo, listas limpas, cadencias integradas ao
+dado publico, CRM automatico de leads quentes e API AI-first.
 
 ## Regra de seguranca do produto
 

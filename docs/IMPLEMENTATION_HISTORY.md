@@ -26,11 +26,51 @@ Motivo do baseline:
 
 ## Protocolo de trabalho
 
-1. Criar branch `feature/<numero>-<slug>`.
-2. Registrar docs ou decisao antes de implementar feature grande.
-3. Fazer commits pequenos por unidade logica.
-4. Rodar testes antes de encerrar a etapa.
-5. Atualizar este historico com o que mudou e como verificar.
+O fluxo de issues, branches, commits e PRs segue `docs/DEVELOPMENT_GUIDELINES.md`.
+Em resumo, cada fase relevante deve ter branch semantica, commits atomicos com
+Conventional Commits, PR documentado e verificacao registrada. Nomes de branch,
+commits e PRs nao devem expor ferramenta interna, agente de IA ou coautoria
+automatica.
+
+## 2026-08-01 - Fase 42: Decisoes de arquitetura e proximas fases
+
+Issue: https://github.com/viniman/cnpj/issues/3
+
+Branch: `docs/architecture-next-phases`
+
+Objetivo:
+
+- Consolidar as decisoes tomadas apos a fase 41 antes de tocar no codigo de
+  migracao Postgres, NestJS, Next.js ou refatoracao de cadencias.
+
+Implementado:
+
+- Livro razao `docs/NEXT_ARCHITECTURE_LEDGER.md` com arquitetura alvo,
+  Postgres central, schemas separados, Python ETL, NestJS/Prisma, Next.js,
+  historico mensal, BrasilAPI complementar, API AI-first e 18 diferenciais
+  futuros.
+- Indice `docs/PHASE_HISTORY_INDEX.md` apontando para os documentos locais das
+  fases 01 a 42, ja que as fases antigas nao tiveram PR remoto individual no
+  GitHub.
+- Guia `docs/DEVELOPMENT_GUIDELINES.md` para issues, branches, commits e PRs
+  sem marca de ferramenta, IA ou coautoria automatica.
+- Guia `docs/UI_INTERFACE_PRINCIPLES.md` para produto cliente e super admin.
+- ADRs 044 a 047 em `docs/DECISIONS.md`.
+- Atualizacao de `docs/ARCHITECTURE.md`, `docs/PRODUCT_ROADMAP.md` e `README.md`
+  apontando o novo norte.
+
+Como verificar:
+
+```powershell
+git diff --stat
+```
+
+Observacoes:
+
+- Nao havia PRs abertas no GitHub no inicio da fase.
+- Esta fase altera apenas documentacao.
+- Branches antigas de fase podem ser removidas apos verificacao de que estao
+  contidas em `main`.
 
 ## 2026-07-19 - Roadmap integrado e scoring avancado de e-mail
 
