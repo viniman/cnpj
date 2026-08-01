@@ -64,6 +64,11 @@ class PostgresMigrationsTest(unittest.TestCase):
         self.assertIn("docker compose cp", script)
         self.assertIn("psql", script)
         self.assertIn("Importação concluída", script)
+        self.assertIn("$plannerArgs", script)
+        self.assertIn("Container-ParentPath", script)
+        self.assertIn("${Service}:$containerCsvDir/", script)
+        self.assertIn("Planejamento da importacao falhou", script)
+        self.assertIn("COPY no Postgres falhou", script)
         self.assertIn("build_staging_import_manifest", planner)
         self.assertIn("sys.path.insert", planner)
 

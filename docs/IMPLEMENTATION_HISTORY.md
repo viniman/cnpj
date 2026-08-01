@@ -2863,6 +2863,49 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\apply_postgres_migra
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_preflight.ps1 -Snapshot 2026-07
 ```
 
+## 2026-08-01 - Issue 31 de correção dos argumentos do importador Postgres
+
+Branch: `fix/31-postgres-import-optional-args`
+
+Estado inicial:
+
+- O smoke import real falhava no primeiro arquivo porque
+  `import_postgres_staging_file.ps1` enviava `--csv-path` vazio ao planner.
+- Após a falha do planner, o script tentava usar manifesto nulo.
+
+Meta da issue:
+
+- Montar argumentos opcionais do planner apenas quando houver valor.
+- Propagar falhas de planner, extração, cópia e `COPY` com mensagens claras.
+
+Implementado:
+
+- Uso de `$plannerArgs` para montar argumentos opcionais.
+- Função `Container-ParentPath` para preservar paths Linux no container.
+- Checagem de `$LASTEXITCODE` após migrations, planner, extração, cópia e
+  `COPY`.
+- Validação de manifesto vazio.
+- `data/postgres/` adicionado ao `.gitignore` como área temporária de extração.
+- Testes estáticos atualizados.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_migrations
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 -Snapshot 2026-07 -Families cnaes,municipios,naturezas
+```
+
+Resultado real validado:
+
+```text
+Snapshot importado para staging: 2026-07 (3 arquivo(s)).
+
+cnaes              cnaes_raw                            1359
+municipios         municipios_raw                       5572
+naturezas          naturezas_raw                          91
+Validacao de contagens concluida.
+```
+
 ## 2026-08-01 - Issue 27 de auditoria de readiness da base
 
 Branch: `docs/27-base-readiness-audit`
