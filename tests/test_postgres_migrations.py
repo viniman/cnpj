@@ -65,6 +65,17 @@ class PostgresMigrationsTest(unittest.TestCase):
         self.assertIn("build_staging_import_manifest", planner)
         self.assertIn("sys.path.insert", planner)
 
+    def test_snapshot_import_script_loops_recognized_files(self):
+        script = read_text("scripts/import_postgres_staging_snapshot.ps1")
+        planner = read_text("scripts/plan_postgres_staging_snapshot.py")
+
+        self.assertIn("plan_postgres_staging_snapshot.py", script)
+        self.assertIn("import_postgres_staging_file.ps1", script)
+        self.assertIn("Families", script)
+        self.assertIn("Limit", script)
+        self.assertIn("snapshot_manifests", planner)
+        self.assertIn("FAMILY_ORDER", planner)
+
 
 if __name__ == "__main__":
     unittest.main()

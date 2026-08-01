@@ -79,6 +79,21 @@ O script aplica migrations pendentes, extrai o CSV do ZIP, copia o CSV para o
 container Postgres, executa `COPY` server-side e atualiza `snapshot`, `chunk` e
 `source_file` na tabela raw correspondente.
 
+Para importar todos os ZIPs reconhecidos de um snapshot:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 `
+  -Snapshot 2026-07
+```
+
+Para smoke test com apenas arquivos de domínio:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 `
+  -Snapshot 2026-07 `
+  -Families cnaes,municipios,naturezas
+```
+
 ## Migrations Prisma do produto
 
 Quando o backend NestJS existir, Prisma deve ser dono dos schemas operacionais

@@ -176,6 +176,31 @@ python -m unittest tests.test_postgres_staging tests.test_postgres_migrations
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_file.ps1 -Snapshot 2026-07 -Filename Cnaes.zip -ZipPath data\downloads\receita\2026-07\Cnaes.zip
 ```
 
+## 2026-08-01 - Importação de snapshot completo para staging
+
+Issue: https://github.com/viniman/cnpj/issues/17
+
+Branch: `feature/17-import-full-snapshot-staging`
+
+Objetivo:
+
+- Percorrer todos os ZIPs reconhecidos de um snapshot mensal e importar para
+  `receita_staging` usando o importador de arquivo individual.
+
+Implementado:
+
+- Planner `scripts/plan_postgres_staging_snapshot.py`.
+- Script `scripts/import_postgres_staging_snapshot.ps1`.
+- Filtro por famílias e limite para smoke test.
+- Testes de ordenação, filtro e scripts.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_snapshot_plan tests.test_postgres_migrations
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 -Snapshot 2026-07 -Families cnaes,municipios
+```
+
 ## 2026-07-19 - Roadmap integrado e scoring avancado de e-mail
 
 Branch: `feature/01-product-roadmap-and-email-scoring`
