@@ -126,6 +126,10 @@ def shell_quote(value):
     return '"' + str(value or "").replace('"', '\\"') + '"'
 
 
+def powershell_quote(value):
+    return "'" + str(value or "").replace("'", "''") + "'"
+
+
 def official_file_family(filename):
     base = os.path.basename(str(filename or "")).strip()
     lower = base.lower()
@@ -369,6 +373,11 @@ def build_copy_plan_item(snapshot, file_row, schema_name=SCHEMA_NAME, extract_ro
     }
     if is_available:
         item["extract_command"] = "python -m zipfile -e %s %s" % (shell_quote(local_path), shell_quote(extract_dir))
+        item["import_command"] = (
+            "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\import_postgres_staging_file.ps1 "
+            "-Snapshot %s -Filename %s -ZipPath %s"
+            % (powershell_quote(snapshot), powershell_quote(filename), powershell_quote(os.path.abspath(local_path)))
+        )
         item["copy_sql"] = "\n".join(
             [
                 "BEGIN;",
@@ -379,6 +388,7 @@ def build_copy_plan_item(snapshot, file_row, schema_name=SCHEMA_NAME, extract_ro
         )
     else:
         item["extract_command"] = ""
+        item["import_command"] = ""
         item["copy_sql"] = ""
     return item
 

@@ -1929,7 +1929,7 @@ function renderPostgresPlan(plan) {
         escapeHtml(item.table),
         escapeHtml(item.csv_member || "-"),
         bytes(item.size_bytes),
-        `<button class="row-action" data-copy-postgres-plan="${index}">Copiar comandos</button>`,
+        `<button class="row-action" data-copy-postgres-plan="${index}">Copiar importação</button>`,
       ]),
     );
   }
@@ -3319,7 +3319,8 @@ function wireEvents() {
     if (!button || !state.officialPostgresPlan) return;
     const item = (state.officialPostgresPlan.copy_plan || [])[Number(button.dataset.copyPostgresPlan)];
     if (!item) return;
-    await copyText([item.extract_command, item.copy_sql].filter(Boolean).join("\n\n"), "Comandos COPY copiados.");
+    const fallback = [item.extract_command, item.copy_sql].filter(Boolean).join("\n\n");
+    await copyText(item.import_command || fallback, "Comando de importação copiado.");
   });
   $("#officialCheckpoints").addEventListener("click", async (event) => {
     const button = event.target.closest("[data-official-resume]");
