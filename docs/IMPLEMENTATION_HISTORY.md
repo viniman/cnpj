@@ -2863,6 +2863,55 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\apply_postgres_migra
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_preflight.ps1 -Snapshot 2026-07
 ```
 
+## 2026-08-01 - Issue 33 de idempotência da importação staging
+
+Branch: `fix/33-idempotent-staging-import`
+
+Estado inicial:
+
+- A importação carregava direto na tabela raw e depois fazia `UPDATE` amplo por
+  `source_file IS NULL`.
+- Reimportar o mesmo arquivo para o mesmo snapshot podia duplicar linhas.
+- O smoke import já tinha carregado `cnaes`, `municipios` e `naturezas`.
+
+Meta da issue:
+
+- Tornar a importação idempotente por `snapshot` + `source_file`.
+- Evitar `UPDATE` amplo em linhas sem metadados.
+- Permitir repetir smoke/full import com segurança.
+
+Implementado:
+
+- `COPY` agora carrega em tabela temporária.
+- Antes de inserir, o script remove linhas existentes do mesmo snapshot e
+  arquivo de origem.
+- `snapshot`, `chunk` e `source_file` já entram no `INSERT`.
+- `copy_sql` do painel também usa a estratégia idempotente.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_staging tests.test_postgres_snapshot_plan tests.test_receita_staging_preflight tests.test_postgres_migrations
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 -Snapshot 2026-07 -Families cnaes,municipios,naturezas
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_counts.ps1 -Snapshot 2026-07 -Families cnaes,municipios,naturezas -RequireData
+```
+
+Resultado real validado após reimportação:
+
+```text
+DELETE 1359
+INSERT 0 1359
+DELETE 5572
+INSERT 0 5572
+DELETE 91
+INSERT 0 91
+
+cnaes              cnaes_raw                            1359
+municipios         municipios_raw                       5572
+naturezas          naturezas_raw                          91
+Validacao de contagens concluida.
+```
+
 ## 2026-08-01 - Issue 31 de correção dos argumentos do importador Postgres
 
 Branch: `fix/31-postgres-import-optional-args`
