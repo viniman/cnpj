@@ -9,7 +9,21 @@ Este MVP foi feito para uso interno em localhost. Por isso, a primeira versao us
 - Frontend estatico em HTML, CSS e JavaScript servido pela propria API.
 - Docker opcional para ambiente reproduzivel.
 
-Trade-off: esta stack nao e a ideal para a base nacional completa da Receita Federal. Ela e ideal para validar fluxo, filtros, listas, higiene de email, auditoria e modelo operacional com baixa friccao. A evolucao natural e migrar o banco para PostgreSQL e o importador para staging tables com COPY.
+Trade-off: esta stack nao e a ideal para a base nacional completa da Receita Federal. Ela e ideal para validar fluxo, filtros, listas, higiene de email, auditoria e modelo operacional com baixa friccao. A evolucao natural e migrar o banco operacional para PostgreSQL e manter o importador como motor ETL/Admin com staging tables e COPY.
+
+## Banco local e banco de escala
+
+A partir da fase 41, o ambiente local tem dois papeis de persistencia:
+
+- SQLite: runtime padrao do MVP Python, usado para iteracao rapida e testes.
+- PostgreSQL 16: banco local de escala, usado para `receita_staging`, carga
+  bruta da Receita e futuras transformacoes nacionais.
+
+O Docker Compose sobe `postgres` com volume persistente, `unaccent`, `pg_trgm`
+e schema `receita_staging`. A aplicacao Python recebe
+`RADAR_CNPJ_POSTGRES_DSN`, mas ainda nao usa esse DSN como runtime principal.
+Essa separacao preserva estabilidade do MVP enquanto abre o caminho para
+`COPY`, workers e API de produto.
 
 ## Diagrama
 
@@ -228,6 +242,13 @@ A fase 40 introduz uma fundacao de migracao sem mudar o runtime local:
   alem de DDL copiavel.
 - O SQLite permanece como laboratorio local; a carga nacional completa deve
   rodar em uma instancia Postgres dedicada.
+
+A fase 41 torna esse destino concreto no ambiente local:
+
+- `docker compose up -d postgres` sobe PostgreSQL 16.
+- `infra/postgres/init/001_bootstrap.sql` inicializa extensoes e schema.
+- `scripts/check_postgres.ps1` valida banco, extensoes e schema.
+- `scripts/write_postgres_staging_sql.ps1` gera a DDL completa de staging.
 
 ## Fontes automatizadas
 

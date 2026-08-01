@@ -18,7 +18,7 @@ Entregue no baseline:
 
 Proximos hardenings:
 
-- Migrar para Postgres quando a carga real crescer.
+- Usar Postgres local como banco de escala para staging/COPY.
 - Separar API e worker de importacao.
 - Importar snapshots oficiais em lotes retomaveis antes da migracao completa.
 - Criar autenticacao real e RBAC.
