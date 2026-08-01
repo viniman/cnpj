@@ -6,6 +6,7 @@ param(
     [string]$Families = "",
     [int]$Limit = 0,
     [int]$ExpectedFiles = 37,
+    [double]$DiskMultiplier = 3.0,
     [string]$Service = "postgres",
     [switch]$SkipDockerCheck
 )
@@ -16,12 +17,22 @@ if (!$SourceDir) {
     $SourceDir = "data/downloads/receita/$Snapshot"
 }
 
+$freeBytes = -1
+if (Test-Path $SourceDir) {
+    $sourceItem = Get-Item -LiteralPath $SourceDir
+    if ($sourceItem.PSDrive -and $null -ne $sourceItem.PSDrive.Free) {
+        $freeBytes = [int64]$sourceItem.PSDrive.Free
+    }
+}
+
 $preflightArgs = @(
     "scripts/plan_receita_staging_preflight.py",
     "--snapshot", $Snapshot,
     "--source-dir", $SourceDir,
     "--limit", $Limit,
     "--expected-files", $ExpectedFiles,
+    "--free-bytes", $freeBytes,
+    "--disk-multiplier", $DiskMultiplier,
     "--strict"
 )
 
@@ -30,12 +41,14 @@ if ($Families) {
 }
 
 $preflightJson = python @preflightArgs
-if ($LASTEXITCODE -ne 0) {
-    throw "Preflight Python falhou com exit code $LASTEXITCODE."
-}
+$preflightExitCode = $LASTEXITCODE
 
 $report = $preflightJson | ConvertFrom-Json
 $preflightJson
+
+if ($preflightExitCode -ne 0) {
+    throw "Preflight Python falhou com exit code $preflightExitCode."
+}
 
 if ($report.status -eq "fail") {
     throw "Preflight da base Receita falhou. Corrija os checks antes de importar."

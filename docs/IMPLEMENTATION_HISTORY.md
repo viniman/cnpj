@@ -2896,6 +2896,45 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_stag
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_counts.ps1 -Snapshot 2026-07 -Families cnaes,municipios,naturezas -RequireData
 ```
 
+## 2026-08-01 - Issue 39 de capacidade de disco no preflight
+
+Branch: `feature/39-disk-capacity-preflight`
+
+Estado inicial:
+
+- O gate de disco estava documentado, mas não automatizado.
+- A carga completa ainda poderia ser iniciada por script mesmo com espaço
+  insuficiente.
+
+Meta da issue:
+
+- Calcular capacidade de disco no preflight.
+- Bloquear full import automaticamente quando o espaço livre for insuficiente.
+- Manter smoke/import escopado sem bloqueio por capacidade total.
+
+Implementado:
+
+- Check `disk_capacity` no relatório JSON do preflight.
+- Parâmetros `--free-bytes` e `--disk-multiplier`.
+- Wrapper PowerShell detecta espaço livre do drive do snapshot.
+- Importador de snapshot completo chama preflight antes de iniciar full import.
+- Testes atualizados.
+
+Resultado real validado:
+
+```text
+total_bytes:    7643363104
+free_bytes:     6492880896
+required_bytes: 22930089312
+status:         fail
+```
+
+O comando abaixo foi bloqueado antes de iniciar a carga:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 -Snapshot 2026-07
+```
+
 Resultado real validado após reimportação:
 
 ```text

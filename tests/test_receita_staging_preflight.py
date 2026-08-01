@@ -3,7 +3,7 @@ import tempfile
 import unittest
 import zipfile
 
-from scripts.plan_receita_staging_preflight import preflight_report, recognized_zip_files
+from scripts.plan_receita_staging_preflight import disk_capacity_check, preflight_report, recognized_zip_files
 
 
 def write_zip(path, member_name, content="1;Teste\n"):
@@ -42,6 +42,7 @@ class ReceitaStagingPreflightTest(unittest.TestCase):
                 families=["cnaes", "municipios", "naturezas"],
                 limit=3,
                 expected_files=3,
+                free_bytes=1,
             )
 
         self.assertEqual(report["status"], "pass")
@@ -50,6 +51,8 @@ class ReceitaStagingPreflightTest(unittest.TestCase):
         self.assertIn("-Families cnaes,municipios,naturezas", report["next_commands"]["smoke_import"])
         planner_check = next(check for check in report["checks"] if check["name"] == "snapshot_planner")
         self.assertEqual(planner_check["status"], "pass")
+        disk_check = next(check for check in report["checks"] if check["name"] == "disk_capacity")
+        self.assertEqual(disk_check["status"], "pass")
 
     def test_preflight_warns_when_count_differs_but_required_families_exist(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -67,11 +70,39 @@ class ReceitaStagingPreflightTest(unittest.TestCase):
             ]:
                 write_zip(os.path.join(temp_dir, name), name.replace(".zip", ".CSV"))
 
-            report = preflight_report("2026-07", temp_dir, expected_files=37)
+            report = preflight_report("2026-07", temp_dir, expected_files=37, free_bytes=10**12)
 
         self.assertEqual(report["status"], "warn")
         count_check = next(check for check in report["checks"] if check["name"] == "expected_file_count")
         self.assertEqual(count_check["status"], "warn")
+
+    def test_disk_capacity_fails_full_import_when_free_space_is_too_low(self):
+        check = disk_capacity_check(total_bytes=100, free_bytes=199, multiplier=2.0, scoped=False)
+
+        self.assertEqual(check["status"], "fail")
+        self.assertEqual(check["details"]["required_bytes"], 200)
+
+    def test_preflight_fails_full_import_when_disk_capacity_is_low(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            for name in [
+                "Cnaes.zip",
+                "Motivos.zip",
+                "Municipios.zip",
+                "Naturezas.zip",
+                "Paises.zip",
+                "Qualificacoes.zip",
+                "Simples.zip",
+                "Empresas0.zip",
+                "Estabelecimentos0.zip",
+                "Socios0.zip",
+            ]:
+                write_zip(os.path.join(temp_dir, name), name.replace(".zip", ".CSV"))
+
+            report = preflight_report("2026-07", temp_dir, expected_files=10, free_bytes=1, disk_multiplier=2.0)
+
+        self.assertEqual(report["status"], "fail")
+        disk_check = next(check for check in report["checks"] if check["name"] == "disk_capacity")
+        self.assertEqual(disk_check["status"], "fail")
 
 
 if __name__ == "__main__":

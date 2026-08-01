@@ -113,9 +113,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_stagin
 
 Esse comando valida o diretório do snapshot, reconhece os ZIPs oficiais,
 confere famílias obrigatórias, compara a contagem esperada de arquivos e executa
-o planner de importação. Remova `-SkipDockerCheck` quando o Docker Desktop
-estiver ativo para validar também Docker, serviço Postgres e migrations
-pendentes antes da importação.
+o planner de importação. Ele também calcula a capacidade de disco disponível no
+drive do snapshot e bloqueia carga completa quando `free_bytes` é menor que o
+multiplicador configurado sobre `total_bytes`. Remova `-SkipDockerCheck` quando
+o Docker Desktop estiver ativo para validar também Docker, serviço Postgres e
+migrations pendentes antes da importação.
 
 ## Migrations Prisma do produto
 

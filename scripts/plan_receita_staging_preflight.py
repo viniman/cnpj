@@ -63,6 +63,46 @@ def recognized_zip_files(source_dir):
     return files, ignored
 
 
+def disk_capacity_check(total_bytes, free_bytes=None, multiplier=3.0, scoped=False):
+    if free_bytes is None:
+        return check_result(
+            "disk_capacity",
+            "warn",
+            "Disk capacity was not provided.",
+            {
+                "total_bytes": int(total_bytes or 0),
+                "free_bytes": None,
+                "required_bytes": int((total_bytes or 0) * float(multiplier)),
+                "multiplier": float(multiplier),
+                "scoped": bool(scoped),
+            },
+        )
+
+    required_bytes = int((total_bytes or 0) * float(multiplier))
+    details = {
+        "total_bytes": int(total_bytes or 0),
+        "free_bytes": int(free_bytes),
+        "required_bytes": required_bytes,
+        "multiplier": float(multiplier),
+        "scoped": bool(scoped),
+    }
+    if scoped:
+        return check_result(
+            "disk_capacity",
+            "pass" if int(free_bytes) > 0 else "warn",
+            "Disk capacity check is informational for scoped imports.",
+            details,
+        )
+    if int(free_bytes) < required_bytes:
+        return check_result(
+            "disk_capacity",
+            "fail",
+            "Insufficient free disk for full snapshot import.",
+            details,
+        )
+    return check_result("disk_capacity", "pass", "Disk capacity is sufficient for full snapshot import.", details)
+
+
 def build_next_commands(snapshot, families="", limit=0):
     base = (
         "powershell -NoProfile -ExecutionPolicy Bypass -File "
@@ -84,7 +124,15 @@ def build_next_commands(snapshot, families="", limit=0):
     }
 
 
-def preflight_report(snapshot, source_dir, families=None, limit=0, expected_files=37):
+def preflight_report(
+    snapshot,
+    source_dir,
+    families=None,
+    limit=0,
+    expected_files=37,
+    free_bytes=None,
+    disk_multiplier=3.0,
+):
     source_dir = os.path.abspath(source_dir)
     selected_families = [item.strip().lower() for item in (families or []) if item.strip()]
     required_families = selected_families or REQUIRED_FAMILIES
@@ -114,6 +162,7 @@ def preflight_report(snapshot, source_dir, families=None, limit=0, expected_file
     files, ignored = recognized_zip_files(source_dir)
     families_count = family_summary(files)
     total_bytes = sum(item["size_bytes"] for item in files)
+    scoped_import = bool(selected_families or limit)
     missing_families = [family for family in required_families if families_count.get(family, 0) == 0]
     expected_names = []
     for name in expected_official_filenames():
@@ -166,6 +215,8 @@ def preflight_report(snapshot, source_dir, families=None, limit=0, expected_file
             )
         )
 
+    checks.append(disk_capacity_check(total_bytes, free_bytes=free_bytes, multiplier=disk_multiplier, scoped=scoped_import))
+
     try:
         manifests = snapshot_manifests(snapshot, source_dir, families=selected_families, limit=limit)
         checks.append(
@@ -217,6 +268,8 @@ def main(argv=None):
     parser.add_argument("--families", default="")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--expected-files", type=int, default=37)
+    parser.add_argument("--free-bytes", type=int, default=-1)
+    parser.add_argument("--disk-multiplier", type=float, default=3.0)
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args(argv)
 
@@ -227,6 +280,8 @@ def main(argv=None):
         families=families,
         limit=args.limit,
         expected_files=args.expected_files,
+        free_bytes=None if args.free_bytes < 0 else args.free_bytes,
+        disk_multiplier=args.disk_multiplier,
     )
     print(json.dumps(report, ensure_ascii=False, indent=2))
     if args.strict and report["status"] == "fail":

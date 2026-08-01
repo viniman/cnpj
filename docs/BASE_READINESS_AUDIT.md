@@ -118,6 +118,21 @@ Espaço medido antes da carga completa:
 
 Conclusão: a carga completa precisa de mais espaço antes de ser executada.
 
+### Gate automático de disco
+
+O preflight agora calcula `disk_capacity` com multiplicador padrão `3.0` sobre
+o tamanho compactado reconhecido. No ambiente atual:
+
+```text
+total_bytes:    7643363104
+free_bytes:     6492880896
+required_bytes: 22930089312
+status:         fail
+```
+
+O comando de carga completa chama esse preflight automaticamente e não inicia a
+importação quando o gate falha.
+
 ## Issues e PRs que compõem a base testável
 
 | Issue | PR | Escopo | Estado |
@@ -171,6 +186,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_stagin
 
 - [ ] Capacidade de disco suficiente provisionada para ZIPs, extrações
   temporárias e volume Postgres.
+- [x] Gate automático impede carga completa quando o disco está insuficiente.
 - [ ] Importação completa executada:
 
 ```powershell
