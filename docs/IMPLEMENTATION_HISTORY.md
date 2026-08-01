@@ -125,6 +125,32 @@ Como verificar:
 python -m unittest tests.test_postgres_migrations tests.test_local_postgres_foundation
 ```
 
+## 2026-08-01 - Governança pós-base e versionamento semântico
+
+Issue: https://github.com/viniman/cnpj/issues/11
+
+Branch: `docs/11-governance-versioning`
+
+Objetivo:
+
+- Registrar que o modelo de fases deve encerrar após a base testável e que o
+  fluxo futuro deve usar issues, PRs, módulos, documentos de domínio, ADRs e
+  versionamento semântico.
+
+Implementado:
+
+- Branches novas passam a usar o número da issue como eixo principal.
+- PRs passam a exigir passo a passo de teste e checklist de validação.
+- Fases 01 a 44 ficam como memória histórica.
+- A base testável deve ser encerrada por uma PR final com checklist e release.
+- Versionamento semântico no GitHub passa a ser parte da governança.
+
+Como verificar:
+
+```powershell
+git diff -- docs/DEVELOPMENT_GUIDELINES.md docs/NEXT_ARCHITECTURE_LEDGER.md docs/PHASE_HISTORY_INDEX.md docs/IMPLEMENTATION_HISTORY.md
+```
+
 ## 2026-07-19 - Roadmap integrado e scoring avancado de e-mail
 
 Branch: `feature/01-product-roadmap-and-email-scoring`

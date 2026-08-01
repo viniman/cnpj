@@ -63,3 +63,10 @@ Este índice existe para facilitar navegação e evitar perda de contexto.
 Branches antigas de fase podem ser apagadas depois de confirmado que seus
 commits estão contidos em `main` e que os documentos acima preservam o contexto
 de escopo, verificação e resultado.
+
+## Encerramento do modelo de fases
+
+Este índice preserva a memória da fundação inicial. Após a PR final de
+fechamento da base, novas mudanças devem ser organizadas por issues, PRs,
+documentos de domínio, módulos e ADRs. O número da issue deve orientar novas
+branches e PRs, evitando uma sequência indefinida de fases.
