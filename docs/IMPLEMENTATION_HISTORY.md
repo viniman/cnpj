@@ -2896,6 +2896,45 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_stag
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_counts.ps1 -Snapshot 2026-07 -Families cnaes,municipios,naturezas -RequireData
 ```
 
+## 2026-08-01 - Issue 44 de progresso percentual da importação staging
+
+Branch: `feature/44-staging-import-progress`
+
+Estado inicial:
+
+- O importador de snapshot mostrava apenas posição por arquivo, como `[1/37]`.
+- Para smoke/full import, faltava feedback de percentual e bytes planejados.
+
+Meta da issue:
+
+- Mostrar progresso percentual por arquivos e bytes.
+- Mostrar volume total planejado e volume concluído.
+- Manter compatibilidade com smoke import e carga completa.
+
+Implementado:
+
+- Funções `Format-Bytes` e `Format-Percent` no importador de snapshot.
+- Planner de snapshot agora inclui `zip_size_bytes`.
+- Saída mostra início/conclusão de cada arquivo com percentual de arquivos e
+  bytes.
+- Testes atualizados.
+
+Resultado real validado:
+
+```text
+Importando snapshot 2026-07 com 3 arquivo(s), 65,51 KB planejados.
+[1/3 | 0,00% arquivos | 0,00% bytes] Iniciando Cnaes.zip
+[1/3 | 33,33% arquivos | 32,91% bytes] Concluido Cnaes.zip
+[2/3 | 66,67% arquivos | 97,67% bytes] Concluido Municipios.zip
+[3/3 | 100,00% arquivos | 100,00% bytes] Concluido Naturezas.zip
+Snapshot importado para staging: 2026-07 (3 arquivo(s), 65,51 KB).
+
+cnaes              cnaes_raw                            1359
+municipios         municipios_raw                       5572
+naturezas          naturezas_raw                          91
+Validacao de contagens concluida.
+```
+
 ## 2026-08-01 - Issue 39 de capacidade de disco no preflight
 
 Branch: `feature/39-disk-capacity-preflight`
