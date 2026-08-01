@@ -1236,3 +1236,37 @@ Consequências:
   `fix/<slug>`, `docs/<slug>`, `refactor/<slug>` ou `chore/<slug>`.
 - PRs devem registrar objetivo, mudanças, riscos e testes.
 - Coautoria automática de agente não deve ser adicionada.
+
+## ADR-048 - Bootstrap Postgres não é migration de produto
+
+Data: 2026-08-01
+
+Decisão:
+
+- `infra/postgres/init/001_bootstrap.sql` permanece como bootstrap local do
+  container Postgres.
+- Migrations reais do `receita_staging` ficam em `infra/postgres/migrations/`.
+- O padrão de nome para migrations SQL de staging é
+  `YYYYMMDDHHMMSS_descriptive_slug.sql`.
+- O futuro NestJS/Prisma será dono das migrations operacionais do produto em
+  `apps/api/prisma/migrations/<timestamp>_<slug>/migration.sql`.
+
+Racional:
+
+- O entrypoint oficial do Postgres executa `infra/postgres/init/` apenas quando
+  o volume nasce vazio, então esse diretório é bootstrap, não histórico
+  evolutivo confiável.
+- Prisma usa migrations timestampadas; o staging SQL deve seguir convenção
+  similar para manter ordenação, rastreabilidade e leitura familiar.
+- O schema bruto da Receita tem necessidades próprias de `COPY`, índices e
+  colunas próximas ao layout oficial, enquanto o produto operacional deve ser
+  governado pelo backend NestJS/Prisma.
+
+Consequências:
+
+- Próximas alterações no staging devem criar novos arquivos timestampados em
+  `infra/postgres/migrations/`.
+- `001_bootstrap.sql` deve ficar restrito a extensões, schemas mínimos e
+  preparo local.
+- Scripts de geração de DDL devem ler as migrations versionadas, não depender
+  apenas de DDL gerada dinamicamente pelo Python.

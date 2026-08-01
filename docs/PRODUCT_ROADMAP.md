@@ -19,7 +19,7 @@ Entregue no baseline:
 Próximos hardenings:
 
 - Usar Postgres local como banco de escala para staging/COPY.
-- Criar migrations SQL reais para `receita_staging`.
+- Criar migrations SQL reais timestampadas para `receita_staging`.
 - Separar API e worker de importação.
 - Importar snapshots oficiais em lotes retomáveis antes da migração completa.
 - Calcular diffs mensais por CNPJ e manter histórico de mudanças.
@@ -43,6 +43,8 @@ O plano alvo consolidado está em `docs/NEXT_ARCHITECTURE_LEDGER.md`.
 - "Sequências" deve migrar para "Cadências" antes do novo schema operacional.
 - Histórico mensal, sócios antigos e alertas de mudança são diferenciais de
   produto, não apenas detalhes técnicos.
+- Bootstrap Docker, migrations SQL de staging e migrations Prisma de produto
+  devem permanecer separados.
 
 ## Camada 1 - Growth e scoring de e-mail
 
