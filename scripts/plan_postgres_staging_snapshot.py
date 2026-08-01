@@ -41,15 +41,15 @@ def snapshot_manifests(snapshot, source_dir, families=None, limit=0, extract_roo
         zip_path = os.path.join(source_dir, name)
         if not os.path.isfile(zip_path):
             continue
-        manifests.append(
-            build_staging_import_manifest(
-                snapshot,
-                classification["filename"],
-                zip_path=zip_path,
-                extract_root=extract_root or None,
-                container_dir=container_dir,
-            )
+        manifest = build_staging_import_manifest(
+            snapshot,
+            classification["filename"],
+            zip_path=zip_path,
+            extract_root=extract_root or None,
+            container_dir=container_dir,
         )
+        manifest["zip_size_bytes"] = os.path.getsize(zip_path)
+        manifests.append(manifest)
     manifests.sort(key=sort_key)
     if limit:
         manifests = manifests[: int(limit)]

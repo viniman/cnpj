@@ -23,6 +23,7 @@ class PostgresSnapshotPlanTest(unittest.TestCase):
 
         self.assertEqual([item["filename"] for item in manifests], ["Cnaes.zip", "Empresas0.zip", "Socios1.zip"])
         self.assertEqual(manifests[0]["family"], "cnaes")
+        self.assertGreater(manifests[0]["zip_size_bytes"], 0)
         self.assertEqual(manifests[1]["chunk"], 0)
         self.assertIn("COPY tmp_receita_empresas_import", manifests[1]["import_sql"])
         self.assertIn("DELETE FROM receita_staging.empresas_raw", manifests[1]["import_sql"])
