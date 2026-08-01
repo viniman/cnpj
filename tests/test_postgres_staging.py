@@ -90,6 +90,9 @@ class PostgresStagingTest(unittest.TestCase):
         self.assertIn("-SkipDockerCheck", plan["commands"]["preflight_without_docker"])
         self.assertIn("-Families cnaes,municipios,naturezas", plan["commands"]["smoke_import"])
         self.assertIn("import_postgres_staging_snapshot.ps1", plan["commands"]["snapshot_import"])
+        self.assertIn("disk_capacity", plan)
+        self.assertIn(plan["disk_capacity"]["status"], {"pass", "warn", "fail"})
+        self.assertEqual(plan["summary"]["disk_capacity_status"], plan["disk_capacity"]["status"])
         self.assertIn("Estabelecimentos1.zip", {item["filename"] for item in plan["missing_files"]})
 
     def test_build_server_import_sql_uses_temp_table_and_replace(self):
@@ -164,6 +167,7 @@ class PostgresStagingTest(unittest.TestCase):
             self.assertEqual(payload["summary"]["available_files"], 1)
             self.assertEqual(payload["copy_plan"][0]["table"], "receita_staging.cnaes_raw")
             self.assertIn("snapshot_import", payload["commands"])
+            self.assertIn("disk_capacity", payload)
             self.assertIn("CREATE SCHEMA IF NOT EXISTS receita_staging", payload["ddl_sql"])
         finally:
             server.shutdown()

@@ -2935,6 +2935,36 @@ O comando abaixo foi bloqueado antes de iniciar a carga:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 -Snapshot 2026-07
 ```
 
+## 2026-08-01 - Issue 42 de capacidade de disco no painel Postgres
+
+Branch: `feature/42-postgres-panel-disk-capacity`
+
+Estado inicial:
+
+- O preflight já calculava `disk_capacity`.
+- O importador completo já bloqueava carga com pouco disco.
+- O painel interno ainda não mostrava esse status visualmente.
+
+Meta da issue:
+
+- Exibir capacidade de disco no payload e na tela `Plano PostgreSQL staging`.
+- Mostrar disco livre e disco mínimo recomendado antes do usuário copiar comandos
+  de carga.
+
+Implementado:
+
+- `build_postgres_staging_plan` agora retorna `disk_capacity`.
+- A tela renderiza métricas `Disco livre` e `Disco minimo`.
+- Quando o status é `fail`, a tela adiciona guardrail específico de capacidade.
+- Testes de API e front estático atualizados.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_staging tests.test_postgres_migrations
+node --check static\app.js
+```
+
 Resultado real validado após reimportação:
 
 ```text

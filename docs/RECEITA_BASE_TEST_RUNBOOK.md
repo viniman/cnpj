@@ -53,16 +53,20 @@ Abra `http://127.0.0.1:8000/` e siga:
 2. Informar snapshot `2026-07`.
 3. Clicar em `Gerar plano` na seção `Plano PostgreSQL staging`.
 4. Conferir métricas de arquivos locais, conhecidos, ausentes e volume local.
-5. Conferir os botões:
+5. Conferir as métricas de capacidade:
+   - `Disco livre`;
+   - `Disco minimo`.
+6. Conferir os botões:
    - `Copiar preflight sem Docker`;
    - `Copiar preflight completo`;
    - `Copiar smoke import`;
    - `Copiar importação completa`.
-6. Copiar `Copiar preflight sem Docker` e executar no terminal.
+7. Copiar `Copiar preflight sem Docker` e executar no terminal.
 
 Critério de aceite:
 
 - A tela deve mostrar plano para o snapshot.
+- A tela deve mostrar capacidade de disco para carga completa.
 - Os botões devem copiar comandos válidos.
 - O comando copiado deve reproduzir o preflight com `status: pass`.
 

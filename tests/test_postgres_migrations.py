@@ -110,6 +110,9 @@ class PostgresMigrationsTest(unittest.TestCase):
         self.assertIn("data-copy-postgres-command", js)
         self.assertIn("Copiar preflight sem Docker", js)
         self.assertIn("Copiar importação completa", js)
+        self.assertIn("diskCapacity", js)
+        self.assertIn("Disco livre", js)
+        self.assertIn("Disco minimo", js)
 
     def test_staging_counts_script_queries_raw_tables(self):
         script = read_text("scripts/check_receita_staging_counts.ps1")

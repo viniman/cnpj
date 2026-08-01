@@ -1907,15 +1907,19 @@ function renderPostgresPlan(plan) {
 
   const summary = plan.summary || {};
   const commands = plan.commands || {};
+  const diskCapacity = plan.disk_capacity || {};
   summaryNode.innerHTML = plan.snapshot
     ? `Snapshot <strong>${escapeHtml(plan.snapshot)}</strong> / schema <strong>${escapeHtml(plan.schema_name)}</strong>`
     : "Nenhum snapshot com arquivo oficial baixado.";
+  const diskTone = diskCapacity.status === "pass" ? "green" : diskCapacity.status === "fail" ? "red" : "amber";
   metricsNode.innerHTML = [
     metric("Arquivos locais", summary.available_files || 0, (summary.available_files || 0) ? "green" : "amber"),
     metric("Conhecidos", summary.recognized_files || 0),
     metric("Indisponiveis", summary.unavailable_files || 0, (summary.unavailable_files || 0) ? "amber" : ""),
     metric("Ausentes", summary.missing_files || 0, (summary.missing_files || 0) ? "amber" : "green"),
     metric("Volume local", bytes(summary.total_available_bytes || 0)),
+    metric("Disco livre", diskCapacity.free_bytes == null ? "-" : bytes(diskCapacity.free_bytes), diskTone),
+    metric("Disco minimo", diskCapacity.required_bytes == null ? "-" : bytes(diskCapacity.required_bytes), diskTone),
   ].join("");
   const commandButtons = [
     ["preflight_without_docker", "Copiar preflight sem Docker"],
@@ -1949,8 +1953,16 @@ function renderPostgresPlan(plan) {
   }
 
   const guardrails = plan.guardrails || [];
-  guardrailsNode.innerHTML = guardrails.length
-    ? table(["Guardrail"], guardrails.map((item) => [escapeHtml(item)]))
+  const diskGuardrail =
+    diskCapacity.status === "fail"
+      ? [
+          `Capacidade insuficiente para carga completa: ${bytes(diskCapacity.free_bytes || 0)} livre de ${bytes(
+            diskCapacity.required_bytes || 0,
+          )} recomendados.`,
+        ]
+      : [];
+  guardrailsNode.innerHTML = guardrails.length || diskGuardrail.length
+    ? table(["Guardrail"], [...diskGuardrail, ...guardrails].map((item) => [escapeHtml(item)]))
     : "";
   ddlNode.textContent = plan.ddl_sql || "";
 }
