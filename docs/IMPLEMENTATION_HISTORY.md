@@ -2833,6 +2833,36 @@ python scripts\plan_receita_staging_preflight.py --snapshot 2026-07 --source-dir
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_preflight.ps1 -Snapshot 2026-07 -SkipDockerCheck
 ```
 
+## 2026-08-01 - Issue 29 de correção do runner Postgres
+
+Branch: `fix/29-postgres-migration-runner`
+
+Estado inicial:
+
+- Ao validar com Docker/Postgres ativo, `apply_postgres_migrations.ps1` falhava
+  quando a consulta de checksum retornava vazia para uma migration ainda não
+  aplicada.
+- O preflight completo não propagava falha do script de migrations.
+
+Meta da issue:
+
+- Corrigir o runner de migrations para tratar retorno vazio/null.
+- Fazer o preflight completo falhar se as migrations falharem.
+
+Implementado:
+
+- Normalização de `$existingChecksumResult` antes do `.Trim()`.
+- Checagem de `$LASTEXITCODE` após `apply_postgres_migrations.ps1` no preflight.
+- Testes estáticos atualizados.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_migrations
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\apply_postgres_migrations.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_preflight.ps1 -Snapshot 2026-07
+```
+
 ## 2026-08-01 - Issue 27 de auditoria de readiness da base
 
 Branch: `docs/27-base-readiness-audit`
