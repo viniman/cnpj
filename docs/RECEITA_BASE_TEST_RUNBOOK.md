@@ -127,6 +127,9 @@ e 7,2 GB livres no C:, enquanto o snapshot compactado `2026-07` tinha 7,64 GB.
 Esse ambiente validou o smoke import, mas não tinha capacidade segura para a
 carga completa.
 
+O script de importação completa roda o preflight automaticamente. Se o check
+`disk_capacity` retornar `fail`, a carga completa não começa.
+
 Depois do smoke test passar:
 
 ```powershell
@@ -172,6 +175,7 @@ Critério de aceite:
 - [ ] Smoke import passa.
 - [ ] Contagens do smoke import são maiores que zero.
 - [ ] Espaço em disco suficiente para carga completa.
+- [ ] Preflight completo passa em `disk_capacity`.
 - [ ] Importação completa passa.
 - [ ] Contagens completas são maiores que zero.
 

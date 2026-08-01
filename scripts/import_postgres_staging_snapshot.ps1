@@ -20,6 +20,16 @@ if (!(Test-Path $SourceDir)) {
     throw "Diretório do snapshot não encontrado: $SourceDir"
 }
 
+if (!$Families -and $Limit -eq 0) {
+    & "$PSScriptRoot/check_receita_staging_preflight.ps1" `
+        -Snapshot $Snapshot `
+        -SourceDir $SourceDir `
+        -Service $Service
+    if ($LASTEXITCODE -ne 0) {
+        throw "Preflight de carga completa falhou com exit code $LASTEXITCODE."
+    }
+}
+
 $planJson = python scripts/plan_postgres_staging_snapshot.py `
     --snapshot $Snapshot `
     --source-dir $SourceDir `
