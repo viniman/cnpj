@@ -69,6 +69,7 @@ class PostgresMigrationsTest(unittest.TestCase):
         self.assertIn("${Service}:$containerCsvDir/", script)
         self.assertIn("Planejamento da importacao falhou", script)
         self.assertIn("COPY no Postgres falhou", script)
+        self.assertIn("Remove-Item -LiteralPath $manifest.extract_dir -Recurse -Force", script)
         self.assertIn("build_staging_import_manifest", planner)
         self.assertIn("sys.path.insert", planner)
 

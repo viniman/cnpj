@@ -2912,6 +2912,51 @@ naturezas          naturezas_raw                          91
 Validacao de contagens concluida.
 ```
 
+## 2026-08-01 - Issue 35 de limpeza de extrações locais
+
+Branch: `fix/35-clean-local-extractions`
+
+Estado inicial:
+
+- O importador extraía CSVs em `data/postgres/imports`.
+- As extrações locais permaneciam após sucesso.
+- O ambiente tinha cerca de 6,5 GB livres no D: e 7,2 GB livres no C:, espaço
+  insuficiente para manter ZIPs, extrações e volume Postgres de uma carga
+  nacional completa.
+
+Meta da issue:
+
+- Limpar extrações locais após importação bem-sucedida.
+- Reduzir consumo de disco durante smoke/full import.
+- Documentar a limitação física de disco para carga completa neste ambiente.
+
+Implementado:
+
+- Remoção de `$manifest.extract_dir` após sucesso quando a origem é `ZipPath`.
+- Arquivos informados via `CsvPath` direto não são removidos pelo fluxo de ZIP.
+- Teste estático atualizado.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_migrations
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 -Snapshot 2026-07 -Families cnaes,municipios,naturezas
+Test-Path data\postgres\imports\Cnaes
+```
+
+Resultado real validado:
+
+```text
+Test-Path data\postgres\imports\Cnaes       -> False
+Test-Path data\postgres\imports\Municipios  -> False
+Test-Path data\postgres\imports\Naturezas   -> False
+
+cnaes              cnaes_raw                            1359
+municipios         municipios_raw                       5572
+naturezas          naturezas_raw                          91
+Validacao de contagens concluida.
+```
+
 ## 2026-08-01 - Issue 31 de correção dos argumentos do importador Postgres
 
 Branch: `fix/31-postgres-import-optional-args`
