@@ -212,3 +212,20 @@ Postgres.
 8. Criar dicionário completo do banco.
 9. Criar documentação de API pública e `llms.txt`.
 10. Criar guia de interface premium para Next.js e super admin.
+
+## Encerramento da base e governança futura
+
+As fases documentadas são úteis para preservar a construção inicial da base, mas
+não devem virar o mecanismo permanente de organização do projeto. Ao finalizar a
+base testável, o repositório deve ter uma última PR de fechamento da base com:
+
+- checklist de funcionalidades disponíveis;
+- passo a passo completo de teste;
+- limitações conhecidas;
+- documentação de operação local;
+- tag/release semântica no GitHub.
+
+Depois disso, novas iniciativas devem ser rastreadas principalmente por issues,
+PRs, módulos, documentos de domínio e ADRs. Branches devem usar o número da
+issue como eixo principal, por exemplo `feature/12-import-receita-copy`, em vez
+de continuar criando fases indefinidamente.
