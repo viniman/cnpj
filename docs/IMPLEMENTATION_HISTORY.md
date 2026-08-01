@@ -2833,6 +2833,48 @@ python scripts\plan_receita_staging_preflight.py --snapshot 2026-07 --source-dir
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_preflight.ps1 -Snapshot 2026-07 -SkipDockerCheck
 ```
 
+## 2026-08-01 - Issue 46 de relatório consolidado de status da base
+
+Branch: `feature/46-base-status-report`
+
+Estado inicial:
+
+- A base Receita/Postgres já possuía preflight, importação smoke, contagens e
+  bloqueio automático por capacidade de disco.
+- A carga completa continuava bloqueada localmente por falta de espaço.
+- Ainda faltava um comando único para responder, rapidamente, em que ponto a
+  base está e qual é o próximo gate.
+
+Meta da issue:
+
+- Criar um relatório consolidado de status da base Receita/Postgres.
+- Facilitar o acompanhamento do progresso sem depender de vários comandos
+  separados.
+
+Implementado:
+
+- Script `scripts/plan_receita_base_status.py`.
+- Wrapper `scripts/check_receita_base_status.ps1`.
+- Status consolidado com `blocked_disk`, `blocked_preflight`,
+  `ready_with_warnings` ou `ready_for_smoke`.
+- Próximo gate explícito, incluindo bloqueio por disco quando aplicável.
+- Comandos recomendados para preflight, smoke import, importação completa e
+  validação de contagens.
+- Contagens smoke executadas automaticamente quando o Postgres local está em
+  execução.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_receita_base_status tests.test_postgres_migrations
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_base_status.ps1 -Snapshot 2026-07
+```
+
+Observação:
+
+- A issue #41 continua aberta para validar a carga completa em um ambiente com
+  espaço suficiente.
+
 ## 2026-08-01 - Issue 29 de correção do runner Postgres
 
 Branch: `fix/29-postgres-migration-runner`

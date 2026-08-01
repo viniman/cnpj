@@ -118,6 +118,23 @@ Critério de aceite:
   zero.
 - O script deve terminar com `Validacao de contagens concluida.`
 
+## 6.1. Consultar status consolidado
+
+Para ver o estado atual da base, o próximo gate e as contagens do smoke test em
+um único comando:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_base_status.ps1 `
+  -Snapshot 2026-07
+```
+
+Critério de aceite:
+
+- O relatório deve mostrar o `status` consolidado.
+- O relatório deve mostrar o próximo gate.
+- Quando o Postgres local estiver em execução, as contagens de `cnaes`,
+  `municipios` e `naturezas` devem ser verificadas.
+
 ## 7. Rodar importação completa
 
 Antes de rodar esta etapa, confirme espaço em disco suficiente para:
