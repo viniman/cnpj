@@ -65,6 +65,20 @@ cada arquivo e pula migrations já aplicadas com o mesmo checksum. Se uma
 version já aplicada aparecer com checksum diferente, a execução falha para
 evitar drift silencioso.
 
+Para importar um arquivo oficial já baixado:
+
+```powershell
+docker compose up -d postgres
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_file.ps1 `
+  -Snapshot 2026-07 `
+  -Filename Cnaes.zip `
+  -ZipPath data\downloads\receita\2026-07\Cnaes.zip
+```
+
+O script aplica migrations pendentes, extrai o CSV do ZIP, copia o CSV para o
+container Postgres, executa `COPY` server-side e atualiza `snapshot`, `chunk` e
+`source_file` na tabela raw correspondente.
+
 ## Migrations Prisma do produto
 
 Quando o backend NestJS existir, Prisma deve ser dono dos schemas operacionais

@@ -151,6 +151,31 @@ Como verificar:
 git diff -- docs/DEVELOPMENT_GUIDELINES.md docs/NEXT_ARCHITECTURE_LEDGER.md docs/PHASE_HISTORY_INDEX.md docs/IMPLEMENTATION_HISTORY.md
 ```
 
+## 2026-08-01 - Importação de arquivo oficial para staging
+
+Issue: https://github.com/viniman/cnpj/issues/13
+
+Branch: `feature/13-import-official-files-staging`
+
+Objetivo:
+
+- Criar o primeiro fluxo testável para importar um arquivo oficial da Receita
+  para `receita_staging` usando o Postgres local.
+
+Implementado:
+
+- Funções `build_server_import_sql` e `build_staging_import_manifest`.
+- Planner `scripts/plan_postgres_staging_import.py`.
+- Script `scripts/import_postgres_staging_file.ps1`.
+- Testes cobrindo SQL server-side, manifesto, script e planner.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_staging tests.test_postgres_migrations
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_file.ps1 -Snapshot 2026-07 -Filename Cnaes.zip -ZipPath data\downloads\receita\2026-07\Cnaes.zip
+```
+
 ## 2026-07-19 - Roadmap integrado e scoring avancado de e-mail
 
 Branch: `feature/01-product-roadmap-and-email-scoring`

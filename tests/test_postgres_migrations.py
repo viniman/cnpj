@@ -53,6 +53,18 @@ class PostgresMigrationsTest(unittest.TestCase):
         self.assertIn("APPLIED", script)
         self.assertIn("YYYYMMDDHHMMSS_descriptive_slug.sql", script)
 
+    def test_import_script_extracts_copies_and_runs_server_copy(self):
+        script = read_text("scripts/import_postgres_staging_file.ps1")
+        planner = read_text("scripts/plan_postgres_staging_import.py")
+
+        self.assertIn("apply_postgres_migrations.ps1", script)
+        self.assertIn("python -m zipfile -e", script)
+        self.assertIn("docker compose cp", script)
+        self.assertIn("psql", script)
+        self.assertIn("Importação concluída", script)
+        self.assertIn("build_staging_import_manifest", planner)
+        self.assertIn("sys.path.insert", planner)
+
 
 if __name__ == "__main__":
     unittest.main()

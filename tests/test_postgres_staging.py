@@ -9,7 +9,9 @@ from urllib.request import urlopen
 
 from radar_cnpj.database import connect, init_db, now_iso
 from radar_cnpj.postgres_staging import (
+    build_server_import_sql,
     build_postgres_staging_plan,
+    build_staging_import_manifest,
     official_file_family,
     postgres_staging_schema,
 )
@@ -81,6 +83,34 @@ class PostgresStagingTest(unittest.TestCase):
         self.assertIn("ENCODING 'LATIN1'", plan["copy_plan"][0]["copy_sql"])
         self.assertIn("snapshot = '2026-06'", plan["copy_plan"][0]["copy_sql"])
         self.assertIn("Estabelecimentos1.zip", {item["filename"] for item in plan["missing_files"]})
+
+    def test_build_server_import_sql_uses_copy_and_metadata_update(self):
+        sql = build_server_import_sql("2026-07", "Cnaes.zip", "/tmp/radar-cnpj-staging/Cnaes/Cnaes.CSV")
+
+        self.assertIn("COPY receita_staging.cnaes_raw", sql)
+        self.assertIn("FROM '/tmp/radar-cnpj-staging/Cnaes/Cnaes.CSV'", sql)
+        self.assertIn("ENCODING 'LATIN1'", sql)
+        self.assertIn("snapshot = '2026-07'", sql)
+        self.assertIn("source_file = 'Cnaes.zip'", sql)
+
+    def test_build_staging_import_manifest_extracts_zip_member_and_container_path(self):
+        zip_path = os.path.join(self.temp_dir.name, "Cnaes.zip")
+        write_zip(zip_path, "Cnaes.CSV")
+
+        manifest = build_staging_import_manifest(
+            "2026-07",
+            "Cnaes.zip",
+            zip_path=zip_path,
+            extract_root=os.path.join(self.temp_dir.name, "extract"),
+            container_dir="/tmp/radar-cnpj-staging",
+        )
+
+        self.assertEqual(manifest["family"], "cnaes")
+        self.assertEqual(manifest["table"], "receita_staging.cnaes_raw")
+        self.assertEqual(manifest["csv_member"], "Cnaes.CSV")
+        self.assertTrue(manifest["local_csv_path"].endswith(os.path.join("Cnaes", "Cnaes.CSV")))
+        self.assertEqual(manifest["container_csv_path"], "/tmp/radar-cnpj-staging/Cnaes/Cnaes.CSV")
+        self.assertIn("COPY receita_staging.cnaes_raw", manifest["import_sql"])
 
     def test_postgres_plan_route_uses_downloaded_source_files(self):
         zip_path = os.path.join(self.temp_dir.name, "Cnaes.zip")
