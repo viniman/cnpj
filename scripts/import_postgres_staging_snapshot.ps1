@@ -52,13 +52,19 @@ if (!$Families -and $Limit -eq 0) {
     }
 }
 
-$planJson = python scripts/plan_postgres_staging_snapshot.py `
-    --snapshot $Snapshot `
-    --source-dir $SourceDir `
-    --families $Families `
-    --limit $Limit `
-    --extract-root $ExtractRoot `
-    --container-dir $ContainerDir
+$plannerArgs = @(
+    "scripts/plan_postgres_staging_snapshot.py",
+    "--snapshot", $Snapshot,
+    "--source-dir", $SourceDir,
+    "--limit", $Limit,
+    "--extract-root", $ExtractRoot,
+    "--container-dir", $ContainerDir
+)
+if ($Families) {
+    $plannerArgs += @("--families", $Families)
+}
+
+$planJson = python @plannerArgs
 
 $plan = $planJson | ConvertFrom-Json
 
