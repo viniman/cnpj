@@ -42,6 +42,17 @@ class PostgresMigrationsTest(unittest.TestCase):
         self.assertIn("YYYYMMDDHHMMSS_descriptive_slug.sql", conventions)
         self.assertIn("apps/api/prisma/migrations", conventions)
 
+    def test_apply_script_tracks_migrations_by_version_and_checksum(self):
+        script = read_text("scripts/apply_postgres_migrations.ps1")
+
+        self.assertIn("schema_migrations", script)
+        self.assertIn("checksum_sha256", script)
+        self.assertIn("Get-FileHash -Algorithm SHA256", script)
+        self.assertIn("ON_ERROR_STOP=1", script)
+        self.assertIn("SKIP", script)
+        self.assertIn("APPLIED", script)
+        self.assertIn("YYYYMMDDHHMMSS_descriptive_slug.sql", script)
+
 
 if __name__ == "__main__":
     unittest.main()
