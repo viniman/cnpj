@@ -2833,6 +2833,37 @@ python scripts\plan_receita_staging_preflight.py --snapshot 2026-07 --source-dir
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_preflight.ps1 -Snapshot 2026-07 -SkipDockerCheck
 ```
 
+## 2026-08-01 - Issue 27 de auditoria de readiness da base
+
+Branch: `docs/27-base-readiness-audit`
+
+Estado inicial:
+
+- A base já estava pronta para teste operacional com preflight, comandos no
+  painel, contagens e runbook.
+- A importação real no Postgres ainda dependia do Docker Desktop/Linux engine.
+
+Meta da issue:
+
+- Consolidar evidências atuais da base Receita/Postgres.
+- Definir gates objetivos para a futura PR final de fechamento da base.
+- Registrar a sugestão de versionamento semântico inicial.
+
+Implementado:
+
+- Documento `docs/BASE_READINESS_AUDIT.md`.
+- Relação das issues/PRs que compõem a base testável.
+- Evidências de snapshot local, preflight e testes focados.
+- Gates pendentes para smoke import, importação completa e release `v0.1.0`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_staging tests.test_postgres_snapshot_plan tests.test_receita_staging_preflight tests.test_postgres_migrations
+node --check static\app.js
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_preflight.ps1 -Snapshot 2026-07 -SkipDockerCheck
+```
+
 Resultado desta etapa:
 
 ```text
