@@ -97,6 +97,17 @@ class PostgresMigrationsTest(unittest.TestCase):
         self.assertIn("Copiar preflight sem Docker", js)
         self.assertIn("Copiar importação completa", js)
 
+    def test_staging_counts_script_queries_raw_tables(self):
+        script = read_text("scripts/check_receita_staging_counts.ps1")
+
+        self.assertIn("receita_staging", script)
+        self.assertIn("empresas_raw", script)
+        self.assertIn("estabelecimentos_raw", script)
+        self.assertIn("socios_raw", script)
+        self.assertIn("RequireData", script)
+        self.assertIn("ON_ERROR_STOP=1", script)
+        self.assertIn("Familia de staging desconhecida", script)
+
 
 if __name__ == "__main__":
     unittest.main()

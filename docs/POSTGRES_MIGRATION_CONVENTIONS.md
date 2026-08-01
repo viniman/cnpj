@@ -94,6 +94,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_stag
   -Families cnaes,municipios,naturezas
 ```
 
+Para validar contagens depois do smoke test:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_counts.ps1 `
+  -Snapshot 2026-07 `
+  -Families cnaes,municipios,naturezas `
+  -RequireData
+```
+
 Antes de iniciar uma carga grande, rode o preflight da base:
 
 ```powershell
