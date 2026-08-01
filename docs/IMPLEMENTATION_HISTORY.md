@@ -72,6 +72,34 @@ Observações:
 - Branches antigas de fase podem ser removidas após verificação de que estão
   contidas em `main`.
 
+## 2026-08-01 - Fase 43: Migrations SQL do staging Postgres
+
+Issue: https://github.com/viniman/cnpj/issues/7
+
+Branch: `feature/43-postgres-staging-migrations`
+
+Objetivo:
+
+- Separar bootstrap Docker de migrations reais do `receita_staging` e iniciar
+  o histórico versionado de schema bruto da Receita.
+
+Implementado:
+
+- Migration `infra/postgres/migrations/20260801190000_create_receita_staging_raw_tables.sql`
+  com tabelas e índices brutos da Receita.
+- Convenção `YYYYMMDDHHMMSS_descriptive_slug.sql` para migrations SQL de
+  staging.
+- Documento `docs/POSTGRES_MIGRATION_CONVENTIONS.md` explicando bootstrap,
+  staging SQL e Prisma.
+- Script `scripts/write_postgres_staging_sql.ps1` lendo migrations em ordem.
+- Testes focados para padrão de migrations e separação do bootstrap.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_migrations tests.test_local_postgres_foundation tests.test_postgres_staging
+```
+
 ## 2026-07-19 - Roadmap integrado e scoring avancado de e-mail
 
 Branch: `feature/01-product-roadmap-and-email-scoring`

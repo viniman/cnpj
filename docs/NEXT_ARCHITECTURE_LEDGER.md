@@ -102,6 +102,13 @@ Ownership recomendado:
 - Python executa ETL e jobs, mas não deve criar schema operacional de forma
   ad hoc.
 
+Convenção de nomes:
+
+- bootstrap Docker: `infra/postgres/init/001_bootstrap.sql`;
+- staging SQL: `infra/postgres/migrations/YYYYMMDDHHMMSS_descriptive_slug.sql`;
+- produto Prisma:
+  `apps/api/prisma/migrations/YYYYMMDDHHMMSS_descriptive_slug/migration.sql`.
+
 Se Python precisar consultar ou escrever dados operacionais, a preferência é:
 
 1. usar APIs/contratos internos do NestJS quando a regra for de produto;

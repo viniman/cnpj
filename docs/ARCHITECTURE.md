@@ -25,6 +25,12 @@ e schema `receita_staging`. A aplicacao Python recebe
 Essa separacao preserva estabilidade do MVP enquanto abre o caminho para
 `COPY`, workers e API de produto.
 
+O arquivo `infra/postgres/init/001_bootstrap.sql` é bootstrap de infraestrutura
+do container Docker, não migration de produto. Migrations reais do staging ficam
+em `infra/postgres/migrations/` e usam o padrão timestampado
+`YYYYMMDDHHMMSS_descriptive_slug.sql`, conforme
+`docs/POSTGRES_MIGRATION_CONVENTIONS.md`.
+
 ## Arquitetura alvo decidida
 
 O caminho alvo após a fase 41 é migrar a plataforma para PostgreSQL como banco
@@ -270,7 +276,15 @@ A fase 41 torna esse destino concreto no ambiente local:
 - `docker compose up -d postgres` sobe PostgreSQL 16.
 - `infra/postgres/init/001_bootstrap.sql` inicializa extensoes e schema.
 - `scripts/check_postgres.ps1` valida banco, extensoes e schema.
-- `scripts/write_postgres_staging_sql.ps1` gera a DDL completa de staging.
+- `scripts/write_postgres_staging_sql.ps1` concatena as migrations SQL do
+  staging em ordem.
+
+A fase 43 inicia migrations reais para staging:
+
+- `infra/postgres/migrations/20260801190000_create_receita_staging_raw_tables.sql`
+  cria tabelas e índices brutos da Receita.
+- `docs/POSTGRES_MIGRATION_CONVENTIONS.md` define a separação entre bootstrap
+  Docker, migrations SQL de staging e migrations Prisma de produto.
 
 ## Fontes automatizadas
 

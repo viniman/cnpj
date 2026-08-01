@@ -51,7 +51,8 @@ class LocalPostgresFoundationTest(unittest.TestCase):
         self.assertIn("pg_isready", check_script)
         self.assertIn("pg_extension", check_script)
         self.assertIn("information_schema.schemata", check_script)
-        self.assertIn("postgres_staging_schema", write_script)
+        self.assertIn("infra/postgres/migrations", write_script)
+        self.assertIn("Get-ChildItem", write_script)
         self.assertIn("data/postgres/receita_staging.sql", write_script)
 
 

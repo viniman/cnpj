@@ -14,6 +14,8 @@ O projeto foi montado para uso interno em localhost. Ele ja inclui dashboard, bu
   PRs sem marca de ferramenta ou IA.
 - `docs/UI_INTERFACE_PRINCIPLES.md`: princípios de interface para o futuro
   produto em Next.js e para a limpeza do super admin Python.
+- `docs/POSTGRES_MIGRATION_CONVENTIONS.md`: separação entre bootstrap Docker,
+  migrations SQL do staging e migrations Prisma do produto.
 
 ## Centro de Comando
 
