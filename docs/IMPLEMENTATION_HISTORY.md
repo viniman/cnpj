@@ -2851,3 +2851,49 @@ Observação:
 
 - A validação completa com Docker/Postgres ativo continua dependendo do Docker
   Desktop/Linux engine estar em execução no ambiente local.
+
+## 2026-08-01 - Issue 21 de comandos Postgres no painel
+
+Branch: `feature/21-postgres-panel-commands`
+
+Estado inicial:
+
+- O preflight da base Receita/Postgres já existia por script.
+- O painel de importação já exibia o plano PostgreSQL staging e comandos por
+  arquivo.
+- Ainda faltavam comandos de snapshot no próprio payload da API e botões de
+  cópia no painel.
+
+Meta da issue:
+
+- Expor no painel interno os comandos principais para validar e importar o
+  snapshot da Receita.
+- Facilitar o teste manual sem depender de lembrar nomes de scripts.
+
+Implementado:
+
+- Payload `GET /api/sources/official/postgres-plan` agora inclui `commands`.
+- Comandos disponíveis: preflight completo, preflight sem Docker, smoke import
+  e importação completa do snapshot.
+- Tela `Importação` agora mostra botões para copiar esses comandos.
+- Testes garantem presença dos comandos na API e no front.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_staging tests.test_postgres_migrations
+node --check static\app.js
+```
+
+Teste manual esperado:
+
+1. Abrir o app em `http://127.0.0.1:8000/`.
+2. Ir para `Importação`.
+3. Informar `2026-07` no snapshot.
+4. Clicar em `Gerar plano` na seção `Plano PostgreSQL staging`.
+5. Conferir os botões de cópia:
+   - `Copiar preflight sem Docker`;
+   - `Copiar preflight completo`;
+   - `Copiar smoke import`;
+   - `Copiar importação completa`.
+6. Copiar o preflight sem Docker e executar no terminal para validar os 37 ZIPs.

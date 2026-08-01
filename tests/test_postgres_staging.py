@@ -84,6 +84,10 @@ class PostgresStagingTest(unittest.TestCase):
         self.assertIn("snapshot = '2026-06'", plan["copy_plan"][0]["copy_sql"])
         self.assertIn("scripts\\import_postgres_staging_file.ps1", plan["copy_plan"][0]["import_command"])
         self.assertIn("-Filename 'Empresas1.zip'", plan["copy_plan"][0]["import_command"])
+        self.assertIn("check_receita_staging_preflight.ps1", plan["commands"]["preflight"])
+        self.assertIn("-SkipDockerCheck", plan["commands"]["preflight_without_docker"])
+        self.assertIn("-Families cnaes,municipios,naturezas", plan["commands"]["smoke_import"])
+        self.assertIn("import_postgres_staging_snapshot.ps1", plan["commands"]["snapshot_import"])
         self.assertIn("Estabelecimentos1.zip", {item["filename"] for item in plan["missing_files"]})
 
     def test_build_server_import_sql_uses_copy_and_metadata_update(self):
@@ -153,6 +157,7 @@ class PostgresStagingTest(unittest.TestCase):
             self.assertEqual(payload["snapshot"], "2026-06")
             self.assertEqual(payload["summary"]["available_files"], 1)
             self.assertEqual(payload["copy_plan"][0]["table"], "receita_staging.cnaes_raw")
+            self.assertIn("snapshot_import", payload["commands"])
             self.assertIn("CREATE SCHEMA IF NOT EXISTS receita_staging", payload["ddl_sql"])
         finally:
             server.shutdown()

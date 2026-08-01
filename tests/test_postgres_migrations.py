@@ -88,6 +88,15 @@ class PostgresMigrationsTest(unittest.TestCase):
         self.assertIn("preflight_report", planner)
         self.assertIn("REQUIRED_FAMILIES", planner)
 
+    def test_postgres_panel_exposes_snapshot_commands(self):
+        html = read_text("static/index.html")
+        js = read_text("static/app.js")
+
+        self.assertIn("postgresPlanCommands", html)
+        self.assertIn("data-copy-postgres-command", js)
+        self.assertIn("Copiar preflight sem Docker", js)
+        self.assertIn("Copiar importação completa", js)
+
 
 if __name__ == "__main__":
     unittest.main()

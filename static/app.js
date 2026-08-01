@@ -1899,12 +1899,14 @@ async function loadPostgresPlan() {
 function renderPostgresPlan(plan) {
   const summaryNode = $("#postgresPlanSummary");
   const metricsNode = $("#postgresPlanMetrics");
+  const commandsNode = $("#postgresPlanCommands");
   const copyNode = $("#postgresCopyPlan");
   const guardrailsNode = $("#postgresPlanGuardrails");
   const ddlNode = $("#postgresPlanDdl");
-  if (!summaryNode || !metricsNode || !copyNode || !guardrailsNode || !ddlNode) return;
+  if (!summaryNode || !metricsNode || !commandsNode || !copyNode || !guardrailsNode || !ddlNode) return;
 
   const summary = plan.summary || {};
+  const commands = plan.commands || {};
   summaryNode.innerHTML = plan.snapshot
     ? `Snapshot <strong>${escapeHtml(plan.snapshot)}</strong> / schema <strong>${escapeHtml(plan.schema_name)}</strong>`
     : "Nenhum snapshot com arquivo oficial baixado.";
@@ -1915,6 +1917,18 @@ function renderPostgresPlan(plan) {
     metric("Ausentes", summary.missing_files || 0, (summary.missing_files || 0) ? "amber" : "green"),
     metric("Volume local", bytes(summary.total_available_bytes || 0)),
   ].join("");
+  const commandButtons = [
+    ["preflight_without_docker", "Copiar preflight sem Docker"],
+    ["preflight", "Copiar preflight completo"],
+    ["smoke_import", "Copiar smoke import"],
+    ["snapshot_import", "Copiar importação completa"],
+  ].filter(([key]) => commands[key]);
+  commandsNode.innerHTML = commandButtons
+    .map(
+      ([key, label]) =>
+        `<button class="button" data-copy-postgres-command="${escapeHtml(key)}">${escapeHtml(label)}</button>`,
+    )
+    .join("");
 
   const items = plan.copy_plan || [];
   if (!items.length) {
@@ -3321,6 +3335,12 @@ function wireEvents() {
     if (!item) return;
     const fallback = [item.extract_command, item.copy_sql].filter(Boolean).join("\n\n");
     await copyText(item.import_command || fallback, "Comando de importação copiado.");
+  });
+  $("#postgresPlanCommands").addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-copy-postgres-command]");
+    if (!button || !state.officialPostgresPlan) return;
+    const command = (state.officialPostgresPlan.commands || {})[button.dataset.copyPostgresCommand];
+    await copyText(command || "", "Comando PostgreSQL copiado.");
   });
   $("#officialCheckpoints").addEventListener("click", async (event) => {
     const button = event.target.closest("[data-official-resume]");
