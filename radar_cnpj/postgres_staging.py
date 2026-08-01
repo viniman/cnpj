@@ -249,12 +249,11 @@ def csv_member_for_zip(zip_path, fallback_name):
 
 
 def copy_command(schema_name, table, columns, csv_path):
-    schema = validate_identifier(schema_name)
     table = validate_identifier(table)
+    table_name = "%s.%s" % (validate_identifier(schema_name), table) if schema_name else table
     column_list = ", ".join(validate_identifier(column) for column in columns)
-    return "\\copy %s.%s (%s) FROM '%s' %s;" % (
-        schema,
-        table,
+    return "\\copy %s (%s) FROM '%s' %s;" % (
+        table_name,
         column_list,
         psql_path(csv_path),
         COPY_OPTIONS,
@@ -262,12 +261,11 @@ def copy_command(schema_name, table, columns, csv_path):
 
 
 def server_copy_command(schema_name, table, columns, csv_path):
-    schema = validate_identifier(schema_name)
     table = validate_identifier(table)
+    table_name = "%s.%s" % (validate_identifier(schema_name), table) if schema_name else table
     column_list = ", ".join(validate_identifier(column) for column in columns)
-    return "COPY %s.%s (%s) FROM %s %s;" % (
-        schema,
-        table,
+    return "COPY %s (%s) FROM %s %s;" % (
+        table_name,
         column_list,
         sql_literal(psql_path(csv_path)),
         COPY_OPTIONS,
@@ -285,15 +283,79 @@ def metadata_update_sql(schema_name, table, snapshot, chunk, filename):
     )
 
 
+def replace_from_temp_sql(schema_name, table, columns, temp_table, snapshot, chunk, filename):
+    schema = validate_identifier(schema_name)
+    table = validate_identifier(table)
+    temp_table = validate_identifier(temp_table)
+    column_list = ", ".join(validate_identifier(column) for column in columns)
+    chunk_value = "NULL" if chunk is None else str(int(chunk))
+    return "\n".join(
+        [
+            "DELETE FROM %s.%s WHERE snapshot = %s AND source_file = %s;"
+            % (schema, table, sql_literal(snapshot), sql_literal(filename)),
+            (
+                "INSERT INTO %s.%s (%s, snapshot, chunk, source_file) "
+                "SELECT %s, %s, %s, %s FROM %s;"
+            )
+            % (
+                schema,
+                table,
+                column_list,
+                column_list,
+                sql_literal(snapshot),
+                chunk_value,
+                sql_literal(filename),
+                temp_table,
+            ),
+        ]
+    )
+
+
 def build_server_import_sql(snapshot, filename, container_csv_path, schema_name=SCHEMA_NAME):
     classification = official_file_family(filename)
     if not classification:
         raise ValueError("Arquivo oficial não reconhecido: %s" % filename)
+    temp_table = "tmp_receita_%s_import" % classification["family"]
     return "\n".join(
         [
             "BEGIN;",
-            server_copy_command(schema_name, classification["table"], classification["columns"], container_csv_path),
-            metadata_update_sql(schema_name, classification["table"], snapshot, classification["chunk"], classification["filename"]),
+            "CREATE TEMP TABLE %s (LIKE %s.%s INCLUDING DEFAULTS) ON COMMIT DROP;"
+            % (validate_identifier(temp_table), validate_identifier(schema_name), validate_identifier(classification["table"])),
+            server_copy_command("", temp_table, classification["columns"], container_csv_path),
+            replace_from_temp_sql(
+                schema_name,
+                classification["table"],
+                classification["columns"],
+                temp_table,
+                snapshot,
+                classification["chunk"],
+                classification["filename"],
+            ),
+            "COMMIT;",
+        ]
+    )
+
+
+def build_client_import_sql(snapshot, filename, csv_path, schema_name=SCHEMA_NAME):
+    classification = official_file_family(filename)
+    if not classification:
+        raise ValueError("Arquivo oficial não reconhecido: %s" % filename)
+    temp_table = "tmp_receita_%s_import" % classification["family"]
+    return "\n".join(
+        [
+            "BEGIN;",
+            "CREATE TEMP TABLE %s (LIKE %s.%s INCLUDING DEFAULTS) ON COMMIT DROP;"
+            % (validate_identifier(temp_table), validate_identifier(schema_name), validate_identifier(classification["table"])),
+            copy_command("", temp_table, classification["columns"], csv_path),
+            replace_from_temp_sql(
+                schema_name,
+                classification["table"],
+                classification["columns"],
+                temp_table,
+                snapshot,
+                classification["chunk"],
+                classification["filename"],
+            ),
             "COMMIT;",
         ]
     )
@@ -378,14 +440,7 @@ def build_copy_plan_item(snapshot, file_row, schema_name=SCHEMA_NAME, extract_ro
             "-Snapshot %s -Filename %s -ZipPath %s"
             % (powershell_quote(snapshot), powershell_quote(filename), powershell_quote(os.path.abspath(local_path)))
         )
-        item["copy_sql"] = "\n".join(
-            [
-                "BEGIN;",
-                copy_command(schema_name, classification["table"], classification["columns"], csv_path),
-                metadata_update_sql(schema_name, classification["table"], snapshot, classification["chunk"], filename),
-                "COMMIT;",
-            ]
-        )
+        item["copy_sql"] = build_client_import_sql(snapshot, filename, csv_path, schema_name=schema_name)
     else:
         item["extract_command"] = ""
         item["import_command"] = ""

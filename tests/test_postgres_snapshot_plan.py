@@ -24,7 +24,8 @@ class PostgresSnapshotPlanTest(unittest.TestCase):
         self.assertEqual([item["filename"] for item in manifests], ["Cnaes.zip", "Empresas0.zip", "Socios1.zip"])
         self.assertEqual(manifests[0]["family"], "cnaes")
         self.assertEqual(manifests[1]["chunk"], 0)
-        self.assertIn("COPY receita_staging.empresas_raw", manifests[1]["import_sql"])
+        self.assertIn("COPY tmp_receita_empresas_import", manifests[1]["import_sql"])
+        self.assertIn("DELETE FROM receita_staging.empresas_raw", manifests[1]["import_sql"])
 
     def test_snapshot_manifests_filters_families_and_limit(self):
         with tempfile.TemporaryDirectory() as temp_dir:
