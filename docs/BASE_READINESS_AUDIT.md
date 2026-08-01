@@ -133,6 +133,10 @@ status:         fail
 O comando de carga completa chama esse preflight automaticamente e não inicia a
 importação quando o gate falha.
 
+O payload do `Plano PostgreSQL staging` também expõe `disk_capacity`, permitindo
+que o painel interno mostre disco livre, disco mínimo recomendado e alerta de
+capacidade antes de copiar comandos de carga.
+
 ## Issues e PRs que compõem a base testável
 
 | Issue | PR | Escopo | Estado |

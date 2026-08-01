@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import zipfile
 
 
@@ -448,6 +449,35 @@ def build_copy_plan_item(snapshot, file_row, schema_name=SCHEMA_NAME, extract_ro
     return item
 
 
+def disk_capacity_summary(items, multiplier=3.0):
+    total_bytes = sum(int(item.get("size_bytes") or 0) for item in items)
+    source_paths = [item.get("source_zip_path") for item in items if item.get("source_zip_path")]
+    free_bytes = None
+    checked_path = ""
+    if source_paths:
+        checked_path = os.path.abspath(source_paths[0])
+        try:
+            free_bytes = shutil.disk_usage(checked_path).free
+        except OSError:
+            free_bytes = None
+    required_bytes = int(total_bytes * float(multiplier))
+    status = "unknown"
+    if free_bytes is None:
+        status = "warn"
+    elif free_bytes < required_bytes:
+        status = "fail"
+    else:
+        status = "pass"
+    return {
+        "status": status,
+        "total_bytes": total_bytes,
+        "free_bytes": free_bytes,
+        "required_bytes": required_bytes,
+        "multiplier": float(multiplier),
+        "checked_path": checked_path,
+    }
+
+
 def build_postgres_staging_plan(snapshot, source_files, schema_name=SCHEMA_NAME, extract_root=None):
     snapshot = str(snapshot or "").strip()
     rows = [source_row_to_dict(row) for row in (source_files or [])]
@@ -477,10 +507,12 @@ def build_postgres_staging_plan(snapshot, source_files, schema_name=SCHEMA_NAME,
     families = {}
     for item in items + unavailable:
         families[item["family"]] = families.get(item["family"], 0) + 1
+    disk_capacity = disk_capacity_summary(items)
 
     return {
         "snapshot": snapshot,
         "schema_name": schema_name,
+        "disk_capacity": disk_capacity,
         "commands": {
             "preflight": (
                 "powershell -NoProfile -ExecutionPolicy Bypass -File "
@@ -516,6 +548,7 @@ def build_postgres_staging_plan(snapshot, source_files, schema_name=SCHEMA_NAME,
             "unavailable_files": len(unavailable),
             "missing_files": len(missing),
             "total_available_bytes": sum(item["size_bytes"] for item in items),
+            "disk_capacity_status": disk_capacity["status"],
             "families": families,
         },
         "guardrails": [
