@@ -104,4 +104,8 @@ if ($LASTEXITCODE -ne 0) {
 
 docker compose exec -T $Service sh -c "rm -f '$($manifest.container_csv_path)'"
 
+if ($ZipPath -and $manifest.extract_dir -and (Test-Path $manifest.extract_dir)) {
+    Remove-Item -LiteralPath $manifest.extract_dir -Recurse -Force
+}
+
 Write-Output "Importação concluída: $($manifest.filename) -> $($manifest.table)"
