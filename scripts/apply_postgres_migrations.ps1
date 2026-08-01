@@ -68,7 +68,8 @@ foreach ($file in $migrationFiles) {
 
     $version = $Matches[1]
     $checksum = (Get-FileHash -Algorithm SHA256 -Path $file.FullName).Hash.ToLowerInvariant()
-    $existingChecksum = (Query-Psql "SELECT checksum_sha256 FROM receita_staging.schema_migrations WHERE version = $(Sql-Literal $version);").Trim()
+    $existingChecksumResult = Query-Psql "SELECT checksum_sha256 FROM receita_staging.schema_migrations WHERE version = $(Sql-Literal $version);"
+    $existingChecksum = if ($null -eq $existingChecksumResult) { "" } else { ($existingChecksumResult -as [string]).Trim() }
 
     if ($existingChecksum) {
         if ($existingChecksum -ne $checksum) {

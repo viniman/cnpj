@@ -46,6 +46,9 @@ if (!$SkipDockerCheck) {
     docker compose ps $Service | Out-Null
 
     powershell -NoProfile -ExecutionPolicy Bypass -File scripts\apply_postgres_migrations.ps1 -Service $Service
+    if ($LASTEXITCODE -ne 0) {
+        throw "Aplicacao de migrations falhou com exit code $LASTEXITCODE."
+    }
 }
 
 Write-Output "Preflight Receita/Postgres concluido com status: $($report.status)"
