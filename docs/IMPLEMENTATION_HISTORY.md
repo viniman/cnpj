@@ -2957,6 +2957,32 @@ naturezas          naturezas_raw                          91
 Validacao de contagens concluida.
 ```
 
+## 2026-08-01 - Issue 37 de gate de capacidade para carga completa
+
+Branch: `docs/37-full-import-capacity-gate`
+
+Estado inicial:
+
+- Smoke import real validado no Postgres.
+- Carga completa ainda não executada por limitação de espaço em disco.
+
+Meta da issue:
+
+- Atualizar runbook e auditoria com o estado real.
+- Registrar gate objetivo de capacidade antes da carga completa.
+
+Implementado:
+
+- `docs/BASE_READINESS_AUDIT.md` atualizado com smoke import validado.
+- `docs/RECEITA_BASE_TEST_RUNBOOK.md` atualizado com gate de disco.
+- Contagens reais documentadas.
+
+Como verificar:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_counts.ps1 -Snapshot 2026-07 -Families cnaes,municipios,naturezas -RequireData
+```
+
 ## 2026-08-01 - Issue 31 de correção dos argumentos do importador Postgres
 
 Branch: `fix/31-postgres-import-optional-args`

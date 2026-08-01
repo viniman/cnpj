@@ -5,7 +5,8 @@ critérios objetivos para a futura PR de fechamento da base.
 
 ## Status em 2026-08-01
 
-Status geral: **pronta para teste operacional, ainda não fechada**.
+Status geral: **smoke import real validado, carga completa aguardando capacidade
+de disco**.
 
 Motivo:
 
@@ -13,8 +14,10 @@ Motivo:
 - O painel interno já expõe comandos de preflight, smoke import e importação
   completa.
 - Os scripts de importação e contagem existem e têm cobertura focada.
-- A importação real no Postgres ainda depende do Docker Desktop/Linux engine
-  estar ativo no ambiente local.
+- O Docker Desktop/Linux engine foi iniciado e o smoke import real foi validado.
+- A carga completa ainda não deve ser executada neste ambiente porque o espaço
+  livre medido é menor que o necessário para ZIPs, extrações temporárias e
+  volume Postgres.
 
 ## Evidências já validadas
 
@@ -80,6 +83,41 @@ node --check static\app.js
 
 Resultado observado: sem erro de sintaxe.
 
+### Smoke import real
+
+Comando validado:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 `
+  -Snapshot 2026-07 `
+  -Families cnaes,municipios,naturezas
+```
+
+Contagens validadas:
+
+```text
+cnaes              cnaes_raw                            1359
+municipios         municipios_raw                       5572
+naturezas          naturezas_raw                          91
+Validacao de contagens concluida.
+```
+
+Reimportação idempotente validada:
+
+- `DELETE 1359` seguido de `INSERT 0 1359`;
+- `DELETE 5572` seguido de `INSERT 0 5572`;
+- `DELETE 91` seguido de `INSERT 0 91`.
+
+### Capacidade de disco
+
+Espaço medido antes da carga completa:
+
+- D: cerca de 6,5 GB livres;
+- C: cerca de 7,2 GB livres;
+- snapshot `2026-07` compactado: 7,64 GB.
+
+Conclusão: a carga completa precisa de mais espaço antes de ser executada.
+
 ## Issues e PRs que compõem a base testável
 
 | Issue | PR | Escopo | Estado |
@@ -114,7 +152,7 @@ A PR final de fechamento da base só deve ser criada depois destes gates:
 - [ ] Docker Desktop/Linux engine ativo.
 - [ ] `docker compose up -d postgres` concluído.
 - [ ] `scripts\apply_postgres_migrations.ps1` executado sem erro.
-- [ ] Smoke import executado:
+- [x] Smoke import executado:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 `
@@ -122,7 +160,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_stag
   -Families cnaes,municipios,naturezas
 ```
 
-- [ ] Contagens do smoke import validadas:
+- [x] Contagens do smoke import validadas:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_counts.ps1 `
@@ -131,6 +169,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_stagin
   -RequireData
 ```
 
+- [ ] Capacidade de disco suficiente provisionada para ZIPs, extrações
+  temporárias e volume Postgres.
 - [ ] Importação completa executada:
 
 ```powershell
