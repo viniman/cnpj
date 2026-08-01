@@ -100,6 +100,31 @@ Como verificar:
 python -m unittest tests.test_postgres_migrations tests.test_local_postgres_foundation tests.test_postgres_staging
 ```
 
+## 2026-08-01 - Fase 44: Runner de migrations do staging Postgres
+
+Issue: https://github.com/viniman/cnpj/issues/9
+
+Branch: `feature/44-postgres-migration-runner`
+
+Objetivo:
+
+- Aplicar migrations SQL do `receita_staging` em ordem no Postgres local, com
+  controle de versão e checksum.
+
+Implementado:
+
+- Script `scripts/apply_postgres_migrations.ps1`.
+- Tabela de controle `receita_staging.schema_migrations`.
+- Validação de padrão `YYYYMMDDHHMMSS_descriptive_slug.sql`.
+- Registro de checksum SHA-256 para evitar drift silencioso.
+- Testes e documentação do fluxo.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_migrations tests.test_local_postgres_foundation
+```
+
 ## 2026-07-19 - Roadmap integrado e scoring avancado de e-mail
 
 Branch: `feature/01-product-roadmap-and-email-scoring`

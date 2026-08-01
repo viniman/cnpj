@@ -56,6 +56,7 @@ Este índice existe para facilitar navegação e evitar perda de contexto.
 | 41 | Fundação PostgreSQL local | `docs/pull_requests/phase-41-local-postgres-foundation.md` |
 | 42 | Decisões de arquitetura e próximas fases | `docs/pull_requests/phase-42-architecture-next-phases.md` |
 | 43 | Migrations SQL do staging Postgres | `docs/pull_requests/phase-43-postgres-staging-migrations.md` |
+| 44 | Runner de migrations do staging Postgres | `docs/pull_requests/phase-44-postgres-migration-runner.md` |
 
 ## Observação sobre branches antigas
 

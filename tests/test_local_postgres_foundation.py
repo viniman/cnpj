@@ -46,6 +46,7 @@ class LocalPostgresFoundationTest(unittest.TestCase):
     def test_scripts_expose_check_and_generated_staging_ddl_flow(self):
         check_script = read_text("scripts/check_postgres.ps1")
         write_script = read_text("scripts/write_postgres_staging_sql.ps1")
+        apply_script = read_text("scripts/apply_postgres_migrations.ps1")
 
         self.assertIn("docker compose ps -q", check_script)
         self.assertIn("pg_isready", check_script)
@@ -54,6 +55,8 @@ class LocalPostgresFoundationTest(unittest.TestCase):
         self.assertIn("infra/postgres/migrations", write_script)
         self.assertIn("Get-ChildItem", write_script)
         self.assertIn("data/postgres/receita_staging.sql", write_script)
+        self.assertIn("schema_migrations", apply_script)
+        self.assertIn("docker compose exec -T", apply_script)
 
 
 if __name__ == "__main__":

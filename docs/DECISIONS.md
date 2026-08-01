@@ -1270,3 +1270,31 @@ Consequências:
   preparo local.
 - Scripts de geração de DDL devem ler as migrations versionadas, não depender
   apenas de DDL gerada dinamicamente pelo Python.
+
+## ADR-049 - Runner de staging rastreia migrations por checksum
+
+Data: 2026-08-01
+
+Decisão:
+
+- `scripts/apply_postgres_migrations.ps1` deve aplicar migrations SQL do
+  staging em ordem de nome.
+- O controle fica em `receita_staging.schema_migrations`.
+- Cada migration aplicada registra versão, nome do arquivo, checksum SHA-256 e
+  `applied_at`.
+- Uma migration já aplicada com mesmo checksum é pulada.
+- Uma migration já aplicada com checksum diferente falha.
+
+Racional:
+
+- O staging precisa de um fluxo local confiável antes da importação completa da
+  Receita.
+- Checksum evita alteração silenciosa de arquivo já aplicado.
+- O runner resolve o estágio SQL sem antecipar NestJS/Prisma.
+
+Consequências:
+
+- Alterações futuras no staging devem criar nova migration, não editar uma já
+  aplicada.
+- Ambientes locais com volume antigo podem rodar o runner de forma idempotente.
+- Produto operacional continua reservado para Prisma quando o NestJS existir.

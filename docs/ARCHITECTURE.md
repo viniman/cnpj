@@ -286,6 +286,13 @@ A fase 43 inicia migrations reais para staging:
 - `docs/POSTGRES_MIGRATION_CONVENTIONS.md` define a separação entre bootstrap
   Docker, migrations SQL de staging e migrations Prisma de produto.
 
+A fase 44 adiciona o runner local:
+
+- `scripts/apply_postgres_migrations.ps1` aplica migrations em ordem.
+- `receita_staging.schema_migrations` registra versão, arquivo, checksum e data
+  de aplicação.
+- Reaplicações com mesmo checksum são ignoradas; checksum diferente falha.
+
 ## Fontes automatizadas
 
 Fonte primaria:

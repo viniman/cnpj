@@ -53,6 +53,18 @@ Esse padrão é próximo ao estilo do Prisma, que usa diretórios timestampados 
 `prisma/migrations/<timestamp>_<slug>/migration.sql`. A diferença é que, para
 staging SQL puro, usamos um arquivo `.sql` timestampado diretamente.
 
+Para aplicar as migrations no Postgres local:
+
+```powershell
+docker compose up -d postgres
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\apply_postgres_migrations.ps1
+```
+
+O runner cria `receita_staging.schema_migrations`, calcula checksum SHA-256 de
+cada arquivo e pula migrations já aplicadas com o mesmo checksum. Se uma
+version já aplicada aparecer com checksum diferente, a execução falha para
+evitar drift silencioso.
+
 ## Migrations Prisma do produto
 
 Quando o backend NestJS existir, Prisma deve ser dono dos schemas operacionais
