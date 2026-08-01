@@ -94,6 +94,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_stag
   -Families cnaes,municipios,naturezas
 ```
 
+Antes de iniciar uma carga grande, rode o preflight da base:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_preflight.ps1 `
+  -Snapshot 2026-07 `
+  -SkipDockerCheck
+```
+
+Esse comando valida o diretório do snapshot, reconhece os ZIPs oficiais,
+confere famílias obrigatórias, compara a contagem esperada de arquivos e executa
+o planner de importação. Remova `-SkipDockerCheck` quando o Docker Desktop
+estiver ativo para validar também Docker, serviço Postgres e migrations
+pendentes antes da importação.
+
 ## Migrations Prisma do produto
 
 Quando o backend NestJS existir, Prisma deve ser dono dos schemas operacionais

@@ -2790,3 +2790,64 @@ Observacao:
 
 - `docker compose up -d postgres` nao foi concluido nesta validacao porque o
   Docker Desktop/Linux engine nao estava ativo no ambiente local.
+
+## 2026-08-01 - Issue 19 de preflight da base Receita/Postgres
+
+Branch: `feature/19-postgres-base-preflight`
+
+Estado inicial:
+
+- O projeto já conseguia planejar e importar um arquivo oficial da Receita para
+  `receita_staging`.
+- O projeto já conseguia planejar e importar um snapshot completo por script.
+- A base local `2026-07` tinha 37 ZIPs reconhecidos e cerca de 7,64 GB.
+- Ainda faltava um comando rápido para validar pré-requisitos antes de uma carga
+  grande.
+
+Meta da issue:
+
+- Criar um preflight local para confirmar se a base da Receita está pronta para
+  importação no Postgres staging.
+- Reduzir ambiguidade operacional antes de rodar uma carga nacional.
+- Registrar próximos comandos de smoke test e importação completa.
+
+Implementado:
+
+- Script `scripts/plan_receita_staging_preflight.py`.
+- Wrapper PowerShell `scripts/check_receita_staging_preflight.ps1`.
+- Validação de diretório do snapshot.
+- Contagem e soma de bytes dos ZIPs oficiais reconhecidos.
+- Conferência das famílias obrigatórias da Receita.
+- Comparação com a contagem esperada de 37 arquivos.
+- Execução do planner de snapshot para verificar manifests de importação.
+- Próximos comandos sugeridos para migrations, smoke test e carga completa.
+- Testes em `tests/test_receita_staging_preflight.py` e
+  `tests/test_postgres_migrations.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_receita_staging_preflight tests.test_postgres_snapshot_plan tests.test_postgres_migrations
+powershell -NoProfile -Command "`$null = [scriptblock]::Create((Get-Content -Raw 'scripts\check_receita_staging_preflight.ps1')); 'PowerShell preflight script parsed'"
+python scripts\plan_receita_staging_preflight.py --snapshot 2026-07 --source-dir data\downloads\receita\2026-07 --strict
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_preflight.ps1 -Snapshot 2026-07 -SkipDockerCheck
+```
+
+Resultado desta etapa:
+
+```text
+python -m unittest tests.test_receita_staging_preflight tests.test_postgres_snapshot_plan tests.test_postgres_migrations
+Ran 13 tests
+OK
+
+python scripts\plan_receita_staging_preflight.py --snapshot 2026-07 --source-dir data\downloads\receita\2026-07 --strict
+status: pass
+recognized_files: 37
+total_bytes: 7643363104
+planned_files: 37
+```
+
+Observação:
+
+- A validação completa com Docker/Postgres ativo continua dependendo do Docker
+  Desktop/Linux engine estar em execução no ambiente local.
