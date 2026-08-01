@@ -207,6 +207,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_stagin
 ```
 
 - [ ] Runbook `docs/RECEITA_BASE_TEST_RUNBOOK.md` executado e marcado.
+- [ ] Checklist `docs/RELEASE_VERSIONING.md` conferido.
 - [ ] Tag/release semântica criada depois do merge da PR final.
 
 ## Versão semântica sugerida
@@ -223,6 +224,8 @@ Motivo:
 - Já terá importação oficial da Receita para Postgres staging.
 - Ainda não terá NextJS/NestJS, login, billing, CRM final ou automação de email
   completa.
+
+O passo a passo de tag e release notes fica em `docs/RELEASE_VERSIONING.md`.
 
 ## Próxima issue recomendada
 
