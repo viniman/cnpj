@@ -128,6 +128,16 @@ class PostgresMigrationsTest(unittest.TestCase):
         self.assertIn("ON_ERROR_STOP=1", script)
         self.assertIn("Familia de staging desconhecida", script)
 
+    def test_base_status_script_wraps_preflight_and_counts(self):
+        script = read_text("scripts/check_receita_base_status.ps1")
+        planner = read_text("scripts/plan_receita_base_status.py")
+
+        self.assertIn("plan_receita_base_status.py", script)
+        self.assertIn("check_receita_staging_counts.ps1", script)
+        self.assertIn("Status consolidado", script)
+        self.assertIn("build_base_status", planner)
+        self.assertIn("next_gate", planner)
+
 
 if __name__ == "__main__":
     unittest.main()
