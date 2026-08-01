@@ -7,7 +7,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from radar_cnpj.postgres_staging import build_staging_import_manifest
+from radar_cnpj.postgres_staging import build_staging_import_manifest, official_file_family
 
 
 def main(argv=None):
