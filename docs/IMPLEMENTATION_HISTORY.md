@@ -2897,3 +2897,48 @@ Teste manual esperado:
    - `Copiar smoke import`;
    - `Copiar importação completa`.
 6. Copiar o preflight sem Docker e executar no terminal para validar os 37 ZIPs.
+
+## 2026-08-01 - Issue 23 de validação de contagens no staging
+
+Branch: `feature/23-receita-staging-counts`
+
+Estado inicial:
+
+- O painel já expunha comandos para preflight, smoke import e importação
+  completa.
+- Ainda faltava um comando padronizado para verificar se as tabelas raw receberam
+  dados depois da importação.
+
+Meta da issue:
+
+- Criar validação pós-importação para contagens por família/tabela no
+  `receita_staging`.
+- Permitir checagem de smoke test e de carga completa.
+
+Implementado:
+
+- Script `scripts/check_receita_staging_counts.ps1`.
+- Filtro opcional por famílias com `-Families`.
+- Validação opcional de tabelas vazias com `-RequireData`.
+- Cobertura estática em `tests/test_postgres_migrations.py`.
+- Documentação operacional em `docs/POSTGRES_MIGRATION_CONVENTIONS.md`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_migrations
+powershell -NoProfile -Command "`$null = [scriptblock]::Create((Get-Content -Raw 'scripts\check_receita_staging_counts.ps1')); 'PowerShell counts script parsed'"
+```
+
+Teste manual esperado após smoke import:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_counts.ps1 `
+  -Snapshot 2026-07 `
+  -Families cnaes,municipios,naturezas `
+  -RequireData
+```
+
+Observação:
+
+- A consulta real depende do Postgres local estar ativo e com dados importados.
