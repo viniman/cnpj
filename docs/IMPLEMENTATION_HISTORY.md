@@ -2942,3 +2942,35 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_stagin
 Observação:
 
 - A consulta real depende do Postgres local estar ativo e com dados importados.
+
+## 2026-08-01 - Issue 25 de runbook de teste da base
+
+Branch: `docs/25-receita-base-test-runbook`
+
+Estado inicial:
+
+- Preflight, comandos no painel e validação de contagens já estavam
+  implementados.
+- Os passos de teste estavam distribuídos entre documentos e PRs.
+
+Meta da issue:
+
+- Consolidar em um único documento o caminho para testar a base Receita/Postgres
+  atual.
+- Deixar critérios de aceite claros para teste manual.
+
+Implementado:
+
+- Documento `docs/RECEITA_BASE_TEST_RUNBOOK.md`.
+- Passo a passo para testes automatizados, preflight, painel, Postgres, smoke
+  import, contagens e importação completa.
+- Checklist de aceite manual.
+- Limitações atuais documentadas.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_postgres_staging tests.test_postgres_snapshot_plan tests.test_receita_staging_preflight tests.test_postgres_migrations
+node --check static\app.js
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_preflight.ps1 -Snapshot 2026-07 -SkipDockerCheck
+```
