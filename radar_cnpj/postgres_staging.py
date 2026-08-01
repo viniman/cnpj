@@ -257,6 +257,19 @@ def copy_command(schema_name, table, columns, csv_path):
     )
 
 
+def server_copy_command(schema_name, table, columns, csv_path):
+    schema = validate_identifier(schema_name)
+    table = validate_identifier(table)
+    column_list = ", ".join(validate_identifier(column) for column in columns)
+    return "COPY %s.%s (%s) FROM %s %s;" % (
+        schema,
+        table,
+        column_list,
+        sql_literal(psql_path(csv_path)),
+        COPY_OPTIONS,
+    )
+
+
 def metadata_update_sql(schema_name, table, snapshot, chunk, filename):
     schema = validate_identifier(schema_name)
     table = validate_identifier(table)
@@ -266,6 +279,63 @@ def metadata_update_sql(schema_name, table, snapshot, chunk, filename):
         "WHERE source_file IS NULL;"
         % (schema, table, sql_literal(snapshot), chunk_value, sql_literal(filename))
     )
+
+
+def build_server_import_sql(snapshot, filename, container_csv_path, schema_name=SCHEMA_NAME):
+    classification = official_file_family(filename)
+    if not classification:
+        raise ValueError("Arquivo oficial não reconhecido: %s" % filename)
+    return "\n".join(
+        [
+            "BEGIN;",
+            server_copy_command(schema_name, classification["table"], classification["columns"], container_csv_path),
+            metadata_update_sql(schema_name, classification["table"], snapshot, classification["chunk"], classification["filename"]),
+            "COMMIT;",
+        ]
+    )
+
+
+def build_staging_import_manifest(
+    snapshot,
+    filename,
+    zip_path=None,
+    csv_path=None,
+    schema_name=SCHEMA_NAME,
+    extract_root=None,
+    container_dir="/tmp/radar-cnpj-staging",
+):
+    classification = official_file_family(filename)
+    if not classification:
+        raise ValueError("Arquivo oficial não reconhecido: %s" % filename)
+
+    official_filename = classification["filename"]
+    stem = os.path.splitext(official_filename)[0]
+    local_csv_path = csv_path or ""
+    csv_member = os.path.basename(local_csv_path) if local_csv_path else stem + ".CSV"
+    extract_dir = ""
+    if zip_path:
+        root = extract_root or os.path.join(os.path.dirname(zip_path), "extracted")
+        extract_dir = os.path.abspath(os.path.join(root, stem))
+        csv_member = csv_member_for_zip(zip_path, stem + ".CSV")
+        local_csv_path = os.path.abspath(os.path.join(extract_dir, csv_member))
+    elif local_csv_path:
+        local_csv_path = os.path.abspath(local_csv_path)
+
+    container_csv_path = psql_path(os.path.join(container_dir, stem, os.path.basename(csv_member)))
+    return {
+        "snapshot": str(snapshot or "").strip(),
+        "filename": official_filename,
+        "family": classification["family"],
+        "chunk": classification["chunk"],
+        "table": "%s.%s" % (schema_name, classification["table"]),
+        "columns": classification["columns"],
+        "zip_path": os.path.abspath(zip_path) if zip_path else "",
+        "extract_dir": extract_dir,
+        "csv_member": csv_member,
+        "local_csv_path": local_csv_path,
+        "container_csv_path": container_csv_path,
+        "import_sql": build_server_import_sql(snapshot, official_filename, container_csv_path, schema_name=schema_name),
+    }
 
 
 def build_copy_plan_item(snapshot, file_row, schema_name=SCHEMA_NAME, extract_root=None):
