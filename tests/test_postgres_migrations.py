@@ -76,6 +76,18 @@ class PostgresMigrationsTest(unittest.TestCase):
         self.assertIn("snapshot_manifests", planner)
         self.assertIn("FAMILY_ORDER", planner)
 
+    def test_preflight_script_wraps_python_planner_and_docker_check(self):
+        script = read_text("scripts/check_receita_staging_preflight.ps1")
+        planner = read_text("scripts/plan_receita_staging_preflight.py")
+
+        self.assertIn("plan_receita_staging_preflight.py", script)
+        self.assertIn("$preflightArgs", script)
+        self.assertIn("$LASTEXITCODE", script)
+        self.assertIn("SkipDockerCheck", script)
+        self.assertIn("apply_postgres_migrations.ps1", script)
+        self.assertIn("preflight_report", planner)
+        self.assertIn("REQUIRED_FAMILIES", planner)
+
 
 if __name__ == "__main__":
     unittest.main()
