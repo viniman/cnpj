@@ -32,7 +32,7 @@ Conventional Commits, PR documentado e verificacao registrada. Nomes de branch,
 commits e PRs nao devem expor ferramenta interna, agente de IA ou coautoria
 automatica.
 
-## 2026-08-01 - Fase 42: Decisoes de arquitetura e proximas fases
+## 2026-08-01 - Fase 42: Decisões de arquitetura e próximas fases
 
 Issue: https://github.com/viniman/cnpj/issues/3
 
@@ -40,23 +40,23 @@ Branch: `docs/architecture-next-phases`
 
 Objetivo:
 
-- Consolidar as decisoes tomadas apos a fase 41 antes de tocar no codigo de
-  migracao Postgres, NestJS, Next.js ou refatoracao de cadencias.
+- Consolidar as decisões tomadas após a fase 41 antes de tocar no código de
+  migração Postgres, NestJS, Next.js ou refatoração de cadências.
 
 Implementado:
 
-- Livro razao `docs/NEXT_ARCHITECTURE_LEDGER.md` com arquitetura alvo,
+- Livro razão `docs/NEXT_ARCHITECTURE_LEDGER.md` com arquitetura alvo,
   Postgres central, schemas separados, Python ETL, NestJS/Prisma, Next.js,
-  historico mensal, BrasilAPI complementar, API AI-first e 18 diferenciais
+  histórico mensal, BrasilAPI complementar, API AI-first e 18 diferenciais
   futuros.
-- Indice `docs/PHASE_HISTORY_INDEX.md` apontando para os documentos locais das
-  fases 01 a 42, ja que as fases antigas nao tiveram PR remoto individual no
+- Índice `docs/PHASE_HISTORY_INDEX.md` apontando para os documentos locais das
+  fases 01 a 42, já que as fases antigas não tiveram PR remoto individual no
   GitHub.
 - Guia `docs/DEVELOPMENT_GUIDELINES.md` para issues, branches, commits e PRs
-  sem marca de ferramenta, IA ou coautoria automatica.
+  sem marca de ferramenta, IA ou coautoria automática.
 - Guia `docs/UI_INTERFACE_PRINCIPLES.md` para produto cliente e super admin.
 - ADRs 044 a 047 em `docs/DECISIONS.md`.
-- Atualizacao de `docs/ARCHITECTURE.md`, `docs/PRODUCT_ROADMAP.md` e `README.md`
+- Atualização de `docs/ARCHITECTURE.md`, `docs/PRODUCT_ROADMAP.md` e `README.md`
   apontando o novo norte.
 
 Como verificar:
@@ -65,11 +65,11 @@ Como verificar:
 git diff --stat
 ```
 
-Observacoes:
+Observações:
 
-- Nao havia PRs abertas no GitHub no inicio da fase.
-- Esta fase altera apenas documentacao.
-- Branches antigas de fase podem ser removidas apos verificacao de que estao
+- Não havia PRs abertas no GitHub no início da fase.
+- Esta fase altera apenas documentação.
+- Branches antigas de fase podem ser removidas após verificação de que estão
   contidas em `main`.
 
 ## 2026-07-19 - Roadmap integrado e scoring avancado de e-mail

@@ -1,137 +1,137 @@
-# Livro razao de arquitetura e proximas fases
+# Livro razão de arquitetura e próximas fases
 
-Este documento consolida as decisoes tomadas apos a fase 41, antes da migracao
-real para PostgreSQL e antes da separacao entre super admin, produto cliente e
-API publica. Ele funciona como fonte de contexto para as proximas issues e PRs.
+Este documento consolida as decisões tomadas após a fase 41, antes da migração
+real para PostgreSQL e antes da separação entre super admin, produto cliente e
+API pública. Ele funciona como fonte de contexto para as próximas issues e PRs.
 
 ## Norte do produto
 
 O Radar CNPJ deve evoluir de um buscador local para uma plataforma de
-inteligencia comercial B2B baseada em dados publicos, historico cadastral,
-qualidade de contato, cadencias de prospeccao e API monetizavel.
+inteligência comercial B2B baseada em dados públicos, histórico cadastral,
+qualidade de contato, cadências de prospecção e API monetizável.
 
-O diferencial nao deve ser apenas "consultar CNPJ". O produto deve explicar
-mudancas, indicar timing comercial, limpar listas e transformar dados publicos
-em decisoes comerciais auditaveis.
+O diferencial não deve ser apenas "consultar CNPJ". O produto deve explicar
+mudanças, indicar timing comercial, limpar listas e transformar dados públicos
+em decisões comerciais auditáveis.
 
 ## Arquitetura alvo
 
-Decisao atual:
+Decisão atual:
 
 - PostgreSQL passa a ser o banco central de escala.
-- O banco pode comecar como uma unica instancia com schemas separados.
+- O banco pode começar como uma única instância com schemas separados.
 - Python permanece como motor de ETL, download, parsing, processamento de
   arquivos grandes e jobs recorrentes da Receita.
 - NestJS deve ser o backend principal do produto operacional e dono das
   migrations Prisma das tabelas de produto.
-- Next.js deve ser a interface premium do cliente e, futuramente, tambem pode
+- Next.js deve ser a interface premium do cliente e, futuramente, também pode
   hospedar um super admin melhor.
-- O SQLite deve virar legado/teste local e sair do caminho principal apos a
-  migracao para Postgres.
+- O SQLite deve virar legado/teste local e sair do caminho principal após a
+  migração para Postgres.
 
 Schemas iniciais recomendados no mesmo Postgres:
 
-- `receita_staging`: copia bruta controlada dos arquivos oficiais da Receita.
-- `app`: empresas normalizadas, listas, leads, cadencias, templates, CRM,
-  usuarios, workspaces e regras de produto.
-- `billing`: planos, creditos, assinaturas, API keys e consumo.
-- `audit`: eventos auditaveis, exportacoes, acoes de usuario, jobs e decisoes
+- `receita_staging`: cópia bruta controlada dos arquivos oficiais da Receita.
+- `app`: empresas normalizadas, listas, leads, cadências, templates, CRM,
+  usuários, workspaces e regras de produto.
+- `billing`: planos, créditos, assinaturas, API keys e consumo.
+- `audit`: eventos auditáveis, exportações, ações de usuário, jobs e decisões
   automatizadas.
 
-Essa separacao por schema reduz infraestrutura agora e permite separar bancos
-ou servidores no futuro caso volume, backup, seguranca ou performance exijam.
+Essa separação por schema reduz infraestrutura agora e permite separar bancos
+ou servidores no futuro caso volume, backup, segurança ou performance exijam.
 
 ## Papel do staging
 
-Staging nao e a fonte oficial em si. A fonte oficial continua sendo o arquivo
-publicado pela Receita Federal/SERPRO. O staging e uma copia bruta controlada,
-com colunas proximas do layout oficial e metadados operacionais, como:
+Staging não é a fonte oficial em si. A fonte oficial continua sendo o arquivo
+publicado pela Receita Federal/SERPRO. O staging é uma cópia bruta controlada,
+com colunas próximas do layout oficial e metadados operacionais, como:
 
 - snapshot;
 - chunk;
 - arquivo de origem;
 - data de carga;
-- indices de busca/correlacao;
-- logs de execucao.
+- índices de busca/correlação;
+- logs de execução.
 
-O staging existe para evitar que arquivos brutos, transformacoes de produto e
-listas de usuario fiquem misturados. O fluxo alvo e:
+O staging existe para evitar que arquivos brutos, transformações de produto e
+listas de usuário fiquem misturados. O fluxo alvo é:
 
 ```text
 Receita Federal ZIP/CSV
 -> receita_staging
--> transformacoes/diffs
+-> transformações/diffs
 -> app.operacional
--> busca, listas, API, cadencias e CRM
+-> busca, listas, API, cadências e CRM
 ```
 
-## Historico mensal e diffs
+## Histórico mensal e diffs
 
-O produto deve manter snapshots mensais da Receita quando disponiveis. A carga
+O produto deve manter snapshots mensais da Receita quando disponíveis. A carga
 inicial prioriza o snapshot mais recente. Depois disso, jobs recorrentes devem:
 
 1. verificar se existe snapshot novo;
 2. baixar arquivos ausentes;
 3. importar para staging;
-4. calcular diferencas por CNPJ;
-5. materializar mudancas relevantes no operacional;
+4. calcular diferenças por CNPJ;
+5. materializar mudanças relevantes no operacional;
 6. gerar alertas comerciais.
 
-Mudancas historicas importantes:
+Mudanças históricas importantes:
 
-- entrada e saida de socios;
-- alteracao de razao social ou nome fantasia;
-- mudanca de situacao cadastral;
-- mudanca de endereco, cidade ou UF;
-- alteracao de CNAE principal ou secundario;
-- alteracao de capital social;
-- mudanca de porte;
-- opcao ou exclusao do Simples/MEI;
+- entrada e saída de sócios;
+- alteração de razão social ou nome fantasia;
+- mudança de situação cadastral;
+- mudança de endereço, cidade ou UF;
+- alteração de CNAE principal ou secundário;
+- alteração de capital social;
+- mudança de porte;
+- opção ou exclusão do Simples/MEI;
 - abertura ou fechamento de matriz/filial;
-- alteracao de email ou telefone publico.
+- alteração de email ou telefone público.
 
-Historico societario, especialmente socios que sairam, deve ser tratado como
-diferencial de produto e nao apenas como dado auxiliar.
+Histórico societário, especialmente sócios que saíram, deve ser tratado como
+diferencial de produto e não apenas como dado auxiliar.
 
 ## Banco, migrations e ownership
 
 Ownership recomendado:
 
-- `receita_staging`: SQL migrations versionadas, proximas do layout oficial.
+- `receita_staging`: SQL migrations versionadas, próximas do layout oficial.
 - `app`, `billing` e parte operacional: Prisma migrations no NestJS.
-- Python executa ETL e jobs, mas nao deve criar schema operacional de forma
+- Python executa ETL e jobs, mas não deve criar schema operacional de forma
   ad hoc.
 
-Se Python precisar consultar ou escrever dados operacionais, a preferencia e:
+Se Python precisar consultar ou escrever dados operacionais, a preferência é:
 
 1. usar APIs/contratos internos do NestJS quando a regra for de produto;
 2. usar acesso direto ao staging quando a regra for ETL/dado bruto;
-3. evitar duplicar regras de negocio entre Python e NestJS.
+3. evitar duplicar regras de negócio entre Python e NestJS.
 
 ## Super admin e interfaces
 
-O painel Python atual deve ser tratado como laboratorio/super admin temporario.
+O painel Python atual deve ser tratado como laboratório/super admin temporário.
 Ele pode continuar existindo enquanto:
 
-- a importacao Postgres nao estiver completa;
-- o painel Next ainda nao cobrir os fluxos de cliente;
+- a importação Postgres não estiver completa;
+- o painel Next ainda não cobrir os fluxos de cliente;
 - os jobs de ETL ainda precisarem de uma interface interna simples.
 
-A migracao de UI deve seguir esta ordem:
+A migração de UI deve seguir esta ordem:
 
 1. Postgres e pipeline de dados.
-2. Separacao de rotas e responsabilidades no painel atual.
+2. Separação de rotas e responsabilidades no painel atual.
 3. Next.js para produto cliente.
 4. Next.js para super admin, se fizer sentido.
-5. Remocao gradual de telas de cliente do Python.
+5. Remoção gradual de telas de cliente do Python.
 
-Mesmo sendo interno, o super admin deve ter UX clara, navegacao previsivel,
-paginas menores e documentacao propria de front.
+Mesmo sendo interno, o super admin deve ter UX clara, navegação previsível,
+páginas menores e documentação própria de front.
 
-## API AI-first e monetizacao
+## API AI-first e monetização
 
-O CNPJ Search deve nascer com contrato publico preparado para agentes e
-integracoes automatizadas:
+O CNPJ Search deve nascer com contrato público preparado para agentes e
+integrações automatizadas:
 
 - OpenAPI;
 - `llms.txt`;
@@ -139,70 +139,69 @@ integracoes automatizadas:
 - API keys;
 - escopos;
 - rate limit;
-- consumo de creditos;
+- consumo de créditos;
 - primeiros usos gratuitos;
-- cobranca apos limite gratuito;
-- logs de uso e erros explicitos.
+- cobrança após limite gratuito;
+- logs de uso e erros explícitos.
 
-Renderizacao server-side no Next.js ajuda a proteger experiencia e navegacao,
-mas a protecao real dos dados vem de autenticacao, autorizacao, rate limit,
+Renderização server-side no Next.js ajuda a proteger experiência e navegação,
+mas a proteção real dos dados vem de autenticação, autorização, rate limit,
 escopos, billing e auditoria no backend.
 
 ## BrasilAPI
 
-BrasilAPI deve permanecer como fonte complementar, nao como base principal.
-Usos aceitaveis:
+BrasilAPI deve permanecer como fonte complementar, não como base principal.
+Usos aceitáveis:
 
 - consulta individual pontual;
 - fallback;
 - debug;
-- comparacao de payload;
-- validacao de CNPJ durante desenvolvimento.
+- comparação de payload;
+- validação de CNPJ durante desenvolvimento.
 
 O produto principal deve depender da base oficial importada e historizada no
 Postgres.
 
-## Padroes de nomenclatura de produto
+## Padrões de nomenclatura de produto
 
-- "Sequencias" deve migrar para "Cadencias" no produto, na documentacao e no
+- "Sequências" deve migrar para "Cadências" no produto, na documentação e no
   novo schema Postgres.
-- Nomes novos devem seguir o dominio comercial em portugues na UI e nomes
-  tecnicos consistentes no backend, como `cadences`, `cadence_steps` e
+- Nomes novos devem seguir o domínio comercial em português na UI e nomes
+  técnicos consistentes no backend, como `cadences`, `cadence_steps` e
   `cadence_enrollments`.
-- Mudancas grandes de nomenclatura devem ser feitas agora, antes de consolidar
+- Mudanças grandes de nomenclatura devem ser feitas agora, antes de consolidar
   o schema operacional em Postgres.
 
 ## Diferenciais futuros do produto
 
 1. Linha do tempo completa da empresa.
-2. Alertas de mudanca cadastral e societaria.
-3. Historico de socios antigos, entradas e saidas.
-4. Grafo societario entre socios, empresas, grupos, enderecos e contadores.
-5. Deteccao de email de contador, escritorio fiscal e contato terceirizado.
+2. Alertas de mudança cadastral e societária.
+3. Histórico de sócios antigos, entradas e saídas.
+4. Grafo societário entre sócios, empresas, grupos, endereços e contadores.
+5. Detecção de email de contador, escritório fiscal e contato terceirizado.
 6. Score de oportunidade comercial.
 7. Eventos de timing comercial.
-8. ICP vivo que aprende com respostas, reunioes e conversoes.
+8. ICP vivo que aprende com respostas, reuniões e conversões.
 9. Listas limpas automaticamente.
-10. Cadencias integradas ao dado publico, ICP e timing.
-11. CRM automatico de leads quentes.
+10. Cadências integradas ao dado público, ICP e timing.
+11. CRM automático de leads quentes.
 12. API AI-first com `llms.txt`, OpenAPI e exemplos para agentes.
-13. Explicacao "por que esse lead?".
+13. Explicação "por que esse lead?".
 14. Monitoramento de mercado por segmento, CNAE, cidade e UF.
-15. Comparacao com clientes atuais para descobrir padroes reais de ICP.
+15. Comparação com clientes atuais para descobrir padrões reais de ICP.
 16. Radar de concorrentes, clientes e contas-alvo.
-17. Qualidade de dados transparente por fonte, data e confianca.
-18. Historico mensal como produto premium.
+17. Qualidade de dados transparente por fonte, data e confiança.
+18. Histórico mensal como produto premium.
 
-## Proximas fases recomendadas
+## Próximas fases recomendadas
 
 1. Criar migrations SQL reais do `receita_staging`.
 2. Implementar job Python de carga Postgres com progresso de download e COPY.
-3. Validar importacao completa do snapshot mais recente.
+3. Validar importação completa do snapshot mais recente.
 4. Criar modelo de diff mensal da Receita.
 5. Criar schema operacional inicial em NestJS/Prisma.
 6. Migrar busca de empresas para Postgres.
-7. Renomear sequencias para cadencias.
-8. Criar dicionario completo do banco.
-9. Criar documentacao de API publica e `llms.txt`.
+7. Renomear sequências para cadências.
+8. Criar dicionário completo do banco.
+9. Criar documentação de API pública e `llms.txt`.
 10. Criar guia de interface premium para Next.js e super admin.
-

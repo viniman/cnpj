@@ -1,24 +1,24 @@
 # Guia de desenvolvimento
 
-Este projeto deve manter um historico claro, rastreavel e compativel com as
-praticas comuns da comunidade open source. O historico publico nao deve expor
-ferramentas internas, agentes de IA ou automacoes usadas para apoiar a
-implementacao.
+Este projeto deve manter um histórico claro, rastreável e compatível com as
+práticas comuns da comunidade open source. O histórico público não deve expor
+ferramentas internas, agentes de IA ou automações usadas para apoiar a
+implementação.
 
 ## Issues, branches e PRs
 
 - Toda fase relevante deve partir de uma issue ou documento de escopo.
-- Branches devem usar nomes semanticos e neutros, sem prefixos ou sufixos de
+- Branches devem usar nomes semânticos e neutros, sem prefixos ou sufixos de
   ferramenta, IA, agente ou fornecedor.
-- Padroes recomendados:
+- Padrões recomendados:
   - `feature/<numero>-<slug>`
   - `fix/<slug>`
   - `docs/<slug>`
   - `refactor/<slug>`
   - `chore/<slug>`
-- PRs devem explicar objetivo, mudancas, riscos, testes executados e proximos
+- PRs devem explicar objetivo, mudanças, riscos, testes executados e próximos
   passos.
-- PRs e commits nao devem usar coautoria automatica de agente ou ferramenta.
+- PRs e commits não devem usar coautoria automática de agente ou ferramenta.
 
 ## Commits
 
@@ -29,17 +29,29 @@ implementacao.
   - `refactor: ...`
   - `test: ...`
   - `chore: ...`
-- Cada commit deve representar uma unidade logica pequena.
-- Mensagens de commit devem descrever o produto ou codigo alterado, nao a
-  ferramenta usada para gerar a alteracao.
+- Cada commit deve representar uma unidade lógica pequena.
+- Mensagens de commit devem descrever o produto ou código alterado, não a
+  ferramenta usada para gerar a alteração.
 
-## Documentacao obrigatoria
+## Português e acentuação
 
-Mudancas estruturais devem atualizar a documentacao no mesmo PR:
+- Documentos em português devem usar acentuação correta, incluindo ç/Ç,
+  caracteres acentuados e concordância gramatical.
+- Evite substituir palavras acentuadas por versões sem acento apenas por
+  conveniência técnica.
+- Antes de abrir PR de documentação, revise títulos, listas e descrições para
+  corrigir erros como "decisoes", "proximas", "implementacao", "publica",
+  "historico", "acoes" e similares.
+- Exceções aceitáveis: nomes técnicos, slugs, URLs, comandos, identificadores
+  de código, nomes de branch e trechos que precisem permanecer ASCII por
+  compatibilidade.
 
-- arquitetura e decisoes relevantes;
+## Documentação obrigatória
+
+Mudanças estruturais devem atualizar a documentação no mesmo PR:
+
+- arquitetura e decisões relevantes;
 - modelo de dados e migrations;
-- contrato de API quando endpoints publicos mudarem;
-- instrucoes de operacao local;
-- riscos, limites e criterios de verificacao.
-
+- contrato de API quando endpoints públicos mudarem;
+- instruções de operação local;
+- riscos, limites e critérios de verificação.

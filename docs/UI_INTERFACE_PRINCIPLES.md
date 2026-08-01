@@ -1,73 +1,72 @@
-# Principios de interface
+# Princípios de interface
 
-Este documento define o norte de UX/UI para as proximas interfaces do Radar
-CNPJ. Ele vale para o futuro produto em Next.js e tambem para a limpeza gradual
+Este documento define o norte de UX/UI para as próximas interfaces do Radar
+CNPJ. Ele vale para o futuro produto em Next.js e também para a limpeza gradual
 do super admin Python.
 
-## Principios gerais
+## Princípios gerais
 
-- A interface deve parecer uma ferramenta B2B premium, densa, clara e operavel
-  por times comerciais, growth, dados e operacoes.
-- O produto deve priorizar busca, comparacao, filtros, listas, alertas,
-  cadencias e decisoes acionaveis.
-- A experiencia deve evitar telas gigantes que misturam responsabilidades
+- A interface deve parecer uma ferramenta B2B premium, densa, clara e operável
+  por times comerciais, growth, dados e operações.
+- O produto deve priorizar busca, comparação, filtros, listas, alertas,
+  cadências e decisões acionáveis.
+- A experiência deve evitar telas gigantes que misturam responsabilidades
   diferentes.
-- Cada pagina deve ter uma tarefa principal evidente.
-- Dados sensiveis de operacao, billing, API e ETL devem ficar separados por
-  permissao e contexto.
+- Cada página deve ter uma tarefa principal evidente.
+- Dados sensíveis de operação, billing, API e ETL devem ficar separados por
+  permissão e contexto.
 
 ## Produto cliente
 
-O produto cliente deve ser organizado em areas como:
+O produto cliente deve ser organizado em áreas como:
 
 - Busca de empresas;
 - Listas e segmentos;
 - ICP e oportunidades;
-- Cadencias;
+- Cadências;
 - CRM e respostas;
-- Alertas de mudancas;
-- Relatorios e metricas;
+- Alertas de mudanças;
+- Relatórios e métricas;
 - API e billing;
-- Configuracoes do workspace.
+- Configurações do workspace.
 
 ## Super admin
 
 O super admin deve focar em:
 
 - status da fonte Receita;
-- snapshots disponiveis;
+- snapshots disponíveis;
 - progresso de download;
-- progresso de importacao;
-- saude do staging;
+- progresso de importação;
+- saúde do staging;
 - jobs, erros e retomadas;
 - qualidade dos dados importados;
 - auditoria operacional;
 - controles internos.
 
-O super admin nao precisa ser bonito por vaidade, mas precisa ser claro,
-confiavel e rapido de operar.
+O super admin não precisa ser bonito por vaidade, mas precisa ser claro,
+confiável e rápido de operar.
 
-## Regras de experiencia
+## Regras de experiência
 
-- Filtros devem ser visiveis, combinaveis e salvaveis.
-- Tabelas devem ser densas, com colunas relevantes, ordenacao e estados claros.
-- Detalhes de empresa devem mostrar origem, snapshot e confianca dos dados.
-- Acoes perigosas devem ter confirmacao e trilha de auditoria.
-- O usuario nao deve precisar saber IDs internos para enriquecer, listar ou
+- Filtros devem ser visíveis, combináveis e salváveis.
+- Tabelas devem ser densas, com colunas relevantes, ordenação e estados claros.
+- Detalhes de empresa devem mostrar origem, snapshot e confiança dos dados.
+- Ações perigosas devem ter confirmação e trilha de auditoria.
+- O usuário não deve precisar saber IDs internos para enriquecer, listar ou
   operar empresas.
-- Mudancas historicas devem aparecer como linha do tempo, nao apenas como
+- Mudanças históricas devem aparecer como linha do tempo, não apenas como
   campos sobrescritos.
-- Explicacoes de score devem ser legiveis por humano e por API.
-- Cadencias devem ser apresentadas como fluxos comerciais, nao como logs
-  tecnicos.
+- Explicações de score devem ser legíveis por humano e por API.
+- Cadências devem ser apresentadas como fluxos comerciais, não como logs
+  técnicos.
 
 ## Design visual
 
-- Aparencia profissional, moderna e contida.
-- Densidade de informacao alta, mas com hierarquia clara.
-- Navegacao lateral ou superior previsivel.
+- Aparência profissional, moderna e contida.
+- Densidade de informação alta, mas com hierarquia clara.
+- Navegação lateral ou superior previsível.
 - Cards apenas quando representarem itens ou resumos reais.
 - Evitar telas de comando enormes como destino final.
 - Usar estados vazios, carregamento, erro e sucesso com mensagens objetivas.
 - Priorizar performance percebida em buscas, filtros e listas grandes.
-
