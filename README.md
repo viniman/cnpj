@@ -259,6 +259,22 @@ Com Docker:
 docker compose up --build
 ```
 
+Subir apenas o PostgreSQL local de escala:
+
+```powershell
+docker compose up -d postgres
+.\scripts\check_postgres.ps1
+```
+
+Se o Windows bloquear scripts PowerShell pela politica de execucao local, use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\check_postgres.ps1
+```
+
+O MVP Python continua usando SQLite por padrao. O PostgreSQL local existe para
+staging, `COPY` e carga nacional da Receita nas proximas fases.
+
 ## Primeiro uso
 
 1. Abra `http://127.0.0.1:8000`.
@@ -340,6 +356,26 @@ Na UI, abra `Importacao` e use `Plano PostgreSQL staging` para ver metricas,
 copiar o DDL e copiar comandos por arquivo. Esta etapa nao executa carga real:
 ela prepara o operador para rodar a carga nacional em uma instancia Postgres
 dedicada.
+
+Tambem e possivel gerar a DDL de staging em arquivo local:
+
+```powershell
+.\scripts\write_postgres_staging_sql.ps1
+```
+
+Alternativa quando a politica local bloquear scripts:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\write_postgres_staging_sql.ps1
+```
+
+O Docker Compose ja inclui um Postgres local com schema `receita_staging`,
+`unaccent` e `pg_trgm` inicializados:
+
+```powershell
+docker compose up -d postgres
+.\scripts\check_postgres.ps1
+```
 
 ## Consulta por API
 

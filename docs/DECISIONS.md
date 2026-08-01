@@ -1102,3 +1102,31 @@ Consequencias:
 - A UI mostra comandos e guardrails, mas nao dispara `COPY`.
 - Nao ha nova dependencia de driver Postgres nesta fase.
 - A transformacao de staging para tabelas finais fica para fase posterior.
+
+## ADR-043 - PostgreSQL local e infraestrutura real, mas opt-in
+
+Data: 2026-08-01
+
+Decisao:
+
+- O Docker Compose deve incluir um servico PostgreSQL 16 para carga nacional e
+  staging da Receita.
+- O MVP Python continua usando SQLite por padrao ate a migracao de runtime ser
+  feita em fase propria.
+- O Postgres local inicializa `unaccent`, `pg_trgm` e `receita_staging`, mas a
+  DDL completa das tabelas brutas continua sendo gerada pelo modulo Python.
+
+Racional:
+
+- A base nacional exige Postgres, mas trocar o runtime inteiro junto com a
+  infraestrutura aumentaria risco e retrabalho.
+- Manter SQLite para o MVP preserva velocidade de desenvolvimento e testes.
+- Subir Postgres agora permite validar `COPY`, indices e transformacoes antes
+  de criar NestJS/Next.js.
+
+Consequencias:
+
+- `docker compose up --build` passa a subir Postgres e app Python.
+- Operadores podem usar `docker compose up -d postgres` para preparar apenas o
+  banco de escala.
+- A proxima fase pode focar em worker/COPY real sem mexer na UI principal.

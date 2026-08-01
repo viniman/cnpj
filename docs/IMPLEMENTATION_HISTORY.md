@@ -2423,6 +2423,72 @@ node --check static\app.js
 OK
 ```
 
+## 2026-08-01 - Fase 41 de PostgreSQL local como fundacao
+
+Branch: `feature/41-local-postgres-foundation`
+
+Estado inicial:
+
+- Fase 40 mesclada na `main`.
+- O projeto ja gerava DDL e plano COPY para staging da Receita.
+- O Docker Compose ainda subia apenas a aplicacao Python.
+
+Meta da fase:
+
+- Adicionar PostgreSQL real ao ambiente local.
+- Inicializar extensoes e schema de staging.
+- Manter SQLite como runtime padrao do MVP.
+- Criar scripts de verificacao e geracao de DDL.
+
+Documento principal:
+
+- `docs/LOCAL_POSTGRES_FOUNDATION_SPEC.md`
+
+Commits:
+
+- `61514b3 docs: define local postgres foundation phase`
+- `421500f feat: add local postgres foundation`
+
+Implementado:
+
+- Servico `postgres` no `docker-compose.yml` com PostgreSQL 16 Alpine.
+- Volume persistente `postgres-data`.
+- Healthcheck `pg_isready`.
+- `.env.example` com variaveis SQLite e Postgres.
+- Bootstrap SQL em `infra/postgres/init/001_bootstrap.sql`.
+- Script `scripts/check_postgres.ps1`.
+- Script `scripts/write_postgres_staging_sql.ps1`.
+- Testes em `tests/test_local_postgres_foundation.py`.
+
+Como verificar:
+
+```powershell
+python -m unittest tests.test_local_postgres_foundation
+docker compose config --services
+docker compose up -d postgres
+.\scripts\check_postgres.ps1
+```
+
+Resultado parcial desta etapa:
+
+```text
+python -m unittest tests.test_local_postgres_foundation
+Ran 4 tests
+OK
+
+docker compose config --services
+postgres
+radar-cnpj
+
+powershell -ExecutionPolicy Bypass -File .\scripts\write_postgres_staging_sql.ps1
+DDL PostgreSQL staging escrita
+```
+
+Observacao:
+
+- `docker compose up -d postgres` nao foi concluido nesta validacao porque o
+  Docker Desktop/Linux engine nao estava ativo no ambiente local.
+
 ## 2026-07-21 - Fase 39 de checkpoints de importacao oficial
 
 Branch: `feature/39-official-import-checkpoints`
