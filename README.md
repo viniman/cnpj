@@ -6,13 +6,13 @@ O projeto foi montado para uso interno em localhost. Ele ja inclui dashboard, bu
 
 ## Documentos de direcao
 
-- `docs/NEXT_ARCHITECTURE_LEDGER.md`: livro razao com arquitetura alvo,
-  Postgres, Python ETL, NestJS, Next.js, historico mensal e diferenciais.
-- `docs/PHASE_HISTORY_INDEX.md`: indice das fases 01 a 42 e seus documentos
-  historicos.
-- `docs/DEVELOPMENT_GUIDELINES.md`: padroes de issues, branches, commits e
+- `docs/NEXT_ARCHITECTURE_LEDGER.md`: livro razão com arquitetura alvo,
+  Postgres, Python ETL, NestJS, Next.js, histórico mensal e diferenciais.
+- `docs/PHASE_HISTORY_INDEX.md`: índice das fases 01 a 42 e seus documentos
+  históricos.
+- `docs/DEVELOPMENT_GUIDELINES.md`: padrões de issues, branches, commits e
   PRs sem marca de ferramenta ou IA.
-- `docs/UI_INTERFACE_PRINCIPLES.md`: principios de interface para o futuro
+- `docs/UI_INTERFACE_PRINCIPLES.md`: princípios de interface para o futuro
   produto em Next.js e para a limpeza do super admin Python.
 
 ## Centro de Comando

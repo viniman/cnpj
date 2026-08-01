@@ -7,7 +7,7 @@ responsaveis, agente SDR e command center multi-empresa.
 
 ## Camada 0 - Fundacao atual
 
-Status: MVP local entregue e migracao Postgres iniciada.
+Status: MVP local entregue e migração Postgres iniciada.
 
 Entregue no baseline:
 
@@ -16,33 +16,33 @@ Entregue no baseline:
 - Consulta BrasilAPI.
 - Listas, exportacao, auditoria e higiene basica.
 
-Proximos hardenings:
+Próximos hardenings:
 
 - Usar Postgres local como banco de escala para staging/COPY.
 - Criar migrations SQL reais para `receita_staging`.
-- Separar API e worker de importacao.
-- Importar snapshots oficiais em lotes retomaveis antes da migracao completa.
-- Calcular diffs mensais por CNPJ e manter historico de mudancas.
-- Criar autenticacao real e RBAC.
+- Separar API e worker de importação.
+- Importar snapshots oficiais em lotes retomáveis antes da migração completa.
+- Calcular diffs mensais por CNPJ e manter histórico de mudanças.
+- Criar autenticação real e RBAC.
 - Documentar API em OpenAPI.
 - Publicar `llms.txt` para API AI-first.
 
-## Decisoes pos-fase 41
+## Decisões pós-fase 41
 
-O plano alvo consolidado esta em `docs/NEXT_ARCHITECTURE_LEDGER.md`.
+O plano alvo consolidado está em `docs/NEXT_ARCHITECTURE_LEDGER.md`.
 
-- PostgreSQL sera o banco central de escala, inicialmente com schemas separados
+- PostgreSQL será o banco central de escala, inicialmente com schemas separados
   no mesmo database.
 - Python continua como motor de ETL, download, parsing e jobs recorrentes da
   Receita.
-- NestJS + Prisma sera o backend de produto e dono das migrations
+- NestJS + Prisma será o backend de produto e dono das migrations
   operacionais.
-- Next.js sera a interface premium de cliente e pode assumir o super admin no
+- Next.js será a interface premium de cliente e pode assumir o super admin no
   futuro.
-- SQLite sera removido do fluxo principal apos a migracao para Postgres.
-- "Sequencias" deve migrar para "Cadencias" antes do novo schema operacional.
-- Historico mensal, socios antigos e alertas de mudanca sao diferenciais de
-  produto, nao apenas detalhes tecnicos.
+- SQLite será removido do fluxo principal após a migração para Postgres.
+- "Sequências" deve migrar para "Cadências" antes do novo schema operacional.
+- Histórico mensal, sócios antigos e alertas de mudança são diferenciais de
+  produto, não apenas detalhes técnicos.
 
 ## Camada 1 - Growth e scoring de e-mail
 
@@ -122,9 +122,9 @@ Status: fase 08 iniciada em `feature/08-meeting-scheduling-foundation`.
 
 Fases:
 
-1. Migrar nomenclatura de sequencias para cadencias no produto.
+1. Migrar nomenclatura de sequências para cadências no produto.
 2. `cadences`, `cadence_steps`, jornadas de lead e `approval_queue`.
-3. Inscricao de listas em cadencias com aprovacao humana por passo.
+3. Inscrição de listas em cadências com aprovação humana por passo.
 4. Log `agent_actions` com motivo, ferramenta e resultado.
 5. `icp_rules` estruturado e priorizacao de leads elegiveis.
 6. Classificacao de respostas e handoff humano.
@@ -187,10 +187,10 @@ Fases:
 ## Diferenciais de produto
 
 A base de diferenciais futuros esta registrada em
-`docs/NEXT_ARCHITECTURE_LEDGER.md`. Os principais vetores sao historico mensal,
-socios antigos, alertas de mudanca, grafo societario, deteccao de email de
-contador, score explicavel, ICP vivo, listas limpas, cadencias integradas ao
-dado publico, CRM automatico de leads quentes e API AI-first.
+`docs/NEXT_ARCHITECTURE_LEDGER.md`. Os principais vetores são histórico mensal,
+sócios antigos, alertas de mudança, grafo societário, detecção de email de
+contador, score explicável, ICP vivo, listas limpas, cadências integradas ao
+dado público, CRM automático de leads quentes e API AI-first.
 
 ## Regra de seguranca do produto
 

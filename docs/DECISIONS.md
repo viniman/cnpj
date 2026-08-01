@@ -1135,33 +1135,33 @@ Consequencias:
 
 Data: 2026-08-01
 
-Decisao:
+Decisão:
 
-- A evolucao imediata deve usar um unico PostgreSQL central com schemas
+- A evolução imediata deve usar um único PostgreSQL central com schemas
   separados por responsabilidade.
 - `receita_staging` guarda dados brutos controlados da Receita.
 - `app` guarda dados operacionais de produto.
-- `billing` guarda plano, creditos, assinatura e consumo.
-- `audit` guarda trilhas auditaveis e eventos operacionais.
+- `billing` guarda plano, créditos, assinatura e consumo.
+- `audit` guarda trilhas auditáveis e eventos operacionais.
 
 Racional:
 
-- Um banco unico reduz infraestrutura e acelera a migracao local.
-- Schemas preservam separacao logica sem impedir joins e transformacoes.
+- Um banco único reduz infraestrutura e acelera a migração local.
+- Schemas preservam separação lógica sem impedir joins e transformações.
 - O desenho continua portavel para separar staging ou billing em outro banco
-  quando volume, backup, seguranca ou performance justificarem.
+  quando volume, backup, segurança ou performance justificarem.
 
-Consequencias:
+Consequências:
 
 - Migrations devem respeitar ownership por schema.
-- Cargas pesadas da Receita precisam de controle para nao afetar operacao.
-- Permissoes futuras devem restringir acesso por schema e papel.
+- Cargas pesadas da Receita precisam de controle para não afetar operação.
+- Permissões futuras devem restringir acesso por schema e papel.
 
 ## ADR-045 - Python ETL, NestJS produto e Next.js interfaces
 
 Data: 2026-08-01
 
-Decisao:
+Decisão:
 
 - Python permanece como motor de download, parsing, ETL, jobs recorrentes e
   processamento pesado da Receita.
@@ -1169,70 +1169,70 @@ Decisao:
   operacionais.
 - Next.js deve ser a interface premium de cliente e pode substituir ou
   complementar o super admin no futuro.
-- O painel Python atual permanece como laboratorio/super admin ate que os
+- O painel Python atual permanece como laboratório/super admin até que os
   fluxos estejam cobertos por Postgres, NestJS e Next.js.
 
 Racional:
 
-- Python e pragmatico para dados e arquivos grandes.
-- NestJS/Prisma trazem organizacao forte para API, auth, billing, multi-tenant
+- Python é pragmático para dados e arquivos grandes.
+- NestJS/Prisma trazem organização forte para API, auth, billing, multi-tenant
   e migrations de produto.
-- Next.js permite SSR, melhor UX e uma experiencia de produto mais robusta.
+- Next.js permite SSR, melhor UX e uma experiência de produto mais robusta.
 
-Consequencias:
+Consequências:
 
 - Regras de produto devem se concentrar no NestJS.
-- Python nao deve criar schema operacional ad hoc.
+- Python não deve criar schema operacional ad hoc.
 - Interfaces de cliente saem do Python apenas quando houver substituto em
   Next.js.
 
-## ADR-046 - Historico mensal da Receita como diferencial
+## ADR-046 - Histórico mensal da Receita como diferencial
 
 Data: 2026-08-01
 
-Decisao:
+Decisão:
 
 - O produto deve manter snapshots mensais da Receita e calcular diffs por CNPJ.
-- Historico de socios, especialmente entradas e saidas, deve ser tratado como
+- Histórico de sócios, especialmente entradas e saídas, deve ser tratado como
   feature premium.
-- Alertas de mudanca cadastral e societaria devem alimentar busca, listas, ICP
-  e cadencias.
+- Alertas de mudança cadastral e societária devem alimentar busca, listas, ICP
+  e cadências.
 
 Racional:
 
 - Muitos concorrentes mostram apenas o estado atual do CNPJ.
-- Mudancas recentes indicam timing comercial e ajudam investigacao de contas.
-- Historico societario melhora experiencia de pesquisa e inteligencia B2B.
+- Mudanças recentes indicam timing comercial e ajudam investigação de contas.
+- Histórico societário melhora experiência de pesquisa e inteligência B2B.
 
-Consequencias:
+Consequências:
 
 - O pipeline precisa guardar snapshot, origem e data de carga.
-- O schema operacional deve modelar eventos de mudanca, nao apenas sobrescrever
+- O schema operacional deve modelar eventos de mudança, não apenas sobrescrever
   campos atuais.
-- Importar meses antigos pode virar job de backlog apos estabilizar o snapshot
+- Importar meses antigos pode virar job de backlog após estabilizar o snapshot
   mais recente.
 
 ## ADR-047 - Desenvolvimento sem marca de ferramenta ou IA
 
 Data: 2026-08-01
 
-Decisao:
+Decisão:
 
-- Branches, commits, PRs e coautoria nao devem expor ferramentas internas,
-  agentes de IA ou fornecedores usados na implementacao.
-- O projeto deve seguir nomes semanticos e Conventional Commits.
+- Branches, commits, PRs e coautoria não devem expor ferramentas internas,
+  agentes de IA ou fornecedores usados na implementação.
+- O projeto deve seguir nomes semânticos e Conventional Commits.
 - O guia oficial fica em `docs/DEVELOPMENT_GUIDELINES.md`.
 
 Racional:
 
-- O historico publico deve ser limpo, profissional e compativel com praticas da
+- O histórico público deve ser limpo, profissional e compatível com práticas da
   comunidade.
-- A rastreabilidade deve descrever produto, codigo e decisoes, nao ferramentas
+- A rastreabilidade deve descrever produto, código e decisões, não ferramentas
   auxiliares.
 
-Consequencias:
+Consequências:
 
 - Novas branches devem usar nomes como `feature/<numero>-<slug>`,
   `fix/<slug>`, `docs/<slug>`, `refactor/<slug>` ou `chore/<slug>`.
-- PRs devem registrar objetivo, mudancas, riscos e testes.
-- Coautoria automatica de agente nao deve ser adicionada.
+- PRs devem registrar objetivo, mudanças, riscos e testes.
+- Coautoria automática de agente não deve ser adicionada.
