@@ -44,6 +44,7 @@ implementação.
 - Enquanto o produto ainda estiver em base interna/pre-produto, usar versões
   `v0.x.y`.
 - A primeira base testável deve gerar uma tag/release, por exemplo `v0.1.0`.
+- O checklist operacional de release fica em `docs/RELEASE_VERSIONING.md`.
 - Correções sem mudança de escopo incrementam PATCH.
 - Novas capacidades compatíveis incrementam MINOR.
 - Quebras de contrato público ou mudanças incompatíveis incrementam MAJOR

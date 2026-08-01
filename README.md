@@ -16,6 +16,8 @@ O projeto foi montado para uso interno em localhost. Ele ja inclui dashboard, bu
   produto em Next.js e para a limpeza do super admin Python.
 - `docs/POSTGRES_MIGRATION_CONVENTIONS.md`: separação entre bootstrap Docker,
   migrations SQL do staging e migrations Prisma do produto.
+- `docs/RELEASE_VERSIONING.md`: checklist de fechamento da base inicial,
+  versionamento semântico e preparação da release `v0.1.0`.
 
 ## Centro de Comando
 
