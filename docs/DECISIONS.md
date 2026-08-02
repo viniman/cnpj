@@ -1298,3 +1298,47 @@ Consequências:
   aplicada.
 - Ambientes locais com volume antigo podem rodar o runner de forma idempotente.
 - Produto operacional continua reservado para Prisma quando o NestJS existir.
+
+## ADR-050 - Radar como empresa própria, separada de Vagou, Nine e Real Grana
+
+Data: 2026-08-02
+
+Decisão:
+
+- Radar é uma empresa nova e independente, de propriedade exclusiva do
+  fundador, sem sócios.
+- Vagou, Nine e Real Grana são empresas separadas entre si e da Radar, cada
+  uma com seus próprios sócios.
+- O Radar CNPJ (este repositório) e o Radar Inbound Automation (repositório
+  `inbound-automation-system`) são dois produtos/módulos da mesma empresa
+  Radar, não projetos de empresas diferentes.
+- As ferramentas da Radar são validadas internamente dentro da Vagou, da Nine
+  e da Real Grana antes de qualquer oferta mais ampla. Essas empresas são
+  usuárias-piloto, não donas do produto.
+- Este repositório não deve referenciar Real Grana, Vagou ou Nine como
+  proprietárias do produto; referências a essas empresas devem aparecer
+  apenas como contexto de piloto/validação, quando fizer sentido.
+- Direção de marca da Radar: taglines curtas e diretas, como "baixa a Radar
+  aí", "busca na Radar", "encontre com Radar".
+
+Racional:
+
+- O fundador quer manter a Radar como veículo próprio, sem misturar
+  sociedade com as demais empresas.
+- Um documento de integração anterior (`radar_cnpj_integration_plan.md`, no
+  repositório `inbound-automation-system`) descrevia por engano uma "Real
+  Grana Growth Platform" como marca guarda-chuva. Essa referência foi
+  corrigida para tratar a Radar como a empresa dona de ambos os módulos.
+- Documentar a separação agora evita ambiguidade societária e de branding
+  conforme os dois produtos evoluem em paralelo.
+
+Consequências:
+
+- Novas specs deste repositório devem tratar "Radar CNPJ" como produto da
+  Radar, não da Real Grana nem da Vagou.
+- O repositório `inbound-automation-system` deve ser tratado como o segundo
+  módulo da Radar; futuras integrações devem referenciar
+  `docs/radar_cnpj_integration_plan.md` naquele repositório como plano
+  vigente.
+- Pilotos como Real Grana, Nine e Vagou podem ser citados como contexto de
+  validação, mas não como propriedade do produto.
