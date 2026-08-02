@@ -76,6 +76,8 @@ from .services import (
     okr_dashboard,
     official_postgres_staging_plan,
     playbook_library,
+    postgres_staging_companies,
+    postgres_staging_summary,
     list_priority_queue,
     list_reply_classifications,
     list_saved_filters,
@@ -340,6 +342,10 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json(list_official_import_checkpoints(conn, params))
                 elif parsed.path == "/api/sources/official/postgres-plan":
                     self.send_json(official_postgres_staging_plan(conn, params))
+                elif parsed.path == "/api/postgres/staging/summary":
+                    self.send_json(postgres_staging_summary(params))
+                elif parsed.path == "/api/postgres/staging/companies":
+                    self.send_json(postgres_staging_companies(params))
                 elif len(parts) == 5 and parts[1] == "sources" and parts[2] == "official" and parts[3] == "snapshots":
                     self.send_json({"items": list_snapshot_files(parts[4])})
                 else:

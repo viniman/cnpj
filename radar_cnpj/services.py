@@ -5,6 +5,7 @@ import json
 import os
 import re
 import secrets
+import subprocess
 import unicodedata
 from datetime import datetime, timedelta
 
@@ -68,6 +69,18 @@ DEFAULT_SCORING_THRESHOLDS = {
     "shared_domain_company_threshold": 5,
 }
 SCORE_CONFIG_TYPES = {"email", "company"}
+POSTGRES_STAGING_TABLES = {
+    "cnaes": "cnaes_raw",
+    "empresas": "empresas_raw",
+    "estabelecimentos": "estabelecimentos_raw",
+    "motivos": "motivos_raw",
+    "municipios": "municipios_raw",
+    "naturezas": "naturezas_raw",
+    "paises": "paises_raw",
+    "qualificacoes": "qualificacoes_raw",
+    "simples": "simples_raw",
+    "socios": "socios_raw",
+}
 DEFAULT_SAAS_PLANS = [
     {
         "code": "free",
@@ -884,6 +897,151 @@ def official_postgres_staging_plan(conn, params=None):
             (snapshot,),
         ).fetchall()
     return build_postgres_staging_plan(snapshot, rows)
+
+
+def sql_literal(value):
+    return "'" + str(value or "").replace("'", "''") + "'"
+
+
+def run_postgres_json(sql):
+    command = [
+        "docker",
+        "compose",
+        "exec",
+        "-T",
+        "postgres",
+        "psql",
+        "-U",
+        os.environ.get("POSTGRES_USER") or "radar_cnpj",
+        "-d",
+        os.environ.get("POSTGRES_DB") or "radar_cnpj",
+        "-t",
+        "-A",
+        "-c",
+        sql,
+    ]
+    result = subprocess.run(command, cwd=os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError((result.stderr or result.stdout or "Falha ao consultar Postgres staging.").strip())
+    output = (result.stdout or "").strip()
+    return json.loads(output or "{}")
+
+
+def postgres_staging_summary(params=None):
+    snapshot = str((params or {}).get("snapshot") or "2026-07").strip()
+    selects = []
+    for family, table in POSTGRES_STAGING_TABLES.items():
+        selects.append(
+            """
+            SELECT %s AS family, %s AS table_name, count(*)::bigint AS total
+            FROM receita_staging.%s
+            WHERE snapshot = %s
+            """
+            % (sql_literal(family), sql_literal(table), table, sql_literal(snapshot))
+        )
+    sql = """
+    WITH counts AS (
+      %s
+    )
+    SELECT json_build_object(
+      'snapshot', %s,
+      'items', COALESCE(json_agg(row_to_json(counts) ORDER BY family), '[]'::json)
+    )
+    FROM counts;
+    """ % (" UNION ALL ".join(selects), sql_literal(snapshot))
+    return run_postgres_json(sql)
+
+
+def postgres_staging_companies(params=None):
+    params = params or {}
+    snapshot = str(params.get("snapshot") or "2026-07").strip()
+    limit = max(1, min(int(params.get("limit") or 50), 100))
+    where = [
+        "e.snapshot = %s" % sql_literal(snapshot),
+        "est.snapshot = %s" % sql_literal(snapshot),
+    ]
+
+    query = str(params.get("query") or "").strip()
+    if query:
+        like = sql_literal("%%%s%%" % query.lower())
+        raw_like = sql_literal("%%%s%%" % re.sub(r"\D", "", query))
+        where.append(
+            """
+            (
+              lower(e.razao_social) LIKE {like}
+              OR lower(est.nome_fantasia) LIKE {like}
+              OR lower(est.correio_eletronico) LIKE {like}
+              OR e.cnpj_basico LIKE {raw_like}
+              OR (est.cnpj_basico || est.cnpj_ordem || est.cnpj_dv) LIKE {raw_like}
+              OR EXISTS (
+                SELECT 1
+                FROM receita_staging.socios_raw s
+                WHERE s.snapshot = {snapshot}
+                  AND s.cnpj_basico = e.cnpj_basico
+                  AND lower(s.nome_socio_razao_social) LIKE {like}
+              )
+            )
+            """.format(like=like, raw_like=raw_like, snapshot=sql_literal(snapshot))
+        )
+
+    if params.get("state"):
+        where.append("upper(est.uf) = %s" % sql_literal(str(params.get("state")).strip().upper()))
+    if params.get("city"):
+        where.append("lower(est.municipio) LIKE %s" % sql_literal("%%%s%%" % str(params.get("city")).strip().lower()))
+    if params.get("cnae"):
+        where.append("est.cnae_fiscal_principal LIKE %s" % sql_literal("%s%%" % str(params.get("cnae")).strip()))
+    if str(params.get("has_email") or "").lower() in ("1", "true", "yes", "sim"):
+        where.append("COALESCE(est.correio_eletronico, '') <> ''")
+
+    sql = """
+    WITH rows AS (
+      SELECT
+        e.cnpj_basico,
+        e.razao_social,
+        e.natureza_juridica,
+        e.capital_social,
+        e.porte_empresa,
+        est.cnpj_basico || est.cnpj_ordem || est.cnpj_dv AS cnpj,
+        est.nome_fantasia,
+        est.situacao_cadastral,
+        est.data_inicio_atividade,
+        est.cnae_fiscal_principal,
+        est.cnae_fiscal_secundaria,
+        est.uf,
+        est.municipio,
+        est.correio_eletronico,
+        est.ddd_1,
+        est.telefone_1,
+        (
+          SELECT count(*)::bigint
+          FROM receita_staging.socios_raw s
+          WHERE s.snapshot = %s AND s.cnpj_basico = e.cnpj_basico
+        ) AS socios_count,
+        (
+          SELECT s.nome_socio_razao_social
+          FROM receita_staging.socios_raw s
+          WHERE s.snapshot = %s AND s.cnpj_basico = e.cnpj_basico
+          ORDER BY s.data_entrada_sociedade NULLS LAST
+          LIMIT 1
+        ) AS socio_amostra
+      FROM receita_staging.estabelecimentos_raw est
+      JOIN receita_staging.empresas_raw e ON e.cnpj_basico = est.cnpj_basico
+      WHERE %s
+      LIMIT %s
+    )
+    SELECT json_build_object(
+      'snapshot', %s,
+      'count', (SELECT count(*) FROM rows),
+      'items', COALESCE((SELECT json_agg(row_to_json(rows)) FROM rows), '[]'::json)
+    );
+    """ % (
+        sql_literal(snapshot),
+        sql_literal(snapshot),
+        " AND ".join(where),
+        int(limit),
+        sql_literal(snapshot),
+    )
+    return run_postgres_json(sql)
 
 
 def seed_sample(conn):

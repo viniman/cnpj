@@ -120,6 +120,21 @@ class PostgresMigrationsTest(unittest.TestCase):
         self.assertIn("Disco livre", js)
         self.assertIn("Disco minimo", js)
 
+    def test_python_ui_exposes_postgres_staging_view(self):
+        html = read_text("static/index.html")
+        js = read_text("static/app.js")
+        server = read_text("radar_cnpj/server.py")
+        services = read_text("radar_cnpj/services.py")
+
+        self.assertIn('data-view="postgres"', html)
+        self.assertIn("postgresStagingMetrics", html)
+        self.assertIn("searchPostgresStagingBtn", html)
+        self.assertIn("/api/postgres/staging/summary", js)
+        self.assertIn("/api/postgres/staging/companies", js)
+        self.assertIn("postgres_staging_summary", server)
+        self.assertIn("postgres_staging_companies", server)
+        self.assertIn("POSTGRES_STAGING_TABLES", services)
+
     def test_staging_counts_script_queries_raw_tables(self):
         script = read_text("scripts/check_receita_staging_counts.ps1")
 
