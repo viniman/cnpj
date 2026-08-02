@@ -11,13 +11,13 @@ Esta é a primeira estrutura do futuro produto fora do super admin Python.
 - Python atual: permanece como super admin interno, ETL da Receita e scripts de
   importação até os fluxos equivalentes estarem maduros.
 
-## Instalação futura
+## Instalação
 
-Não instalei `node_modules` nesta PR para preservar espaço local. Quando for
-rodar:
+As dependências Node foram instaladas com cache local em `data/npm-cache/`.
+Para instalar novamente:
 
 ```powershell
-npm install
+npm.cmd install --cache .\data\npm-cache
 ```
 
 Depois:
@@ -33,6 +33,19 @@ URLs esperadas:
 NestJS: http://127.0.0.1:3001/health
 Next.js: http://127.0.0.1:3000/
 ```
+
+Validações executadas na fundação:
+
+```powershell
+npm.cmd --workspace apps/api run build
+npm.cmd --workspace apps/web run build
+python -m unittest tests.test_next_nest_foundation
+```
+
+Observação de segurança: `npm audit --omit=dev` ainda aponta vulnerabilidades
+em dependências transitivas do Next (`postcss`/`sharp`) na versão disponível.
+Não foi aplicado `npm audit fix --force` porque a sugestão de correção envolve
+downgrade/breaking change inadequado para esta fundação.
 
 ## Banco
 
