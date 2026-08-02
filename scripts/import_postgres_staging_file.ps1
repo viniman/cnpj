@@ -79,6 +79,11 @@ if (!(Test-Path $manifest.local_csv_path)) {
     throw "CSV extraído não encontrado: $($manifest.local_csv_path)"
 }
 
+python "$PSScriptRoot/sanitize_receita_csv.py" $manifest.local_csv_path
+if ($LASTEXITCODE -ne 0) {
+    throw "Sanitizacao do CSV falhou com exit code $LASTEXITCODE."
+}
+
 $containerCsvDir = Container-ParentPath $manifest.container_csv_path
 docker compose exec -T $Service sh -c "mkdir -p '$containerCsvDir'"
 if ($LASTEXITCODE -ne 0) {

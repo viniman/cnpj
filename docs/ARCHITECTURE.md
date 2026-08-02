@@ -293,6 +293,15 @@ A fase 44 adiciona o runner local:
   de aplicação.
 - Reaplicações com mesmo checksum são ignoradas; checksum diferente falha.
 
+### Sanitização de bytes NUL nos arquivos brutos
+
+Alguns arquivos oficiais da Receita (observado em `ESTABELE`) contêm bytes
+`0x00` embutidos em valores de campo. O Postgres rejeita esse byte no tipo
+`text` independente do encoding declarado, então `scripts/import_postgres_staging_file.ps1`
+roda `scripts/sanitize_receita_csv.py` sobre o CSV extraído antes de copiá-lo
+para o container e executar o `COPY`. A sanitização remove apenas o byte
+nulo, sem deslocar delimitadores ou quebras de linha.
+
 ## Fontes automatizadas
 
 Fonte primaria:
