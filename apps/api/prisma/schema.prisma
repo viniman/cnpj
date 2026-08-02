@@ -1,0 +1,11 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// O schema operacional será modelado em próximas PRs.
+// O schema receita_staging permanece bruto e é lido como fonte de transformação.
