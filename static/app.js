@@ -26,6 +26,8 @@ const state = {
   saasAccount: null,
   officialCheckpoints: [],
   officialPostgresPlan: null,
+  postgresStagingSummary: null,
+  postgresStagingCompanies: [],
   scoringConfig: null,
   companyScoringConfig: null,
   scoreConfigVersions: [],
@@ -86,6 +88,7 @@ function setView(view) {
     dashboard: "Dashboard",
     command: "Centro de Comando",
     companies: "Pesquisa de empresas",
+    postgres: "Receita DB",
     lists: "Listas",
     import: "Importacao",
     enrichment: "Enriquecimento",
@@ -120,6 +123,7 @@ async function loadViewData(view = state.view) {
     await loadSavedFilters();
     await loadCompanies();
   }
+  if (view === "postgres") await loadPostgresStaging();
   if (view === "lists") await loadLists(true);
   if (view === "import") {
     await loadOfficialCatalog();
@@ -1646,6 +1650,67 @@ function renderPartners(partners) {
   return `<ul>${partners
     .map((partner) => `<li><strong>${escapeHtml(partner.name)}</strong> - ${escapeHtml(fmt(partner.qualification))}</li>`)
     .join("")}</ul>`;
+}
+
+function postgresStagingParams() {
+  const params = new URLSearchParams();
+  params.set("snapshot", $("#postgresSnapshot").value.trim() || "2026-07");
+  const query = $("#postgresQuery").value.trim();
+  const stateValue = $("#postgresState").value.trim();
+  const city = $("#postgresCity").value.trim();
+  const cnae = $("#postgresCnae").value.trim();
+  if (query) params.set("query", query);
+  if (stateValue) params.set("state", stateValue);
+  if (city) params.set("city", city);
+  if (cnae) params.set("cnae", cnae);
+  if ($("#postgresHasEmail").checked) params.set("has_email", "1");
+  params.set("limit", "50");
+  return params;
+}
+
+async function loadPostgresStaging() {
+  const snapshot = $("#postgresSnapshot").value.trim() || "2026-07";
+  const summary = await api(`/api/postgres/staging/summary?snapshot=${encodeURIComponent(snapshot)}`);
+  state.postgresStagingSummary = summary;
+  renderPostgresStagingSummary(summary);
+  await searchPostgresStaging();
+}
+
+function renderPostgresStagingSummary(summary) {
+  const items = summary.items || [];
+  $("#postgresStagingMetrics").innerHTML = items
+    .map((item) => metric(item.family, Number(item.total || 0).toLocaleString("pt-BR")))
+    .join("");
+}
+
+async function searchPostgresStaging() {
+  const params = postgresStagingParams();
+  const data = await api(`/api/postgres/staging/companies?${params.toString()}`);
+  state.postgresStagingCompanies = data.items || [];
+  $("#postgresStagingStatus").textContent = `${data.count || 0} registro(s) retornado(s) do staging ${data.snapshot || ""}.`;
+  renderPostgresStagingCompanies();
+}
+
+function renderPostgresStagingCompanies() {
+  const items = state.postgresStagingCompanies || [];
+  if (!items.length) {
+    $("#postgresStagingTable").innerHTML = `<div class="empty-state">Nenhum registro encontrado no Postgres staging para estes filtros.</div>`;
+    return;
+  }
+  $("#postgresStagingTable").innerHTML = table(
+    ["Razao social", "CNPJ", "Fantasia", "UF", "Municipio", "CNAE", "Email", "Socios", "Socio amostra"],
+    items.map((item) => [
+      `<span class="truncate" title="${escapeHtml(item.razao_social)}">${escapeHtml(item.razao_social)}</span>`,
+      escapeHtml(fmt(item.cnpj)),
+      escapeHtml(fmt(item.nome_fantasia)),
+      escapeHtml(fmt(item.uf)),
+      escapeHtml(fmt(item.municipio)),
+      escapeHtml(fmt(item.cnae_fiscal_principal)),
+      item.correio_eletronico ? escapeHtml(item.correio_eletronico) : badge("sem email", "amber"),
+      escapeHtml(fmt(item.socios_count)),
+      escapeHtml(fmt(item.socio_amostra)),
+    ]),
+  );
 }
 
 async function loadLists(renderDetail = false) {
@@ -3330,6 +3395,13 @@ function wireEvents() {
   $("#applySavedFilterBtn").addEventListener("click", applySavedFilterFromSelect);
   $("#createIcpFromSavedFilterBtn").addEventListener("click", createIcpFromSavedFilterForm);
   $("#addToListBtn").addEventListener("click", addSelectedToList);
+  $("#refreshPostgresStagingBtn").addEventListener("click", loadPostgresStaging);
+  $("#searchPostgresStagingBtn").addEventListener("click", searchPostgresStaging);
+  ["postgresQuery", "postgresState", "postgresCity", "postgresCnae"].forEach((id) => {
+    $(`#${id}`).addEventListener("keydown", (event) => {
+      if (event.key === "Enter") searchPostgresStaging();
+    });
+  });
   $("#createListBtn").addEventListener("click", createListFromForm);
   $("#importBtn").addEventListener("click", importFromForm);
   $("#discoverOfficialBtn").addEventListener("click", loadOfficialCatalog);

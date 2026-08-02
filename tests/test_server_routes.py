@@ -3,6 +3,7 @@ import os
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from http.server import ThreadingHTTPServer
 from urllib.request import Request, urlopen
 
@@ -65,6 +66,32 @@ class ServerRouteTest(unittest.TestCase):
 
             self.assertEqual(payload["config_type"], "email")
             self.assertTrue(payload["summary"]["has_changes"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def test_postgres_staging_routes_are_available(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), RadarHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = server.server_address[1]
+            with patch(
+                "radar_cnpj.server.postgres_staging_summary",
+                return_value={"snapshot": "2026-07", "items": [{"family": "empresas", "total": 1}]},
+            ):
+                with urlopen(f"http://127.0.0.1:{port}/api/postgres/staging/summary?snapshot=2026-07", timeout=5) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+            self.assertEqual(payload["items"][0]["family"], "empresas")
+
+            with patch(
+                "radar_cnpj.server.postgres_staging_companies",
+                return_value={"snapshot": "2026-07", "count": 1, "items": [{"razao_social": "ALVO LTDA"}]},
+            ):
+                with urlopen(f"http://127.0.0.1:{port}/api/postgres/staging/companies?query=alvo", timeout=5) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+            self.assertEqual(payload["items"][0]["razao_social"], "ALVO LTDA")
         finally:
             server.shutdown()
             server.server_close()

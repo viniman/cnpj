@@ -20,6 +20,7 @@
           <button class="nav-item active" data-view="dashboard">Dashboard</button>
           <button class="nav-item" data-view="command">Comando</button>
           <button class="nav-item" data-view="companies">Empresas</button>
+          <button class="nav-item" data-view="postgres">Receita DB</button>
           <button class="nav-item" data-view="lists">Listas</button>
           <button class="nav-item" data-view="import">Importacao</button>
           <button class="nav-item" data-view="enrichment">Enriquecimento</button>
@@ -573,6 +574,31 @@
               <div class="empty-state">Selecione uma empresa para ver socios, origem e score.</div>
             </aside>
           </div>
+        </section>
+
+        <section id="postgres" class="view">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Receita Postgres staging</h2>
+              <button id="refreshPostgresStagingBtn" class="button">Atualizar</button>
+            </div>
+            <div class="toolbar">
+              <div class="toolbar-actions">
+                <input id="postgresSnapshot" class="input compact" value="2026-07" />
+                <input id="postgresQuery" class="input search-input" placeholder="Razao social, CNPJ, socio ou email" />
+                <input id="postgresState" class="input compact" placeholder="UF" maxlength="2" />
+                <input id="postgresCity" class="input compact" placeholder="Municipio" />
+                <input id="postgresCnae" class="input compact" placeholder="CNAE" />
+                <label class="check-row"><input type="checkbox" id="postgresHasEmail" /> Com email</label>
+                <button id="searchPostgresStagingBtn" class="button primary">Buscar</button>
+              </div>
+              <div id="postgresStagingStatus" class="muted">Aguardando consulta.</div>
+            </div>
+            <div id="postgresStagingMetrics" class="metric-grid compact-metrics"></div>
+            <div id="postgresStagingTable" class="table-wrap">
+              <div class="empty-state">Use os filtros para consultar dados reais do schema receita_staging.</div>
+            </div>
+          </section>
         </section>
 
         <section id="lists" class="view">
