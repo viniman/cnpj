@@ -302,6 +302,33 @@ roda `scripts/sanitize_receita_csv.py` sobre o CSV extraído antes de copiá-lo
 para o container e executar o `COPY`. A sanitização remove apenas o byte
 nulo, sem deslocar delimitadores ou quebras de linha.
 
+### Desempenho da carga completa (issue #61)
+
+A primeira carga completa do snapshot `2026-07` levou quase 10 horas. O
+diagnóstico (ver ADR-051 em `docs/DECISIONS.md`) apontou duas causas
+confirmadas com evidência real, não suposição:
+
+- O Postgres do `docker-compose.yml` rodava com configuração padrão de
+  fábrica (`shared_buffers 128MB`, `max_wal_size 1GB`), causando checkpoint
+  a cada 10 segundos durante a carga.
+- 9 índices nas tabelas grandes (3 deles GIN trigram) eram mantidos linha a
+  linha durante o `INSERT` da tabela temporária para a final.
+
+Correções aplicadas:
+
+- `scripts/bulk_index_toggle.py` lê a DDL de índice direto da migration
+  (fonte única, sem duplicar SQL) e gera `DROP`/`CREATE` para
+  `empresas_raw`, `estabelecimentos_raw` e `socios_raw`.
+- `scripts/import_postgres_staging_snapshot.ps1` derruba esses índices
+  antes do loop de arquivos e recria ao final, mesmo em caso de falha.
+- `docker-compose.yml` ajustado para carga em lote: `shared_buffers=1GB`,
+  `max_wal_size=8GB`, `checkpoint_timeout=30min`, `synchronous_commit=off`,
+  `maintenance_work_mem=512MB`, `wal_buffers=64MB`.
+
+O tempo medido após essa correção fica registrado em
+`docs/BASE_READINESS_AUDIT.md`. Paralelização de arquivos independentes e
+eliminação do `docker compose cp` por arquivo ficaram para a issue #62.
+
 ## Fontes automatizadas
 
 Fonte primaria:

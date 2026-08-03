@@ -1342,3 +1342,68 @@ Consequências:
   vigente.
 - Pilotos como Real Grana, Nine e Vagou podem ser citados como contexto de
   validação, mas não como propriedade do produto.
+
+## ADR-051 - Performance da carga completa: índices em lote e tuning do Postgres
+
+Data: 2026-08-03
+
+Decisão:
+
+- A importação completa do snapshot `2026-07` (37 arquivos, ~220M linhas em
+  `empresas_raw`, `estabelecimentos_raw` e `socios_raw`) levou quase 10 horas
+  na primeira execução bem-sucedida.
+- Diagnóstico com evidência real (não suposição): o `docker-compose.yml`
+  rodava o Postgres com configuração padrão de fábrica
+  (`shared_buffers 128MB`, `max_wal_size 1GB`, `checkpoint_timeout 5min`,
+  `synchronous_commit on`, `maintenance_work_mem 64MB`, `wal_buffers 4MB`)
+  numa máquina com 32GB de RAM. Os próprios logs do Postgres confirmaram
+  checkpoint a cada 10 segundos, cada um levando ~4,5 minutos.
+- A migration `20260801190000_create_receita_staging_raw_tables.sql` cria 9
+  índices nas tabelas grandes antes da carga, incluindo 3 índices GIN
+  trigram (`razao_social`, `nome_fantasia`, `nome_socio_razao_social`). O
+  pipeline fazia `COPY` numa tabela temporária sem índice e depois
+  `INSERT INTO tabela_final SELECT FROM temp`, pagando manutenção de índice
+  linha a linha durante o `INSERT` de dezenas de milhões de linhas.
+- Correção aplicada (issue #61):
+  1. `scripts/bulk_index_toggle.py` lê as definições de índice direto da
+     migration (fonte única da DDL, sem duplicar SQL) e gera
+     `DROP INDEX`/`CREATE INDEX` para `empresas_raw`, `estabelecimentos_raw`
+     e `socios_raw`.
+  2. `scripts/import_postgres_staging_snapshot.ps1` derruba esses índices
+     antes do loop de arquivos e os recria uma única vez ao final, mesmo se
+     a importação falhar no meio (bloco `finally`).
+  3. `docker-compose.yml` ajustado para carga em lote:
+     `shared_buffers=1GB`, `max_wal_size=8GB`, `checkpoint_timeout=30min`,
+     `synchronous_commit=off`, `maintenance_work_mem=512MB`,
+     `wal_buffers=64MB`.
+- Pandas ou qualquer biblioteca cliente de dados foi descartada como opção:
+  o `COPY` do Postgres já é o caminho mais rápido de carga; o gargalo era do
+  lado do servidor (manutenção de índice e checkpoint), não do parsing
+  client-side.
+- Paralelização de arquivos independentes e eliminação do `docker compose cp`
+  por arquivo ficaram fora de escopo desta issue e estão registradas na
+  issue #62, que referencia esta ADR e a issue #59 (correção de bytes NUL
+  que tornou a carga completa executável pela primeira vez).
+
+Racional:
+
+- `synchronous_commit=off` é seguro aqui porque `receita_staging` é uma
+  cópia bruta descartável e reimportável a qualquer momento a partir dos
+  ZIPs oficiais; não é dado transacional de produto.
+- Derrubar e recriar índice é uma prática padrão de carga em lote no
+  Postgres: construir um índice do zero sobre dado já carregado é ordens de
+  magnitude mais rápido que mantê-lo incrementalmente linha a linha.
+- Ler a DDL de índice direto da migration evita duas fontes de verdade
+  divergentes entre o schema criado e o script de toggle.
+
+Consequências:
+
+- Qualquer novo índice adicionado a `empresas_raw`, `estabelecimentos_raw`
+  ou `socios_raw` em migrations futuras passa a ser automaticamente
+  incluído no toggle de carga em lote, desde que siga o mesmo padrão
+  `CREATE INDEX IF NOT EXISTS <nome> ON receita_staging.<tabela> ...;`.
+- A issue #62 (paralelização de arquivos, eliminação do `docker cp`) deve
+  medir o tempo de carga após esta ADR antes de decidir se ainda vale a
+  pena.
+- O tempo medido da carga completa após esta correção fica registrado em
+  `docs/BASE_READINESS_AUDIT.md`.
