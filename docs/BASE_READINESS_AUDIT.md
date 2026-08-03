@@ -19,6 +19,53 @@ Motivo:
   livre medido é menor que o necessário para ZIPs, extrações temporárias e
   volume Postgres.
 
+## Status em 2026-08-03
+
+Status geral: **carga completa do snapshot `2026-07` validada em Postgres**.
+
+Motivo:
+
+- Capacidade de disco foi resolvida (redimensionamento de partição local).
+- A primeira tentativa de carga completa parou no arquivo 18/37
+  (`Estabelecimentos0.zip`) por bytes `0x00` embutidos no arquivo oficial,
+  rejeitados pelo tipo `text` do Postgres independente do encoding. Corrigido
+  na issue #59/PR #60 com uma etapa de sanitização antes do `COPY`.
+- Reexecutada a importação completa dos 37 arquivos sem erro.
+- Contagens de todas as 10 famílias validadas com `-RequireData`.
+
+### Evidência da carga completa
+
+Comando validado:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 `
+  -Snapshot 2026-07
+```
+
+Contagens validadas:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_counts.ps1 `
+  -Snapshot 2026-07 `
+  -RequireData
+```
+
+Resultado observado:
+
+```text
+cnaes              cnaes_raw                            1359
+empresas           empresas_raw                     69062850
+estabelecimentos   estabelecimentos_raw             72318968
+motivos            motivos_raw                            63
+municipios         municipios_raw                       5572
+naturezas          naturezas_raw                          91
+paises             paises_raw                            255
+qualificacoes      qualificacoes_raw                      68
+simples            simples_raw                      49445426
+socios             socios_raw                       27992378
+Validacao de contagens concluida.
+```
+
 ## Evidências já validadas
 
 ### Repositório
@@ -168,9 +215,9 @@ capacidade antes de copiar comandos de carga.
 
 A PR final de fechamento da base só deve ser criada depois destes gates:
 
-- [ ] Docker Desktop/Linux engine ativo.
-- [ ] `docker compose up -d postgres` concluído.
-- [ ] `scripts\apply_postgres_migrations.ps1` executado sem erro.
+- [x] Docker Desktop/Linux engine ativo.
+- [x] `docker compose up -d postgres` concluído.
+- [x] `scripts\apply_postgres_migrations.ps1` executado sem erro.
 - [x] Smoke import executado:
 
 ```powershell
@@ -188,17 +235,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_stagin
   -RequireData
 ```
 
-- [ ] Capacidade de disco suficiente provisionada para ZIPs, extrações
+- [x] Capacidade de disco suficiente provisionada para ZIPs, extrações
   temporárias e volume Postgres.
 - [x] Gate automático impede carga completa quando o disco está insuficiente.
-- [ ] Importação completa executada:
+- [x] Importação completa executada:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 `
   -Snapshot 2026-07
 ```
 
-- [ ] Contagens completas validadas:
+- [x] Contagens completas validadas:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\check_receita_staging_counts.ps1 `
