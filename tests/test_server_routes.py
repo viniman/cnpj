@@ -25,13 +25,13 @@ class ServerRouteTest(unittest.TestCase):
             os.environ["RADAR_CNPJ_DB"] = self.old_db
         self.temp_dir.cleanup()
 
-    def test_sequence_journeys_route_is_not_treated_as_sequence_id(self):
+    def test_cadence_journeys_route_is_not_treated_as_cadence_id(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), RadarHandler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
             port = server.server_address[1]
-            with urlopen(f"http://127.0.0.1:{port}/api/sequences/journeys", timeout=5) as response:
+            with urlopen(f"http://127.0.0.1:{port}/api/cadences/journeys", timeout=5) as response:
                 payload = json.loads(response.read().decode("utf-8"))
             self.assertEqual(payload, {"items": []})
         finally:

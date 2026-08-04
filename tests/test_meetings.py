@@ -11,9 +11,9 @@ from radar_cnpj.services import (
     create_list,
     create_meeting,
     create_meeting_from_handoff,
-    create_sequence,
+    create_cadence,
     create_workspace,
-    enroll_sequence_from_list,
+    enroll_cadence_from_list,
     get_meeting,
     list_agent_actions,
     list_meetings,
@@ -89,14 +89,14 @@ class MeetingSchedulingTest(unittest.TestCase):
                 "body": "Mensagem para {{nome_empresa}}.",
             },
         )
-        sequence = create_sequence(
+        cadence = create_cadence(
             conn,
             {
                 "name": "Cadencia reuniao",
                 "steps": [{"name": "Primeiro contato", "template_id": template["id"]}],
             },
         )
-        enroll_sequence_from_list(conn, sequence["id"], lead_list["id"])
+        enroll_cadence_from_list(conn, cadence["id"], lead_list["id"])
         reply = record_inbound_reply(conn, {"send_id": send["id"], "subject": "Re: teste", "body": body})
         return lead["id"], reply
 

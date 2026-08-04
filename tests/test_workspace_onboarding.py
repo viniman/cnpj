@@ -9,7 +9,7 @@ from radar_cnpj.services import (
     get_playbook,
     list_email_templates,
     list_icp_rules,
-    list_sequences,
+    list_cadences,
     okr_dashboard,
     playbook_library,
     run_workspace_onboarding,
@@ -85,13 +85,13 @@ class WorkspaceOnboardingTest(unittest.TestCase):
             self.assertEqual(result["icp_rule"]["criteria"]["states"], ["SP"])
             self.assertEqual(result["icp_rule"]["criteria"]["min_email_score"], 45)
             self.assertEqual(result["template"]["org_id"], workspace_id)
-            self.assertEqual(result["sequence"]["org_id"], workspace_id)
-            self.assertTrue(all(step["require_approval"] == 1 for step in result["sequence"]["steps"]))
+            self.assertEqual(result["cadence"]["org_id"], workspace_id)
+            self.assertTrue(all(step["require_approval"] == 1 for step in result["cadence"]["steps"]))
             self.assertEqual(result["objective"]["org_id"], workspace_id)
             self.assertEqual(result["onboarding_run"]["summary"]["org_id"], workspace_id)
             self.assertEqual(len(list_icp_rules(conn)["items"]), 1)
             self.assertEqual(len(list_email_templates(conn)["items"]), 1)
-            self.assertEqual(len(list_sequences(conn)["items"]), 1)
+            self.assertEqual(len(list_cadences(conn)["items"]), 1)
             self.assertEqual(okr_dashboard(conn)["objectives"][0]["title"], "Validar Nine Wizard")
             row = conn.execute(
                 "SELECT COUNT(*) AS total FROM workspace_onboarding_runs WHERE org_id = ?",
@@ -129,7 +129,7 @@ class WorkspaceOnboardingTest(unittest.TestCase):
             self.assertEqual(result["playbook"]["source"], "cloned")
             self.assertEqual(result["active_application"]["content"]["icp"]["states"], ["PR"])
             self.assertEqual(result["icp_rule"]["criteria"]["states"], ["PR"])
-            self.assertEqual(len(result["sequence"]["steps"]), 2)
+            self.assertEqual(len(result["cadence"]["steps"]), 2)
             self.assertTrue(result["onboarding_run"]["summary"]["used_cloned_playbook"])
 
             set_current_workspace(conn, 1)
