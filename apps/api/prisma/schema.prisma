@@ -37,3 +37,42 @@ model User {
   @@map("users")
   @@schema("app")
 }
+
+// Sem escopo por organizacao ainda: sem autenticacao neste MVP interno,
+// listas sao globais. Escopo por organizationId entra junto com auth.
+model List {
+  id          Int            @id @default(autoincrement())
+  name        String
+  description String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  companies   ListCompany[]
+
+  @@map("lists")
+  @@schema("app")
+}
+
+// Snapshot dos campos de exibicao no momento em que a empresa foi
+// adicionada a lista, para nao depender de novo join com
+// receita_staging a cada visualizacao (que pode ser lento por cache
+// frio, ver docs/ARCHITECTURE.md).
+model ListCompany {
+  id                 Int      @id @default(autoincrement())
+  listId             Int      @map("list_id")
+  list               List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  cnpjBasico         String   @map("cnpj_basico")
+  cnpjOrdem          String   @map("cnpj_ordem")
+  cnpjDv             String   @map("cnpj_dv")
+  razaoSocial        String   @map("razao_social")
+  nomeFantasia       String?  @map("nome_fantasia")
+  situacaoCadastral  String?  @map("situacao_cadastral")
+  uf                 String?
+  municipioNome      String?  @map("municipio_nome")
+  cnaeDescricao      String?  @map("cnae_descricao")
+  correioEletronico  String?  @map("correio_eletronico")
+  addedAt            DateTime @default(now()) @map("added_at")
+
+  @@unique([listId, cnpjBasico, cnpjOrdem, cnpjDv])
+  @@map("list_companies")
+  @@schema("app")
+}

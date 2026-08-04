@@ -79,6 +79,18 @@ Referência de produto usada no design: mapeamento dos módulos Leads,
 Localizador e Campanhas do Snov.io (não copiado literalmente — layout
 próprio, mais limpo).
 
+Issue #70 tornou `/listas` funcional:
+
+- Modelos Prisma `List` e `ListCompany` (schema `app`). `ListCompany`
+  guarda um snapshot dos campos de exibição no momento em que a empresa
+  foi adicionada (não depende de novo join com `receita_staging`, que
+  pode ser lento por cache frio).
+- Sem escopo por organização ainda — listas são globais neste MVP sem
+  autenticação.
+- `/empresas` ganhou seleção de linhas + "Salvar em lista" (lista
+  existente ou nova). `/listas` lista as listas salvas. `/listas/[id]`
+  mostra e permite remover empresas de uma lista.
+
 ## Próximas PRs
 
 1. ~~Definir schema operacional inicial no Prisma.~~ Feito (issue #66):
@@ -87,9 +99,9 @@ próprio, mais limpo).
    #66): `GET /companies/search`.
 3. ~~Criar página Next SSR de busca.~~ Feito parcialmente (issue #68):
    `/empresas` busca client-side; SSR pode vir depois se necessário.
-4. Listas (Prisma + endpoints + UI) — issue em andamento.
+4. ~~Listas (Prisma + endpoints + UI).~~ Feito (issue #70).
 5. Config de conta de e-mail (SMTP AWS SES + limite diário/atraso) —
-   issue em andamento.
-6. Campanhas + motor de envio — depende de 4 e 5.
+   próxima issue.
+6. Campanhas + motor de envio — depende de 4 (feito) e 5.
 7. Migrar gradualmente fluxos de usuário final para Next.
 8. Manter Python para ETL/super admin até substituição explícita.
