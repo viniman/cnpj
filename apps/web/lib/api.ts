@@ -36,3 +36,70 @@ export function formatCnpj(cnpjBasico: string, cnpjOrdem: string, cnpjDv: string
     '$1.$2.$3/$4-$5',
   );
 }
+
+export interface ListSummary {
+  id: number;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  companyCount: number;
+}
+
+export interface ListCompany {
+  id: number;
+  listId: number;
+  cnpjBasico: string;
+  cnpjOrdem: string;
+  cnpjDv: string;
+  razaoSocial: string;
+  nomeFantasia: string | null;
+  situacaoCadastral: string | null;
+  uf: string | null;
+  municipioNome: string | null;
+  cnaeDescricao: string | null;
+  correioEletronico: string | null;
+  addedAt: string;
+}
+
+export interface ListDetail {
+  id: number;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  companies: ListCompany[];
+  companyCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export async function fetchLists(): Promise<ListSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/lists`, { cache: 'no-store' });
+  if (!response.ok) throw new Error('Falha ao carregar listas.');
+  return response.json();
+}
+
+export async function createList(name: string, description?: string): Promise<ListSummary> {
+  const response = await fetch(`${API_BASE_URL}/lists`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, description }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.message || 'Falha ao criar lista.');
+  }
+  return response.json();
+}
+
+export async function addCompaniesToList(listId: number, companies: CompanySearchResult[]) {
+  const response = await fetch(`${API_BASE_URL}/lists/${listId}/companies`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ companies }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.message || 'Falha ao adicionar empresas à lista.');
+  }
+  return response.json() as Promise<{ added: number; requested: number }>;
+}

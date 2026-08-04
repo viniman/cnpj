@@ -1,8 +1,9 @@
 'use client';
 
-import { AlertCircle, Loader2, Search } from 'lucide-react';
-import { useState } from 'react';
+import { AlertCircle, CheckCircle2, Loader2, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { PageHeader } from '../../components/page-header';
+import { SaveToListButton, SaveToListPanel } from '../../components/save-to-list-panel';
 import {
   API_BASE_URL,
   CompanySearchResult,
@@ -19,11 +20,23 @@ interface Filters {
 
 const EMPTY_FILTERS: Filters = { q: '', uf: '', cnae: '', situacao: '' };
 
+function companyKey(company: CompanySearchResult): string {
+  return `${company.cnpjBasico}${company.cnpjOrdem}${company.cnpjDv}`;
+}
+
 export default function EmpresasPage() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [results, setResults] = useState<CompanySearchResult[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
+
+  const selectedCompanies = useMemo(
+    () => (results || []).filter((company) => selected.has(companyKey(company))),
+    [results, selected],
+  );
 
   async function runSearch(event?: React.FormEvent) {
     event?.preventDefault();
@@ -42,6 +55,7 @@ export default function EmpresasPage() {
 
     setLoading(true);
     setError(null);
+    setSavedMessage(null);
     try {
       const response = await fetch(`${API_BASE_URL}/companies/search?${params.toString()}`);
       if (!response.ok) {
@@ -50,12 +64,31 @@ export default function EmpresasPage() {
       }
       const data = await response.json();
       setResults(data.results);
+      setSelected(new Set());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro inesperado na busca.');
       setResults(null);
     } finally {
       setLoading(false);
     }
+  }
+
+  function toggleAll() {
+    if (!results) return;
+    if (selected.size === results.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(results.map(companyKey)));
+    }
+  }
+
+  function toggleOne(key: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   }
 
   return (
@@ -119,11 +152,18 @@ export default function EmpresasPage() {
         </button>
       </form>
 
-      <div className="px-8 pb-10">
+      <div className="relative px-8 pb-10">
         {error && (
           <div className="mb-4 flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <AlertCircle size={16} />
             {error}
+          </div>
+        )}
+
+        {savedMessage && (
+          <div className="mb-4 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <CheckCircle2 size={16} />
+            {savedMessage}
           </div>
         )}
 
@@ -141,9 +181,42 @@ export default function EmpresasPage() {
 
         {results && results.length > 0 && (
           <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+            <div className="flex items-center justify-between border-b border-zinc-200 bg-zinc-50 px-4 py-2">
+              <p className="text-xs text-zinc-500">
+                {selected.size > 0 ? `${selected.size} selecionada(s)` : `${results.length} resultado(s)`}
+              </p>
+              <div className="relative">
+                {selected.size > 0 && (
+                  <SaveToListButton count={selected.size} onClick={() => setPanelOpen((v) => !v)} />
+                )}
+                {panelOpen && (
+                  <SaveToListPanel
+                    companies={selectedCompanies}
+                    onClose={() => setPanelOpen(false)}
+                    onSaved={({ listName, added }) => {
+                      setPanelOpen(false);
+                      setSelected(new Set());
+                      setSavedMessage(
+                        added > 0
+                          ? `${added} empresa(s) salva(s) em "${listName}".`
+                          : `Essas empresas já estavam em "${listName}".`,
+                      );
+                    }}
+                  />
+                )}
+              </div>
+            </div>
             <table className="w-full text-left text-sm">
               <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
+                  <th className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selected.size === results.length}
+                      onChange={toggleAll}
+                      className="rounded border-zinc-300"
+                    />
+                  </th>
                   <th className="px-4 py-3 font-medium">Empresa</th>
                   <th className="px-4 py-3 font-medium">CNPJ</th>
                   <th className="px-4 py-3 font-medium">Situação</th>
@@ -154,9 +227,18 @@ export default function EmpresasPage() {
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {results.map((company) => {
+                  const key = companyKey(company);
                   const situacao = company.situacaoCadastral ? SITUACAO_LABELS[company.situacaoCadastral] : null;
                   return (
-                    <tr key={`${company.cnpjBasico}${company.cnpjOrdem}${company.cnpjDv}`} className="hover:bg-zinc-50">
+                    <tr key={key} className={selected.has(key) ? 'bg-brand-50/40' : 'hover:bg-zinc-50'}>
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(key)}
+                          onChange={() => toggleOne(key)}
+                          className="rounded border-zinc-300"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-zinc-900">{company.razaoSocial?.trim()}</p>
                         {company.nomeFantasia && (
