@@ -8,7 +8,7 @@ const state = {
   templates: [],
   selectedTemplateId: null,
   lastRenderedTemplate: null,
-  sequences: [],
+  cadences: [],
   icpRules: [],
   priorityQueue: [],
   replies: [],
@@ -94,7 +94,7 @@ function setView(view) {
     enrichment: "Enriquecimento",
     experiments: "Experimentos",
     templates: "Templates",
-    sequences: "Sequencias",
+    cadences: "Cadencias",
     icp: "ICP SDR",
     replies: "Respostas",
     hygiene: "Higiene de emails",
@@ -134,7 +134,7 @@ async function loadViewData(view = state.view) {
     await loadExperiments();
   }
   if (view === "templates") await loadTemplates();
-  if (view === "sequences") await loadSequenceWorkspace();
+  if (view === "cadences") await loadCadenceWorkspace();
   if (view === "icp") await loadIcpWorkspace();
   if (view === "replies") await loadReplyWorkspace();
   if (view === "hygiene") await Promise.all([loadScoringConfig(), loadCompanyScoringConfig(), loadScoreConfigVersions()]);
@@ -660,14 +660,14 @@ function renderWorkspaceOnboardingResult(result) {
     return;
   }
   container.innerHTML = table(
-    ["Workspace", "Playbook", "ICP", "Template", "Sequencia", "OKR", "Run"],
+    ["Workspace", "Playbook", "ICP", "Template", "Cadencia", "OKR", "Run"],
     [
       [
         escapeHtml(result.profile?.display_name || result.workspace?.name || "-"),
         escapeHtml(result.playbook?.name || "-"),
         escapeHtml(result.icp_rule?.name || "-"),
         escapeHtml(result.template?.name || "-"),
-        escapeHtml(result.sequence?.name || "-"),
+        escapeHtml(result.cadence?.name || "-"),
         escapeHtml(result.objective?.title || "-"),
         badge(result.onboarding_run?.id || "-"),
       ],
@@ -1210,7 +1210,7 @@ function renderCommandKanban(columns) {
                   <span>${escapeHtml(card.email || "-")}</span>
                   <div class="stat-line compact-line">
                     ${badge(card.status, experimentStatusTone(card.status))}
-                    ${card.sequence_name ? badge(card.sequence_name, "purple") : ""}
+                    ${card.cadence_name ? badge(card.cadence_name, "purple") : ""}
                   </div>
                   <small>${escapeHtml([card.city, card.state].filter(Boolean).join(" / ") || card.next_action_at || "-")}</small>
                   <button class="row-action" data-lead-replay="${escapeHtml(card.lead_id)}">Replay</button>
@@ -1313,7 +1313,7 @@ function renderLeadTimeline(data) {
         .map(
           (item) => `
             <article class="timeline-item">
-              <div class="timeline-seq">${escapeHtml(item.sequence)}</div>
+              <div class="timeline-seq">${escapeHtml(item.cadence)}</div>
               <div class="timeline-body">
                 <div class="timeline-head">
                   <strong>${escapeHtml(item.title || item.kind)}</strong>
@@ -1731,8 +1731,8 @@ function renderListSelector() {
   if (select) select.innerHTML = markup;
   const experimentSelect = $("#experimentList");
   if (experimentSelect) experimentSelect.innerHTML = markup;
-  const sequenceSelect = $("#sequenceList");
-  if (sequenceSelect) sequenceSelect.innerHTML = markup;
+  const cadenceSelect = $("#cadenceList");
+  if (cadenceSelect) cadenceSelect.innerHTML = markup;
   const icpSelect = $("#icpList");
   if (icpSelect) icpSelect.innerHTML = markup;
 }
@@ -2461,79 +2461,79 @@ function useTemplateInCampaign() {
   showStatus("Template renderizado aplicado ao formulario de campanha simulada.");
 }
 
-async function loadSequenceWorkspace() {
+async function loadCadenceWorkspace() {
   await loadLists();
   await loadTemplates();
-  await Promise.all([loadSequences(), loadApprovals(), loadJourneys(), loadAgentActions()]);
+  await Promise.all([loadCadences(), loadApprovals(), loadJourneys(), loadAgentActions()]);
 }
 
-async function createSequenceFromForm() {
-  const firstTemplate = Number($("#sequenceStepTemplate1").value || 0);
+async function createCadenceFromForm() {
+  const firstTemplate = Number($("#cadenceStepTemplate1").value || 0);
   if (!firstTemplate) return showStatus("Selecione o template do passo 1.", "warn");
   const steps = [{ name: "Primeiro contato", template_id: firstTemplate, wait_days: 0 }];
-  const secondTemplate = Number($("#sequenceStepTemplate2").value || 0);
+  const secondTemplate = Number($("#cadenceStepTemplate2").value || 0);
   if (secondTemplate) {
     steps.push({
       name: "Follow-up",
       template_id: secondTemplate,
-      wait_days: Number($("#sequenceStep2Wait").value || 0),
+      wait_days: Number($("#cadenceStep2Wait").value || 0),
     });
   }
   const payload = {
-    name: $("#sequenceName").value.trim(),
-    description: $("#sequenceDescription").value.trim(),
+    name: $("#cadenceName").value.trim(),
+    description: $("#cadenceDescription").value.trim(),
     steps,
   };
-  if (!payload.name) return showStatus("Informe o nome da sequencia.", "warn");
-  await api("/api/sequences", { method: "POST", body: JSON.stringify(payload) });
-  $("#sequenceName").value = "";
-  $("#sequenceDescription").value = "";
-  showStatus("Sequencia criada com passos supervisionados.");
-  await loadSequences();
+  if (!payload.name) return showStatus("Informe o nome da cadencia.", "warn");
+  await api("/api/cadences", { method: "POST", body: JSON.stringify(payload) });
+  $("#cadenceName").value = "";
+  $("#cadenceDescription").value = "";
+  showStatus("Cadencia criada com passos supervisionados.");
+  await loadCadences();
 }
 
-async function loadSequences() {
-  const data = await api("/api/sequences");
-  state.sequences = data.items || [];
-  renderSequences(state.sequences);
+async function loadCadences() {
+  const data = await api("/api/cadences");
+  state.cadences = data.items || [];
+  renderCadences(state.cadences);
 }
 
-function renderSequences(items) {
-  const container = $("#sequencesTable");
+function renderCadences(items) {
+  const container = $("#cadencesTable");
   if (!container) return;
   if (!items.length) {
-    container.innerHTML = `<div class="empty-state">Nenhuma sequencia criada ainda.</div>`;
+    container.innerHTML = `<div class="empty-state">Nenhuma cadencia criada ainda.</div>`;
     return;
   }
   container.innerHTML = table(
-    ["ID", "Sequencia", "Status", "Passos", "Jornadas", ""],
-    items.map((sequence) => {
-      const counts = sequence.journey_counts || {};
+    ["ID", "Cadencia", "Status", "Passos", "Jornadas", ""],
+    items.map((cadence) => {
+      const counts = cadence.journey_counts || {};
       const summary = Object.entries(counts).map(([key, value]) => `${key}:${value}`).join(" / ") || "-";
       return [
-        sequence.id,
-        `<span class="truncate" title="${escapeHtml(sequence.name)}">${escapeHtml(sequence.name)}</span>`,
-        badge(sequence.status, sequence.status === "active" ? "green" : "amber"),
-        escapeHtml((sequence.steps || []).map((step) => `${step.step_number}. ${step.name}`).join("; ")),
+        cadence.id,
+        `<span class="truncate" title="${escapeHtml(cadence.name)}">${escapeHtml(cadence.name)}</span>`,
+        badge(cadence.status, cadence.status === "active" ? "green" : "amber"),
+        escapeHtml((cadence.steps || []).map((step) => `${step.step_number}. ${step.name}`).join("; ")),
         escapeHtml(summary),
-        `<button class="row-action" data-enroll-sequence="${sequence.id}">Inscrever lista</button>`,
+        `<button class="row-action" data-enroll-cadence="${cadence.id}">Inscrever lista</button>`,
       ];
     }),
   );
-  $$("[data-enroll-sequence]").forEach((button) => {
-    button.addEventListener("click", () => enrollSequence(button.dataset.enrollSequence));
+  $$("[data-enroll-cadence]").forEach((button) => {
+    button.addEventListener("click", () => enrollCadence(button.dataset.enrollCadence));
   });
 }
 
-async function enrollSequence(sequenceId) {
-  const listId = Number($("#sequenceList").value || 0);
+async function enrollCadence(cadenceId) {
+  const listId = Number($("#cadenceList").value || 0);
   if (!listId) return showStatus("Selecione uma lista para inscrever.", "warn");
-  const result = await api(`/api/sequences/${sequenceId}/enroll`, {
+  const result = await api(`/api/cadences/${cadenceId}/enroll`, {
     method: "POST",
     body: JSON.stringify({ list_id: listId }),
   });
   showStatus(`${result.enrolled} jornadas criadas / ${result.approvals} aprovacoes pendentes.`);
-  await Promise.all([loadSequences(), loadApprovals(), loadJourneys(), loadAgentActions()]);
+  await Promise.all([loadCadences(), loadApprovals(), loadJourneys(), loadAgentActions()]);
 }
 
 async function loadApprovals() {
@@ -2577,11 +2577,11 @@ async function decideApproval(approvalId, decision) {
     body: JSON.stringify({ note }),
   });
   showStatus(decision === "approve" ? "Passo aprovado e simulado." : "Passo rejeitado.");
-  await Promise.all([loadSequences(), loadApprovals(), loadJourneys(), loadAgentActions()]);
+  await Promise.all([loadCadences(), loadApprovals(), loadJourneys(), loadAgentActions()]);
 }
 
 async function loadJourneys() {
-  const data = await api("/api/sequences/journeys");
+  const data = await api("/api/cadences/journeys");
   renderJourneys(data.items || []);
 }
 
@@ -2593,11 +2593,11 @@ function renderJourneys(items) {
     return;
   }
   container.innerHTML = table(
-    ["ID", "Lead", "Sequencia", "Passo", "Status", "Proxima acao", "Bloqueio", ""],
+    ["ID", "Lead", "Cadencia", "Passo", "Status", "Proxima acao", "Bloqueio", ""],
     items.map((journey) => [
       journey.id,
       escapeHtml(journey.trade_name || journey.legal_name || journey.email || "-"),
-      escapeHtml(journey.sequence_name),
+      escapeHtml(journey.cadence_name),
       escapeHtml(`${journey.current_step_number}. ${journey.step_name || "-"}`),
       badge(journey.status, experimentStatusTone(journey.status)),
       escapeHtml(fmt(journey.next_action_at)),
@@ -2611,7 +2611,7 @@ function renderJourneys(items) {
 }
 
 async function prepareNextJourney(journeyId) {
-  await api(`/api/sequences/journeys/${journeyId}/prepare-next`, { method: "POST", body: "{}" });
+  await api(`/api/cadences/journeys/${journeyId}/prepare-next`, { method: "POST", body: "{}" });
   showStatus("Proximo passo preparado para aprovacao.");
   await Promise.all([loadApprovals(), loadJourneys(), loadAgentActions()]);
 }
@@ -2629,13 +2629,13 @@ function renderAgentActions(items) {
     return;
   }
   container.innerHTML = table(
-    ["Data", "Acao", "Origem", "Lead", "Sequencia", "Motivo"],
+    ["Data", "Acao", "Origem", "Lead", "Cadencia", "Motivo"],
     items.map((action) => [
       escapeHtml(action.created_at),
       badge(action.action_type, "purple"),
       badge(action.source),
       escapeHtml(fmt(action.email)),
-      escapeHtml(fmt(action.sequence_name)),
+      escapeHtml(fmt(action.cadence_name)),
       escapeHtml(action.reason),
     ]),
   );
@@ -3445,8 +3445,8 @@ function wireEvents() {
   $("#createTemplateVersionBtn").addEventListener("click", createTemplateVersionFromForm);
   $("#renderTemplateBtn").addEventListener("click", renderTemplateFromForm);
   $("#useTemplateInCampaignBtn").addEventListener("click", useTemplateInCampaign);
-  $("#createSequenceBtn").addEventListener("click", createSequenceFromForm);
-  $("#refreshSequencesBtn").addEventListener("click", loadSequenceWorkspace);
+  $("#createCadenceBtn").addEventListener("click", createCadenceFromForm);
+  $("#refreshCadencesBtn").addEventListener("click", loadCadenceWorkspace);
   $("#refreshApprovalsBtn").addEventListener("click", loadApprovals);
   $("#refreshJourneysBtn").addEventListener("click", loadJourneys);
   $("#refreshAgentActionsBtn").addEventListener("click", loadAgentActions);
