@@ -66,6 +66,68 @@ socios             socios_raw                       27992378
 Validacao de contagens concluida.
 ```
 
+## Status em 2026-08-04
+
+Status geral: **performance da carga completa corrigida (issue #61/PR #63);
+tempo medido de ~10h para 1h19min**.
+
+Motivo:
+
+- Diagnóstico (ADR-051 em `docs/DECISIONS.md`): Postgres rodava com
+  configuração padrão de fábrica e 9 índices das tabelas grandes (3 GIN
+  trigram) eram mantidos linha a linha durante a carga.
+- Corrigido derrubando esses índices antes da carga e recriando ao final
+  (`scripts/bulk_index_toggle.py`), mais tuning de `shared_buffers`,
+  `max_wal_size`, `checkpoint_timeout`, `synchronous_commit`,
+  `maintenance_work_mem` e `wal_buffers` em `docker-compose.yml`.
+- Lição operacional: o `docker_data.vhdx` do WSL2 não encolhe sozinho
+  quando um volume é apagado (`docker compose down -v` não libera espaço
+  real no Windows). Para reciclar disco de verdade é preciso apagar o
+  arquivo `.vhdx` com o Docker Desktop parado e deixar recriar do zero, ou
+  mover o local do disco pelas configurações do Docker Desktop.
+- Reimportação completa executada em ambiente limpo (volume e disco de
+  dados do Docker recriados do zero) para medir o tempo real sem viés de
+  dado pré-existente.
+
+### Evidência do tempo medido
+
+Comando validado (com medição de tempo):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\import_postgres_staging_snapshot.ps1 `
+  -Snapshot 2026-07
+```
+
+Resultado observado:
+
+```text
+START: 2026-08-04T03:24:18Z
+END:   2026-08-04T04:43:41Z
+real   79m23.285s
+IMPORT_EXIT_CODE=0
+```
+
+Contagens após a carga (idênticas à execução anterior, confirmando
+integridade):
+
+```text
+cnaes              cnaes_raw                            1359
+empresas           empresas_raw                     69062850
+estabelecimentos   estabelecimentos_raw             72318968
+motivos            motivos_raw                            63
+municipios         municipios_raw                       5572
+naturezas          naturezas_raw                          91
+paises             paises_raw                            255
+qualificacoes      qualificacoes_raw                      68
+simples            simples_raw                      49445426
+socios             socios_raw                       27992378
+```
+
+Os 9 índices das tabelas grandes (`empresas_raw`, `estabelecimentos_raw`,
+`socios_raw`) foram confirmados presentes após a carga via
+`pg_indexes`. Espaço livre em `C:` após a carga completa: ~29,6GB (partindo
+de ~112GB livres com o disco de dados do Docker recriado do zero).
+
 ## Evidências já validadas
 
 ### Repositório
