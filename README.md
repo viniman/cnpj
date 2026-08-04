@@ -19,18 +19,44 @@ O projeto foi montado para uso interno em localhost. Ele ja inclui dashboard, bu
 - `docs/RELEASE_VERSIONING.md`: checklist de fechamento da base inicial,
   versionamento semântico e preparação da release `v0.1.0`.
 
-## API NestJS (produto operacional, em construcao)
+## Plataforma Radar CNPJ (Next.js + NestJS, MVP interno)
 
-Em paralelo ao MVP Python abaixo, `apps/api` e o backend NestJS que vai
-assumir a API operacional do produto. Setup completo em
-`docs/NEXT_NEST_FOUNDATION.md`.
+Em paralelo ao MVP Python abaixo, `apps/web` (Next.js) e `apps/api`
+(NestJS) formam o MVP funcional da plataforma Radar CNPJ (produto SaaS
+da empresa Radar, ver ADR-050 em `docs/DECISIONS.md`), ainda sem
+autenticação, para uso interno em cadências da Real Grana. Setup
+completo em `docs/NEXT_NEST_FOUNDATION.md`.
+
+Fluxo: buscar empresas por CNAE/UF/situação em `/empresas` → salvar em
+`/listas` → configurar a conta SMTP (AWS SES) em `/config/email` → criar
+e disparar uma campanha em `/campanhas`. Campanhas nascem em rascunho e
+só enviam de verdade após confirmação explícita (ADR-056).
 
 Endpoints disponiveis hoje:
 
 ```text
-GET /health
-GET /receita/status
-GET /companies/search?q=&uf=&cnae=&situacao=&page=&pageSize=
+GET  /health
+GET  /receita/status
+GET  /companies/search?q=&uf=&cnae=&situacao=&page=&pageSize=
+POST /lists
+GET  /lists
+GET  /lists/:id
+POST /lists/:id/companies
+DELETE /lists/:id/companies/:companyId
+DELETE /lists/:id
+POST /email-accounts
+GET  /email-accounts
+GET  /email-accounts/:id
+PATCH /email-accounts/:id
+DELETE /email-accounts/:id
+POST /email-accounts/:id/test
+POST /campaigns
+GET  /campaigns
+GET  /campaigns/:id
+POST /campaigns/:id/start
+POST /campaigns/:id/pause
+DELETE /campaigns/:id
+GET  /unsubscribe?email=&token=
 ```
 
 `GET /companies/search` busca em `receita_staging` (dado oficial ja
