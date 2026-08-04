@@ -34,7 +34,7 @@ sem implementar envio real de e-mail.
 - Envio real via SES.
 - Filas serverless/QStash.
 - Recebimento real de webhook SNS.
-- Migrar sequencias, ICP, respostas/reunioes.
+- Migrar cadencias, ICP, respostas/reunioes.
 - Contexto por usuario/sessao web.
 
 ## Decisao central

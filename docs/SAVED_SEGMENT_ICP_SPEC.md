@@ -31,7 +31,7 @@ sem criar um segundo conceito de ICP.
 - Versionamento completo de segmento.
 - Atualizacao automatica de contagem em background.
 - Excluir segmentos.
-- Criar campanha ou sequencia diretamente a partir do segmento.
+- Criar campanha ou cadencia diretamente a partir do segmento.
 
 ## Modelo de dados
 

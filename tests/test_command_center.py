@@ -11,9 +11,9 @@ from radar_cnpj.services import (
     create_leads_from_list,
     create_list,
     create_meeting,
-    create_sequence,
+    create_cadence,
     create_workspace,
-    enroll_sequence_from_list,
+    enroll_cadence_from_list,
     lead_timeline,
     record_inbound_reply,
     set_current_workspace,
@@ -70,14 +70,14 @@ class CommandCenterTest(unittest.TestCase):
                 "body": "Mensagem para {{nome_empresa}}.",
             },
         )
-        sequence = create_sequence(
+        cadence = create_cadence(
             conn,
             {
                 "name": "Cadencia comando",
                 "steps": [{"name": "Primeiro contato", "template_id": template["id"]}],
             },
         )
-        enroll_sequence_from_list(conn, sequence["id"], lead_list["id"])
+        enroll_cadence_from_list(conn, cadence["id"], lead_list["id"])
         record_inbound_reply(
             conn,
             {
@@ -128,14 +128,14 @@ class CommandCenterTest(unittest.TestCase):
                 "body": "Mensagem para {{nome_empresa}}.",
             },
         )
-        sequence = create_sequence(
+        cadence = create_cadence(
             conn,
             {
                 "name": "Cadencia approval",
                 "steps": [{"name": "Primeiro contato", "template_id": template["id"]}],
             },
         )
-        enroll_sequence_from_list(conn, sequence["id"], lead_list["id"])
+        enroll_cadence_from_list(conn, cadence["id"], lead_list["id"])
         approval = conn.execute("SELECT * FROM approval_queue WHERE status = 'pending' ORDER BY id DESC LIMIT 1").fetchone()
         lead = conn.execute(
             "SELECT * FROM leads WHERE company_id = ? AND list_id = ? ORDER BY id DESC LIMIT 1",

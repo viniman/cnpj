@@ -40,7 +40,7 @@ O endpoint de acao do Command Center funciona como um roteador seguro. Ele
 valida `source_type` e `decision`, chama o servico de origem e retorna a visao
 atualizada. A regra de negocio continua no modulo original:
 
-- aprovacao de sequencia usa `approve_sequence_step` ou `reject_sequence_step`.
+- aprovacao de cadencia usa `approve_cadence_step` ou `reject_cadence_step`.
 - handoff usa `decide_handoff`.
 - reuniao usa `update_meeting_status`.
 
@@ -74,7 +74,7 @@ Resposta:
 ## Criterios de aceite
 
 - Aprovar uma pendencia `approval` pela inbox executa a mesma regra de
-  aprovacao de sequencia.
+  aprovacao de cadencia.
 - Rejeitar uma pendencia `approval` nao cria envio.
 - Resolver ou dispensar `handoff` pela inbox registra `agent_actions`.
 - Concluir, cancelar ou marcar `no_show` em `meeting` pela inbox atualiza lead

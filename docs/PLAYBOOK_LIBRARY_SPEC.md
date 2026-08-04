@@ -38,7 +38,7 @@ empresas suas de forma explicita e auditavel.
 - Copia entre varios workspaces reais.
 - RBAC de aplicacao de playbook.
 - Diff visual entre versoes.
-- Aplicacao automatica que altere ICP, sequencia ou OKR ja existentes sem
+- Aplicacao automatica que altere ICP, cadencia ou OKR ja existentes sem
   revisao humana.
 
 ## Decisao central
@@ -46,7 +46,7 @@ empresas suas de forma explicita e auditavel.
 Aplicar um playbook nao apaga nem sobrescreve configuracoes operacionais
 existentes. Nesta fase, a aplicacao grava um registro auditavel e marca o
 playbook/versao como referencia ativa do workspace. Fases futuras podem usar
-essa referencia para preencher formularios de ICP, templates, sequencias e
+essa referencia para preencher formularios de ICP, templates, cadencias e
 OKRs, sempre como acao explicita.
 
 ## Estrutura de conteudo

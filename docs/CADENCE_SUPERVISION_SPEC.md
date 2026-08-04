@@ -1,6 +1,6 @@
-# Fase 05 - Sequencias Semi-Supervisionadas
+# Fase 05 - Cadencias Semi-Supervisionadas
 
-Branch: `feature/05-sequence-supervision-foundation`
+Branch: `feature/05-cadence-supervision-foundation`
 
 ## Meta da fase
 
@@ -10,10 +10,10 @@ humana. Nenhum passo envia e-mail real.
 
 Esta fase entrega:
 
-- Modelo `sequences`, `sequence_steps`, `lead_journey`, `approval_queue` e
+- Modelo `cadences`, `cadence_steps`, `lead_journey`, `approval_queue` e
   `agent_actions`.
-- Criacao de sequencia com passos baseados em templates versionados.
-- Inscricao de leads de uma lista em uma sequencia.
+- Criacao de cadencia com passos baseados em templates versionados.
+- Inscricao de leads de uma lista em uma cadencia.
 - Geracao de aprovacao humana para o proximo passo.
 - Aprovacao/rejeicao de um passo.
 - Execucao simulada do passo aprovado, reutilizando os trilhos de campanha
@@ -33,10 +33,10 @@ Fica fora desta fase:
 ```mermaid
 flowchart LR
   Lists["lists"] --> Leads["leads"]
-  Templates["email_template_versions"] --> Steps["sequence_steps"]
-  Steps --> Sequence["sequences"]
+  Templates["email_template_versions"] --> Steps["cadence_steps"]
+  Steps --> Cadence["cadences"]
   Leads --> Enroll["enroll list"]
-  Sequence --> Enroll
+  Cadence --> Enroll
   Enroll --> Journey["lead_journey"]
   Journey --> Approval["approval_queue"]
   Approval --> Decision["approve / reject"]
@@ -60,7 +60,7 @@ flowchart LR
 
 ## Modelo de dados
 
-### `sequences`
+### `cadences`
 
 - `id`
 - `org_id`
@@ -70,10 +70,10 @@ flowchart LR
 - `created_at`
 - `updated_at`
 
-### `sequence_steps`
+### `cadence_steps`
 
 - `id`
-- `sequence_id`
+- `cadence_id`
 - `step_number`
 - `name`
 - `step_type`: `email`
@@ -88,7 +88,7 @@ flowchart LR
 - `id`
 - `org_id`
 - `lead_id`
-- `sequence_id`
+- `cadence_id`
 - `current_step_id`
 - `current_step_number`
 - `status`: `pending_approval`, `approved`, `simulated_sent`, `waiting`,
@@ -103,7 +103,7 @@ flowchart LR
 
 - `id`
 - `org_id`
-- `item_type`: `sequence_step`
+- `item_type`: `cadence_step`
 - `item_id`: `lead_journey.id`
 - `status`: `pending`, `approved`, `rejected`
 - `title`
@@ -117,7 +117,7 @@ flowchart LR
 - `id`
 - `org_id`
 - `lead_id`
-- `sequence_id`
+- `cadence_id`
 - `action_type`
 - `source`: `system`, `human`, `agent_future`
 - `reason`
@@ -126,8 +126,8 @@ flowchart LR
 
 ## Fluxo
 
-1. Operador cria sequencia com um ou mais passos.
-2. Operador inscreve uma lista na sequencia.
+1. Operador cria cadencia com um ou mais passos.
+2. Operador inscreve uma lista na cadencia.
 3. Sistema cria/atualiza leads da lista e cria `lead_journey` para os leads
    elegiveis.
 4. Sistema renderiza o primeiro template para cada lead e cria item em
@@ -140,7 +140,7 @@ flowchart LR
 
 ## API inicial
 
-### `POST /api/sequences`
+### `POST /api/cadences`
 
 ```json
 {
@@ -153,11 +153,11 @@ flowchart LR
 }
 ```
 
-### `GET /api/sequences`
+### `GET /api/cadences`
 
-Lista sequencias com passos.
+Lista cadencias com passos.
 
-### `POST /api/sequences/{id}/enroll`
+### `POST /api/cadences/{id}/enroll`
 
 ```json
 {
@@ -165,7 +165,7 @@ Lista sequencias com passos.
 }
 ```
 
-### `GET /api/sequences/journeys`
+### `GET /api/cadences/journeys`
 
 Lista jornadas.
 
@@ -183,7 +183,7 @@ Rejeita e registra motivo.
 
 ## Criterios de aceite
 
-- Criar sequencia exige ao menos um passo com template versionado valido.
+- Criar cadencia exige ao menos um passo com template versionado valido.
 - Inscrever lista cria jornadas apenas para leads elegiveis.
 - Cada jornada gera aprovacao pendente com assunto/corpo renderizado.
 - Aprovar cria envio simulado e evento `sent`.

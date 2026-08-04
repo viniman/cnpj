@@ -3517,53 +3517,53 @@ def render_email_template(conn, payload):
     return result
 
 
-def sequence_step_dict(row):
+def cadence_step_dict(row):
     return dict_row(row)
 
 
-def get_sequence(conn, sequence_id):
+def get_cadence(conn, cadence_id):
     org_id = current_org_id(conn)
-    sequence = conn.execute(
-        "SELECT * FROM sequences WHERE id = ? AND org_id = ?",
-        (sequence_id, org_id),
+    cadence = conn.execute(
+        "SELECT * FROM cadences WHERE id = ? AND org_id = ?",
+        (cadence_id, org_id),
     ).fetchone()
-    if not sequence:
+    if not cadence:
         return None
-    data = dict_row(sequence)
+    data = dict_row(cadence)
     data["steps"] = [
-        sequence_step_dict(row)
+        cadence_step_dict(row)
         for row in conn.execute(
             """
             SELECT ss.*, t.name AS template_name, v.version_number AS template_version_number
-            FROM sequence_steps ss
+            FROM cadence_steps ss
             JOIN email_templates t ON t.id = ss.template_id
             JOIN email_template_versions v ON v.id = ss.template_version_id
-            WHERE ss.sequence_id = ?
+            WHERE ss.cadence_id = ?
             ORDER BY ss.step_number
             """,
-            (sequence_id,),
+            (cadence_id,),
         ).fetchall()
     ]
     counts = conn.execute(
         """
         SELECT status, COUNT(*) AS total
         FROM lead_journey
-        WHERE sequence_id = ? AND org_id = ?
+        WHERE cadence_id = ? AND org_id = ?
         GROUP BY status
         """,
-        (sequence_id, org_id),
+        (cadence_id, org_id),
     ).fetchall()
     data["journey_counts"] = dict((row["status"], row["total"]) for row in counts)
     return data
 
 
-def list_sequences(conn):
+def list_cadences(conn):
     org_id = current_org_id(conn)
     rows = conn.execute(
-        "SELECT id FROM sequences WHERE org_id = ? ORDER BY updated_at DESC, id DESC",
+        "SELECT id FROM cadences WHERE org_id = ? ORDER BY updated_at DESC, id DESC",
         (org_id,),
     ).fetchall()
-    return {"items": [get_sequence(conn, row["id"]) for row in rows]}
+    return {"items": [get_cadence(conn, row["id"]) for row in rows]}
 
 
 def resolve_template_version(conn, template_id=None, template_version_id=None):
@@ -3577,23 +3577,23 @@ def resolve_template_version(conn, template_id=None, template_version_id=None):
     return dict_row(version)
 
 
-def create_sequence(conn, payload):
+def create_cadence(conn, payload):
     org_id = current_org_id(conn)
     name = (payload.get("name") or "").strip()
     if not name:
-        raise ValueError("Nome da sequencia e obrigatorio")
+        raise ValueError("Nome da cadencia e obrigatorio")
     steps = payload.get("steps") or []
     if not steps:
         raise ValueError("Informe ao menos um passo")
     timestamp = now_iso()
     cursor = conn.execute(
         """
-        INSERT INTO sequences (org_id, name, description, status, created_at, updated_at)
+        INSERT INTO cadences (org_id, name, description, status, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
         (org_id, name, payload.get("description") or "", "active", timestamp, timestamp),
     )
-    sequence_id = cursor.lastrowid
+    cadence_id = cursor.lastrowid
     for index, step in enumerate(steps, start=1):
         version = resolve_template_version(
             conn,
@@ -3602,14 +3602,14 @@ def create_sequence(conn, payload):
         )
         conn.execute(
             """
-            INSERT INTO sequence_steps (
-                sequence_id, step_number, name, step_type, wait_days,
+            INSERT INTO cadence_steps (
+                cadence_id, step_number, name, step_type, wait_days,
                 template_id, template_version_id, require_approval, created_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                sequence_id,
+                cadence_id,
                 int(step.get("step_number") or index),
                 step.get("name") or "Passo %s" % index,
                 "email",
@@ -3620,41 +3620,41 @@ def create_sequence(conn, payload):
                 timestamp,
             ),
         )
-    audit(conn, "create_sequence", "sequence", sequence_id, {"name": name, "steps": len(steps)}, org_id=org_id)
-    return get_sequence(conn, sequence_id)
+    audit(conn, "create_cadence", "cadence", cadence_id, {"name": name, "steps": len(steps)}, org_id=org_id)
+    return get_cadence(conn, cadence_id)
 
 
-def first_sequence_step(conn, sequence_id):
+def first_cadence_step(conn, cadence_id):
     return conn.execute(
-        "SELECT * FROM sequence_steps WHERE sequence_id = ? ORDER BY step_number LIMIT 1",
-        (sequence_id,),
+        "SELECT * FROM cadence_steps WHERE cadence_id = ? ORDER BY step_number LIMIT 1",
+        (cadence_id,),
     ).fetchone()
 
 
-def next_sequence_step(conn, sequence_id, current_step_number):
+def next_cadence_step(conn, cadence_id, current_step_number):
     return conn.execute(
         """
         SELECT *
-        FROM sequence_steps
-        WHERE sequence_id = ? AND step_number > ?
+        FROM cadence_steps
+        WHERE cadence_id = ? AND step_number > ?
         ORDER BY step_number
         LIMIT 1
         """,
-        (sequence_id, int(current_step_number or 0)),
+        (cadence_id, int(current_step_number or 0)),
     ).fetchone()
 
 
-def log_agent_action(conn, lead_id, sequence_id, action_type, source, reason, payload=None, org_id=None):
+def log_agent_action(conn, lead_id, cadence_id, action_type, source, reason, payload=None, org_id=None):
     org_id = int(org_id or current_org_id(conn))
     conn.execute(
         """
-        INSERT INTO agent_actions (org_id, lead_id, sequence_id, action_type, source, reason, payload_json, created_at)
+        INSERT INTO agent_actions (org_id, lead_id, cadence_id, action_type, source, reason, payload_json, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             org_id,
             lead_id,
-            sequence_id,
+            cadence_id,
             action_type,
             source,
             reason,
@@ -3669,13 +3669,13 @@ def journey_context(conn, journey_id):
     row = conn.execute(
         """
         SELECT lj.*, l.email, l.company_id, l.score AS lead_score, c.legal_name, c.trade_name,
-               c.cnpj, c.city, c.state, s.name AS sequence_name, ss.name AS step_name,
+               c.cnpj, c.city, c.state, s.name AS cadence_name, ss.name AS step_name,
                ss.template_id, ss.template_version_id, ss.wait_days
         FROM lead_journey lj
         JOIN leads l ON l.id = lj.lead_id
         LEFT JOIN companies c ON c.id = l.company_id
-        JOIN sequences s ON s.id = lj.sequence_id
-        JOIN sequence_steps ss ON ss.id = lj.current_step_id
+        JOIN cadences s ON s.id = lj.cadence_id
+        JOIN cadence_steps ss ON ss.id = lj.current_step_id
         WHERE lj.id = ? AND lj.org_id = ?
         """,
         (journey_id, org_id),
@@ -3692,7 +3692,7 @@ def create_step_approval(conn, journey_id):
         """
         SELECT id
         FROM approval_queue
-        WHERE item_type = 'sequence_step'
+        WHERE item_type = 'cadence_step'
           AND item_id = ?
           AND org_id = ?
           AND status = 'pending'
@@ -3718,8 +3718,8 @@ def create_step_approval(conn, journey_id):
     payload = {
         "journey_id": journey_id,
         "lead_id": context["lead_id"],
-        "sequence_id": context["sequence_id"],
-        "sequence_name": context["sequence_name"],
+        "cadence_id": context["cadence_id"],
+        "cadence_name": context["cadence_name"],
         "step_id": context["current_step_id"],
         "step_number": context["current_step_number"],
         "step_name": context["step_name"],
@@ -3737,12 +3737,12 @@ def create_step_approval(conn, journey_id):
         INSERT INTO approval_queue (org_id, item_type, item_id, status, title, context_json, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (org_id, "sequence_step", journey_id, "pending", title, json.dumps(payload, ensure_ascii=True), timestamp),
+        (org_id, "cadence_step", journey_id, "pending", title, json.dumps(payload, ensure_ascii=True), timestamp),
     )
     log_agent_action(
         conn,
         context["lead_id"],
-        context["sequence_id"],
+        context["cadence_id"],
         "approval_requested",
         "system",
         "Passo renderizado e enviado para aprovacao humana",
@@ -3752,17 +3752,17 @@ def create_step_approval(conn, journey_id):
     return cursor.lastrowid
 
 
-def enroll_sequence_from_list(conn, sequence_id, list_id):
+def enroll_cadence_from_list(conn, cadence_id, list_id):
     org_id = current_org_id(conn)
-    sequence = get_sequence(conn, sequence_id)
-    if not sequence:
-        raise ValueError("Sequencia nao encontrada")
+    cadence = get_cadence(conn, cadence_id)
+    if not cadence:
+        raise ValueError("Cadencia nao encontrada")
     if not conn.execute("SELECT id FROM lists WHERE id = ? AND org_id = ?", (int(list_id), org_id)).fetchone():
         raise ValueError("Lista nao encontrada")
-    first_step = first_sequence_step(conn, sequence_id)
+    first_step = first_cadence_step(conn, cadence_id)
     if not first_step:
-        raise ValueError("Sequencia sem passos")
-    create_leads_from_list(conn, int(list_id), "sequencia semi-supervisionada")
+        raise ValueError("Cadencia sem passos")
+    create_leads_from_list(conn, int(list_id), "cadencia semi-supervisionada")
     leads = conn.execute(
         """
         SELECT *
@@ -3778,22 +3778,22 @@ def enroll_sequence_from_list(conn, sequence_id, list_id):
     approvals = 0
     for lead in leads:
         before = conn.execute(
-            "SELECT id FROM lead_journey WHERE org_id = ? AND lead_id = ? AND sequence_id = ?",
-            (org_id, lead["id"], sequence_id),
+            "SELECT id FROM lead_journey WHERE org_id = ? AND lead_id = ? AND cadence_id = ?",
+            (org_id, lead["id"], cadence_id),
         ).fetchone()
         conn.execute(
             """
             INSERT INTO lead_journey (
-                org_id, lead_id, sequence_id, current_step_id, current_step_number,
+                org_id, lead_id, cadence_id, current_step_id, current_step_number,
                 status, next_action_at, created_at, updated_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(org_id, lead_id, sequence_id) DO NOTHING
+            ON CONFLICT(org_id, lead_id, cadence_id) DO NOTHING
             """,
             (
                 org_id,
                 lead["id"],
-                sequence_id,
+                cadence_id,
                 first_step["id"],
                 first_step["step_number"],
                 "pending_approval",
@@ -3803,8 +3803,8 @@ def enroll_sequence_from_list(conn, sequence_id, list_id):
             ),
         )
         journey = conn.execute(
-            "SELECT id FROM lead_journey WHERE org_id = ? AND lead_id = ? AND sequence_id = ?",
-            (org_id, lead["id"], sequence_id),
+            "SELECT id FROM lead_journey WHERE org_id = ? AND lead_id = ? AND cadence_id = ?",
+            (org_id, lead["id"], cadence_id),
         ).fetchone()
         if before:
             existing += 1
@@ -3813,13 +3813,13 @@ def enroll_sequence_from_list(conn, sequence_id, list_id):
             approvals += 1 if create_step_approval(conn, journey["id"]) else 0
     audit(
         conn,
-        "enroll_sequence_from_list",
-        "sequence",
-        sequence_id,
+        "enroll_cadence_from_list",
+        "cadence",
+        cadence_id,
         {"list_id": list_id, "enrolled": enrolled, "existing": existing, "approvals": approvals},
         org_id=org_id,
     )
-    return {"sequence_id": sequence_id, "list_id": list_id, "enrolled": enrolled, "existing": existing, "approvals": approvals}
+    return {"cadence_id": cadence_id, "list_id": list_id, "enrolled": enrolled, "existing": existing, "approvals": approvals}
 
 
 def list_journeys(conn, params=None):
@@ -3827,21 +3827,21 @@ def list_journeys(conn, params=None):
     params = params or {}
     where = ["lj.org_id = ?"]
     values = [org_id]
-    if params.get("sequence_id"):
-        where.append("lj.sequence_id = ?")
-        values.append(int(params.get("sequence_id")))
+    if params.get("cadence_id"):
+        where.append("lj.cadence_id = ?")
+        values.append(int(params.get("cadence_id")))
     if params.get("status"):
         where.append("lj.status = ?")
         values.append(params.get("status"))
     rows = conn.execute(
         """
         SELECT lj.*, l.email, l.score AS lead_score, c.legal_name, c.trade_name,
-               s.name AS sequence_name, ss.name AS step_name
+               s.name AS cadence_name, ss.name AS step_name
         FROM lead_journey lj
         JOIN leads l ON l.id = lj.lead_id
         LEFT JOIN companies c ON c.id = l.company_id
-        JOIN sequences s ON s.id = lj.sequence_id
-        LEFT JOIN sequence_steps ss ON ss.id = lj.current_step_id
+        JOIN cadences s ON s.id = lj.cadence_id
+        LEFT JOIN cadence_steps ss ON ss.id = lj.current_step_id
         WHERE %s
         ORDER BY lj.updated_at DESC, lj.id DESC
         LIMIT ?
@@ -3877,18 +3877,18 @@ def list_approvals(conn, params=None):
     return {"items": [parse_approval_row(row) for row in rows]}
 
 
-def ensure_sequence_campaign(conn, sequence_id):
+def ensure_cadence_campaign(conn, cadence_id):
     org_id = current_org_id(conn)
-    sequence = conn.execute("SELECT * FROM sequences WHERE id = ? AND org_id = ?", (sequence_id, org_id)).fetchone()
-    if not sequence:
-        raise ValueError("Sequencia nao encontrada")
-    if sequence["campaign_id"]:
+    cadence = conn.execute("SELECT * FROM cadences WHERE id = ? AND org_id = ?", (cadence_id, org_id)).fetchone()
+    if not cadence:
+        raise ValueError("Cadencia nao encontrada")
+    if cadence["campaign_id"]:
         existing = conn.execute(
             "SELECT id FROM campaigns WHERE id = ? AND org_id = ?",
-            (sequence["campaign_id"], org_id),
+            (cadence["campaign_id"], org_id),
         ).fetchone()
         if existing:
-            return sequence["campaign_id"]
+            return cadence["campaign_id"]
     timestamp = now_iso()
     cursor = conn.execute(
         """
@@ -3901,10 +3901,10 @@ def ensure_sequence_campaign(conn, sequence_id):
         """,
         (
             org_id,
-            "Sequencia: %s" % sequence["name"],
-            "sequence",
+            "Cadencia: %s" % cadence["name"],
+            "cadence",
             "running",
-            "Sequencia semi-supervisionada",
+            "Cadencia semi-supervisionada",
             "Conteudo renderizado por passo.",
             "",
             50,
@@ -3917,12 +3917,12 @@ def ensure_sequence_campaign(conn, sequence_id):
         ),
     )
     campaign_id = cursor.lastrowid
-    conn.execute("UPDATE sequences SET campaign_id = ?, updated_at = ? WHERE id = ?", (campaign_id, timestamp, sequence_id))
+    conn.execute("UPDATE cadences SET campaign_id = ?, updated_at = ? WHERE id = ?", (campaign_id, timestamp, cadence_id))
     return campaign_id
 
 
-def ensure_sequence_variant(conn, campaign_id, step, rendered):
-    utm_content = "sequence-step-%s" % step["step_number"]
+def ensure_cadence_variant(conn, campaign_id, step, rendered):
+    utm_content = "cadence-step-%s" % step["step_number"]
     existing = conn.execute(
         "SELECT id FROM campaign_variants WHERE campaign_id = ? AND utm_content = ?",
         (campaign_id, utm_content),
@@ -3948,7 +3948,7 @@ def ensure_sequence_variant(conn, campaign_id, step, rendered):
     return cursor.lastrowid
 
 
-def approve_sequence_step(conn, approval_id, note=""):
+def approve_cadence_step(conn, approval_id, note=""):
     org_id = current_org_id(conn)
     approval = conn.execute(
         "SELECT * FROM approval_queue WHERE id = ? AND org_id = ?",
@@ -3964,12 +3964,12 @@ def approve_sequence_step(conn, approval_id, note=""):
         raise ValueError("Jornada nao encontrada")
     if journey["status"] != "pending_approval":
         raise ValueError("Jornada nao esta pendente de aprovacao")
-    step = conn.execute("SELECT * FROM sequence_steps WHERE id = ?", (journey["current_step_id"],)).fetchone()
-    campaign_id = ensure_sequence_campaign(conn, journey["sequence_id"])
+    step = conn.execute("SELECT * FROM cadence_steps WHERE id = ?", (journey["current_step_id"],)).fetchone()
+    campaign_id = ensure_cadence_campaign(conn, journey["cadence_id"])
     rendered = {"subject": context.get("subject") or "", "body": context.get("body") or ""}
-    variant_id = ensure_sequence_variant(conn, campaign_id, step, rendered)
+    variant_id = ensure_cadence_variant(conn, campaign_id, step, rendered)
     timestamp = now_iso()
-    utm_url = append_utm("", "Sequencia %s" % journey["sequence_id"], "sequence-step-%s" % step["step_number"], "sequence")
+    utm_url = append_utm("", "Cadencia %s" % journey["cadence_id"], "cadence-step-%s" % step["step_number"], "cadence")
     conn.execute(
         """
         INSERT OR IGNORE INTO sends (
@@ -4008,11 +4008,11 @@ def approve_sequence_step(conn, approval_id, note=""):
             campaign_id,
             "sent",
             "simulated",
-            json.dumps({"approval_id": approval_id, "sequence_id": journey["sequence_id"], "step_id": step["id"]}, ensure_ascii=True),
+            json.dumps({"approval_id": approval_id, "cadence_id": journey["cadence_id"], "step_id": step["id"]}, ensure_ascii=True),
             timestamp,
         ),
     )
-    next_step = next_sequence_step(conn, journey["sequence_id"], step["step_number"])
+    next_step = next_cadence_step(conn, journey["cadence_id"], step["step_number"])
     if next_step:
         next_action_at = (datetime.utcnow() + timedelta(days=int(next_step["wait_days"] or 0))).replace(microsecond=0).isoformat() + "Z"
         status = "waiting"
@@ -4039,18 +4039,18 @@ def approve_sequence_step(conn, approval_id, note=""):
     log_agent_action(
         conn,
         journey["lead_id"],
-        journey["sequence_id"],
+        journey["cadence_id"],
         "step_approved_and_simulated",
         "human",
         note or "Aprovacao humana executou passo simulado",
         {"approval_id": approval_id, "send_id": send["id"], "step_id": step["id"], "next_status": status},
         org_id=org_id,
     )
-    audit(conn, "approve_sequence_step", "approval", approval_id, {"send_id": send["id"], "journey_status": status}, org_id=org_id)
+    audit(conn, "approve_cadence_step", "approval", approval_id, {"send_id": send["id"], "journey_status": status}, org_id=org_id)
     return {"approval": parse_approval_row(conn.execute("SELECT * FROM approval_queue WHERE id = ?", (approval_id,)).fetchone()), "journey": journey_context(conn, journey["id"]), "send_id": send["id"]}
 
 
-def reject_sequence_step(conn, approval_id, note=""):
+def reject_cadence_step(conn, approval_id, note=""):
     org_id = current_org_id(conn)
     approval = conn.execute(
         "SELECT * FROM approval_queue WHERE id = ? AND org_id = ?",
@@ -4075,14 +4075,14 @@ def reject_sequence_step(conn, approval_id, note=""):
         log_agent_action(
             conn,
             journey["lead_id"],
-            journey["sequence_id"],
+            journey["cadence_id"],
             "step_rejected",
             "human",
             note or "Passo rejeitado por humano",
             {"approval_id": approval_id, "step_id": context.get("step_id")},
             org_id=org_id,
         )
-    audit(conn, "reject_sequence_step", "approval", approval_id, {"note": note}, org_id=org_id)
+    audit(conn, "reject_cadence_step", "approval", approval_id, {"note": note}, org_id=org_id)
     return {"approval": parse_approval_row(conn.execute("SELECT * FROM approval_queue WHERE id = ?", (approval_id,)).fetchone())}
 
 
@@ -4108,10 +4108,10 @@ def list_agent_actions(conn, params=None):
     params = params or {}
     rows = conn.execute(
         """
-        SELECT aa.*, l.email, s.name AS sequence_name
+        SELECT aa.*, l.email, s.name AS cadence_name
         FROM agent_actions aa
         LEFT JOIN leads l ON l.id = aa.lead_id
-        LEFT JOIN sequences s ON s.id = aa.sequence_id
+        LEFT JOIN cadences s ON s.id = aa.cadence_id
         WHERE aa.org_id = ?
         ORDER BY aa.id DESC
         LIMIT ?
@@ -5454,7 +5454,7 @@ COMMAND_CENTER_PRIORITY = {"urgent": 0, "high": 1, "medium": 2, "low": 3}
 COMMAND_CENTER_COLUMNS = [
     ("new", "Novos", {"new", "eligible"}),
     ("approval", "Aguardando humano", {"pending_approval"}),
-    ("sequence", "Em cadencia", {"waiting", "in_campaign"}),
+    ("cadence", "Em cadencia", {"waiting", "in_campaign"}),
     ("reply", "Respondeu", {"responded", "waiting_reply_review", "meeting_review"}),
     ("meeting", "Reuniao", {"meeting_scheduled"}),
     ("qualified", "Qualificados", {"qualified", "converted"}),
@@ -5627,10 +5627,10 @@ def lead_timeline(conn, lead_id):
 
     journey_rows = conn.execute(
         """
-        SELECT lj.*, s.name AS sequence_name, ss.name AS step_name
+        SELECT lj.*, s.name AS cadence_name, ss.name AS step_name
         FROM lead_journey lj
-        JOIN sequences s ON s.id = lj.sequence_id AND s.org_id = lj.org_id
-        LEFT JOIN sequence_steps ss ON ss.id = lj.current_step_id
+        JOIN cadences s ON s.id = lj.cadence_id AND s.org_id = lj.org_id
+        LEFT JOIN cadence_steps ss ON ss.id = lj.current_step_id
         WHERE lj.org_id = ? AND lj.lead_id = ?
         ORDER BY lj.id ASC
         """,
@@ -5640,8 +5640,8 @@ def lead_timeline(conn, lead_id):
     for journey in journey_rows:
         item = dict_row(journey)
         journey_ids.append(item["id"])
-        detail = "Sequencia %s, passo %s, status %s" % (
-            item.get("sequence_name") or item["sequence_id"],
+        detail = "Cadencia %s, passo %s, status %s" % (
+            item.get("cadence_name") or item["cadence_id"],
             item.get("current_step_number") or "-",
             item.get("status") or "-",
         )
@@ -5655,8 +5655,8 @@ def lead_timeline(conn, lead_id):
             "CRM interno",
             detail,
             {
-                "sequence_id": item["sequence_id"],
-                "sequence_name": item.get("sequence_name") or "",
+                "cadence_id": item["cadence_id"],
+                "cadence_name": item.get("cadence_name") or "",
                 "current_step_id": item.get("current_step_id"),
                 "current_step_number": item.get("current_step_number"),
                 "next_action_at": item.get("next_action_at") or "",
@@ -5922,9 +5922,9 @@ def lead_timeline(conn, lead_id):
 
     action_rows = conn.execute(
         """
-        SELECT aa.*, s.name AS sequence_name
+        SELECT aa.*, s.name AS cadence_name
         FROM agent_actions aa
-        LEFT JOIN sequences s ON s.id = aa.sequence_id AND s.org_id = aa.org_id
+        LEFT JOIN cadences s ON s.id = aa.cadence_id AND s.org_id = aa.org_id
         WHERE aa.org_id = ? AND aa.lead_id = ?
         ORDER BY aa.id ASC
         """,
@@ -5943,8 +5943,8 @@ def lead_timeline(conn, lead_id):
             item["reason"],
             {
                 "source": item["source"],
-                "sequence_id": item.get("sequence_id"),
-                "sequence_name": item.get("sequence_name") or "",
+                "cadence_id": item.get("cadence_id"),
+                "cadence_name": item.get("cadence_name") or "",
                 "payload": timeline_json(item.get("payload_json"), {}),
             },
         )
@@ -5971,7 +5971,7 @@ def lead_timeline(conn, lead_id):
     }
     items.sort(key=lambda item: (item["occurred_at"], kind_order.get(item["kind"], 999), item["source_table"], item["source_id"]))
     for index, item in enumerate(items, start=1):
-        item["sequence"] = index
+        item["cadence"] = index
 
     def count_kind(*kinds):
         return sum(1 for item in items if item["kind"] in kinds)
@@ -6653,12 +6653,12 @@ def record_agent_cost(conn, payload):
     if not config:
         raise ValueError("Configuracao do agente nao encontrada")
     lead_id = int(payload.get("lead_id") or 0) or None
-    sequence_id = int(payload.get("sequence_id") or 0) or None
+    cadence_id = int(payload.get("cadence_id") or 0) or None
     agent_action_id = int(payload.get("agent_action_id") or 0) or None
     if lead_id and not conn.execute("SELECT id FROM leads WHERE id = ? AND org_id = ?", (lead_id, org_id)).fetchone():
         raise ValueError("Lead nao encontrado para custo do agente")
-    if sequence_id and not conn.execute("SELECT id FROM sequences WHERE id = ? AND org_id = ?", (sequence_id, org_id)).fetchone():
-        raise ValueError("Sequencia nao encontrada para custo do agente")
+    if cadence_id and not conn.execute("SELECT id FROM cadences WHERE id = ? AND org_id = ?", (cadence_id, org_id)).fetchone():
+        raise ValueError("Cadencia nao encontrada para custo do agente")
     if agent_action_id and not conn.execute(
         "SELECT id FROM agent_actions WHERE id = ? AND org_id = ?",
         (agent_action_id, org_id),
@@ -6673,7 +6673,7 @@ def record_agent_cost(conn, payload):
     cursor = conn.execute(
         """
         INSERT INTO agent_cost_log (
-            org_id, lead_id, sequence_id, agent_action_id, config_version_id,
+            org_id, lead_id, cadence_id, agent_action_id, config_version_id,
             operation, provider, model_name, prompt_tokens, completion_tokens,
             total_tokens, estimated_cost, created_at
         )
@@ -6682,7 +6682,7 @@ def record_agent_cost(conn, payload):
         (
             org_id,
             lead_id,
-            sequence_id,
+            cadence_id,
             agent_action_id,
             config_id,
             operation,
@@ -7515,7 +7515,7 @@ def onboarding_template_payload(payload, workspace, content):
     }
 
 
-def onboarding_sequence_step_blueprint(payload, content):
+def onboarding_cadence_step_blueprint(payload, content):
     cadence = dict(content.get("cadence") or {})
     requested_steps = payload.get("steps") if isinstance(payload, dict) else None
     steps = requested_steps or cadence.get("steps") or [{"name": "Primeiro contato", "wait_days": 0}]
@@ -7532,9 +7532,9 @@ def onboarding_sequence_step_blueprint(payload, content):
     return result
 
 
-def onboarding_sequence_steps(payload, template, content):
+def onboarding_cadence_steps(payload, template, content):
     result = []
-    for step in onboarding_sequence_step_blueprint(payload, content):
+    for step in onboarding_cadence_step_blueprint(payload, content):
         item = dict(step)
         item["template_id"] = template["id"]
         result.append(item)
@@ -7629,13 +7629,13 @@ def run_workspace_onboarding(conn, payload):
         },
     )
     template = create_email_template(conn, onboarding_template_payload(payload.get("template") or {}, profile, content))
-    sequence_payload = dict(payload.get("sequence") or {})
-    sequence = create_sequence(
+    cadence_payload = dict(payload.get("cadence") or {})
+    cadence = create_cadence(
         conn,
         {
-            "name": sequence_payload.get("name") or "Cadencia inicial - %s" % profile["display_name"],
-            "description": sequence_payload.get("description") or "Sequencia criada pelo onboarding operacional.",
-            "steps": onboarding_sequence_steps(sequence_payload, template, content),
+            "name": cadence_payload.get("name") or "Cadencia inicial - %s" % profile["display_name"],
+            "description": cadence_payload.get("description") or "Cadencia criada pelo onboarding operacional.",
+            "steps": onboarding_cadence_steps(cadence_payload, template, content),
         },
     )
     objective = create_okr(conn, onboarding_okr_payload(payload.get("okr") or {}, profile, content))
@@ -7649,7 +7649,7 @@ def run_workspace_onboarding(conn, payload):
         "playbook_application_id": application["id"],
         "icp_rule_id": icp_rule["id"],
         "template_id": template["id"],
-        "sequence_id": sequence["id"],
+        "cadence_id": cadence["id"],
         "objective_id": objective["id"],
         "agent_config_id": agent_config_id,
         "used_cloned_playbook": bool(source_playbook_id),
@@ -7659,7 +7659,7 @@ def run_workspace_onboarding(conn, payload):
         """
         INSERT INTO workspace_onboarding_runs (
             org_id, playbook_id, playbook_application_id, icp_rule_id,
-            template_id, sequence_id, objective_id, agent_config_id,
+            template_id, cadence_id, objective_id, agent_config_id,
             summary_json, created_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -7670,7 +7670,7 @@ def run_workspace_onboarding(conn, payload):
             application["id"],
             icp_rule["id"],
             template["id"],
-            sequence["id"],
+            cadence["id"],
             objective["id"],
             agent_config_id,
             json.dumps(summary, ensure_ascii=True),
@@ -7686,7 +7686,7 @@ def run_workspace_onboarding(conn, payload):
         "active_application": application,
         "icp_rule": icp_rule,
         "template": template,
-        "sequence": sequence,
+        "cadence": cadence,
         "objective": objective,
         "agent_config_id": agent_config_id,
         "onboarding_run": {"id": cursor.lastrowid, "summary": summary, "created_at": timestamp},
@@ -7760,7 +7760,7 @@ def playbook_execution_diff(conn, plan):
     for key, table in (
         ("icp_rules", "icp_rules"),
         ("email_templates", "email_templates"),
-        ("sequences", "sequences"),
+        ("cadences", "cadences"),
         ("objectives", "objectives"),
     ):
         row = conn.execute("SELECT COUNT(*) AS total FROM %s WHERE org_id = ?" % table, (org_id,)).fetchone()
@@ -7771,12 +7771,12 @@ def playbook_execution_diff(conn, plan):
             {"type": "playbook_application", "name": plan["playbook_application"]["note"]},
             {"type": "icp_rule", "name": plan["icp_rule"]["name"]},
             {"type": "email_template", "name": plan["email_template"]["name"]},
-            {"type": "sequence", "name": plan["sequence"]["name"]},
+            {"type": "cadence", "name": plan["cadence"]["name"]},
             {"type": "objective", "name": plan["okr"]["title"]},
         ],
         "guards": [
             "Template sera criado pelo backend com rodape de compliance.",
-            "Sequencia sera criada com aprovacao humana obrigatoria.",
+            "Cadencia sera criada com aprovacao humana obrigatoria.",
             "Nenhum lead sera inscrito e nenhum envio real sera feito.",
         ],
     }
@@ -7789,7 +7789,7 @@ def build_playbook_execution_plan(conn, playbook, version, payload):
     icp_payload = dict(payload.get("icp") or {})
     template_payload = onboarding_template_payload(payload.get("template") or {}, profile, content)
     validate_editable_template(template_payload["subject"], template_payload["body"])
-    sequence_payload = dict(payload.get("sequence") or {})
+    cadence_payload = dict(payload.get("cadence") or {})
     okr_payload = onboarding_okr_payload(payload.get("okr") or {}, profile, content)
     return {
         "playbook_application": {
@@ -7803,10 +7803,10 @@ def build_playbook_execution_plan(conn, playbook, version, payload):
             "criteria": onboarding_icp_criteria(icp_payload.get("criteria") or icp_payload, content),
         },
         "email_template": template_payload,
-        "sequence": {
-            "name": sequence_payload.get("name") or "Cadencia do playbook - %s" % playbook["name"],
-            "description": sequence_payload.get("description") or "Criada a partir de plano de execucao de playbook.",
-            "steps": onboarding_sequence_step_blueprint(sequence_payload, content),
+        "cadence": {
+            "name": cadence_payload.get("name") or "Cadencia do playbook - %s" % playbook["name"],
+            "description": cadence_payload.get("description") or "Criada a partir de plano de execucao de playbook.",
+            "steps": onboarding_cadence_step_blueprint(cadence_payload, content),
         },
         "okr": okr_payload,
     }
@@ -7869,17 +7869,17 @@ def apply_playbook_execution_plan(conn, plan_id, payload=None):
     )
     icp_rule = create_icp_rule(conn, plan["icp_rule"])
     template = create_email_template(conn, plan["email_template"])
-    sequence_steps = []
-    for step in plan["sequence"]["steps"]:
+    cadence_steps = []
+    for step in plan["cadence"]["steps"]:
         item = dict(step)
         item["template_id"] = template["id"]
-        sequence_steps.append(item)
-    sequence = create_sequence(
+        cadence_steps.append(item)
+    cadence = create_cadence(
         conn,
         {
-            "name": plan["sequence"]["name"],
-            "description": plan["sequence"].get("description") or "",
-            "steps": sequence_steps,
+            "name": plan["cadence"]["name"],
+            "description": plan["cadence"].get("description") or "",
+            "steps": cadence_steps,
         },
     )
     objective = create_okr(conn, plan["okr"])
@@ -7887,7 +7887,7 @@ def apply_playbook_execution_plan(conn, plan_id, payload=None):
         "playbook_application_id": application["id"],
         "icp_rule_id": icp_rule["id"],
         "template_id": template["id"],
-        "sequence_id": sequence["id"],
+        "cadence_id": cadence["id"],
         "objective_id": objective["id"],
     }
     timestamp = now_iso()
@@ -7912,7 +7912,7 @@ def apply_playbook_execution_plan(conn, plan_id, payload=None):
         "active_application": application,
         "icp_rule": icp_rule,
         "template": template,
-        "sequence": sequence,
+        "cadence": cadence,
         "objective": objective,
     }
     return result
@@ -8957,7 +8957,7 @@ def command_center_inbox(conn, limit=50):
                 "company_name": context.get("company_name") or "",
                 "email": context.get("email") or "",
                 "status": approval["status"],
-                "reason": "Passo de sequencia aguarda aprovacao humana",
+                "reason": "Passo de cadencia aguarda aprovacao humana",
                 "origin_label": command_origin_label("approval"),
                 "created_at": approval["created_at"],
                 "context": context,
@@ -9052,7 +9052,7 @@ def command_center_kanban(conn, limit=200):
         SELECT l.id, l.email, l.score, l.status AS lead_status, l.updated_at,
                c.legal_name, c.trade_name, c.city, c.state,
                lj.status AS journey_status, lj.next_action_at,
-               s.name AS sequence_name
+               s.name AS cadence_name
         FROM leads l
         LEFT JOIN companies c ON c.id = l.company_id
         LEFT JOIN lead_journey lj ON lj.id = (
@@ -9062,7 +9062,7 @@ def command_center_kanban(conn, limit=200):
             ORDER BY latest.id DESC
             LIMIT 1
         )
-        LEFT JOIN sequences s ON s.id = lj.sequence_id AND s.org_id = l.org_id
+        LEFT JOIN cadences s ON s.id = lj.cadence_id AND s.org_id = l.org_id
         WHERE l.org_id = ?
         ORDER BY l.updated_at DESC, l.id DESC
         LIMIT ?
@@ -9085,7 +9085,7 @@ def command_center_kanban(conn, limit=200):
             "city": lead.get("city") or "",
             "state": lead.get("state") or "",
             "next_action_at": lead.get("next_action_at") or "",
-            "sequence_name": lead.get("sequence_name") or "",
+            "cadence_name": lead.get("cadence_name") or "",
             "origin_label": "CRM interno",
         }
         by_key[command_column_key(status)]["items"].append(item)
@@ -9145,9 +9145,9 @@ def command_center_action(conn, payload):
 
     if source_type == "approval":
         if decision == "approve":
-            result = approve_sequence_step(conn, source_id, note)
+            result = approve_cadence_step(conn, source_id, note)
         elif decision == "reject":
-            result = reject_sequence_step(conn, source_id, note)
+            result = reject_cadence_step(conn, source_id, note)
         else:
             raise ValueError("Decisao invalida para approval")
     elif source_type == "handoff":

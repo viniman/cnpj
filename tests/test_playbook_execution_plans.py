@@ -12,7 +12,7 @@ from radar_cnpj.services import (
     list_email_templates,
     list_icp_rules,
     list_playbook_execution_plans,
-    list_sequences,
+    list_cadences,
     okr_dashboard,
     set_current_workspace,
 )
@@ -60,11 +60,11 @@ class PlaybookExecutionPlanTest(unittest.TestCase):
             self.assertEqual(plan["status"], "draft")
             self.assertEqual(plan["playbook_id"], playbook["id"])
             self.assertEqual(plan["plan"]["icp_rule"]["criteria"]["states"], ["SP"])
-            self.assertEqual(len(plan["plan"]["sequence"]["steps"]), 2)
+            self.assertEqual(len(plan["plan"]["cadence"]["steps"]), 2)
             self.assertEqual(plan["diff"]["current_counts"]["icp_rules"], 0)
             self.assertEqual(list_icp_rules(conn)["items"], [])
             self.assertEqual(list_email_templates(conn)["items"], [])
-            self.assertEqual(list_sequences(conn)["items"], [])
+            self.assertEqual(list_cadences(conn)["items"], [])
             self.assertEqual(okr_dashboard(conn)["objectives"][0]["id"], "default")
 
             listed = list_playbook_execution_plans(conn)["items"]
@@ -86,8 +86,8 @@ class PlaybookExecutionPlanTest(unittest.TestCase):
             self.assertEqual(applied["created"]["active_application"]["playbook_id"], playbook["id"])
             self.assertEqual(applied["created"]["icp_rule"]["criteria"]["states"], ["RJ"])
             self.assertEqual(applied["created"]["template"]["active_version"]["version_number"], 1)
-            self.assertEqual(len(applied["created"]["sequence"]["steps"]), 2)
-            self.assertTrue(all(step["require_approval"] == 1 for step in applied["created"]["sequence"]["steps"]))
+            self.assertEqual(len(applied["created"]["cadence"]["steps"]), 2)
+            self.assertTrue(all(step["require_approval"] == 1 for step in applied["created"]["cadence"]["steps"]))
             self.assertEqual(applied["created"]["objective"]["title"], "Validar plano")
             self.assertEqual(applied["created_artifacts"]["icp_rule_id"], applied["created"]["icp_rule"]["id"])
 

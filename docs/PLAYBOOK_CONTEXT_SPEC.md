@@ -25,7 +25,7 @@ ativa proprios, sem compartilhamento implicito.
 ## Fora do escopo desta fase
 
 - Clonar playbook entre workspaces.
-- Aplicar playbook criando automaticamente ICP, templates ou sequencias.
+- Aplicar playbook criando automaticamente ICP, templates ou cadencias.
 - RBAC para edicao de playbooks.
 
 ## Decisao central

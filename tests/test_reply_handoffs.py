@@ -9,10 +9,10 @@ from radar_cnpj.services import (
     create_email_template,
     create_leads_from_list,
     create_list,
-    create_sequence,
+    create_cadence,
     create_workspace,
     decide_handoff,
-    enroll_sequence_from_list,
+    enroll_cadence_from_list,
     get_handoff,
     get_reply_classification,
     list_agent_actions,
@@ -89,14 +89,14 @@ class ReplyHandoffTest(unittest.TestCase):
                 "body": "Mensagem para {{nome_empresa}}.",
             },
         )
-        sequence = create_sequence(
+        cadence = create_cadence(
             conn,
             {
                 "name": "Cadencia resposta",
                 "steps": [{"name": "Primeiro contato", "template_id": template["id"]}],
             },
         )
-        enroll_sequence_from_list(conn, sequence["id"], lead_list["id"])
+        enroll_cadence_from_list(conn, cadence["id"], lead_list["id"])
         return lead["id"], send["id"]
 
     def test_opt_out_reply_suppresses_email_and_stops_journey(self):
