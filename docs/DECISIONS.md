@@ -1453,3 +1453,55 @@ Consequências:
 - O schema operacional Prisma (próxima fase) já nasce com nomenclatura
   `cadences`/`cadence_steps`/`cadence_enrollments`, sem herdar o nome
   antigo.
+
+## ADR-053 - Schema operacional inicial e leitura de receita_staging via SQL bruto
+
+Data: 2026-08-04
+
+Decisão:
+
+- O primeiro schema Prisma real (`app.organizations`, `app.users`) usa o
+  preview feature `multiSchema`, mantendo `receita_staging` fora do
+  domínio de migrations do Prisma, conforme
+  `docs/NEXT_ARCHITECTURE_LEDGER.md`.
+- Não existe uma tabela `workspace_context` no novo schema operacional.
+  O conceito de "workspace ativo" (um singleton mutável no MVP SQLite)
+  passa a ser resolvido pela camada de autenticação/sessão quando ela
+  existir, não por uma linha global no banco.
+- `CompaniesService` le `receita_staging.estabelecimentos_raw` e
+  `empresas_raw` via `prisma.$queryRaw` parametrizado, sem modelar essas
+  tabelas no Prisma.
+- A busca por nome/razão social resolve `cnpj_basico` via um CTE com 3
+  ramos (razão social, nome fantasia, CNPJ exato) antes de fazer o join
+  com as tabelas grandes, em vez de filtrar num `WHERE` pós-join.
+- Adicionado índice btree em `estabelecimentos_raw.cnpj_basico`
+  (`infra/postgres/migrations/20260804130000`), que faltava para o join
+  com `empresas_raw` usar index scan.
+- O endpoint exige ao menos um filtro (`q`, `uf`, `cnae` ou `situacao`)
+  para impedir varredura completa das tabelas grandes.
+
+Racional:
+
+- Um `WHERE` pós-join comparando `razao_social`/`nome_fantasia` de
+  tabelas diferentes na mesma condição `OR` impede o Postgres de usar
+  qualquer índice GIN trigram, forçando sequential scan de ~70M+ linhas
+  em ambas as tabelas — confirmado com `EXPLAIN` durante a
+  implementação, com custo estimado caindo de ~3,3 milhões para
+  ~177 mil ao resolver `cnpj_basico` primeiro.
+- `workspace_context` como singleton mutável no banco não faz sentido
+  numa API multi-tenant stateless; cada requisição deve carregar o
+  contexto de organização via autenticação, não um estado global
+  compartilhado.
+- Modelar `receita_staging` no Prisma duplicaria ownership de schema já
+  resolvido pelas migrations SQL de staging (ADR-048).
+
+Consequências:
+
+- Buscas na API que não usam nenhum filtro retornam erro 400 em vez de
+  varrer as tabelas inteiras.
+- A primeira consulta a um padrão de filtro novo pode ser lenta por
+  cache frio (ver `docs/ARCHITECTURE.md`); isso é esperado até
+  `receita_staging` ser materializado em tabelas operacionais menores
+  (item 6 de `docs/NEXT_ARCHITECTURE_LEDGER.md`).
+- Novos índices em `receita_staging` devem seguir o mesmo padrão: nova
+  migration timestampada, nunca editar uma já aplicada (ADR-049).

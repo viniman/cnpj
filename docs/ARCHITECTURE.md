@@ -329,6 +329,55 @@ O tempo medido após essa correção fica registrado em
 `docs/BASE_READINESS_AUDIT.md`. Paralelização de arquivos independentes e
 eliminação do `docker compose cp` por arquivo ficaram para a issue #62.
 
+### Schema operacional inicial e busca de empresas (issue #66)
+
+O primeiro schema operacional real do Prisma vive no schema Postgres
+`app` (preview feature `multiSchema`), com os modelos `Organization` e
+`User`. Não existe uma tabela `workspace_context` separada como no MVP
+SQLite: o conceito de "workspace ativo" passa a ser resolvido pela
+camada de autenticação/sessão (a implementar), não por um singleton
+mutável no banco.
+
+`CompaniesModule` (`GET /companies/search`) lê `receita_staging`
+diretamente via `prisma.$queryRaw`, sem modelar essas tabelas no Prisma,
+conforme a decisão de separação de schemas. A busca por nome/razão
+social resolve primeiro um conjunto pequeno de `cnpj_basico` via CTE:
+
+```sql
+WITH matched AS (
+  SELECT cnpj_basico FROM empresas_raw WHERE razao_social ILIKE $termo
+  UNION
+  SELECT cnpj_basico FROM estabelecimentos_raw WHERE nome_fantasia ILIKE $termo
+  UNION
+  SELECT cnpj_basico FROM empresas_raw WHERE cnpj_basico = $termo
+)
+SELECT ... FROM estabelecimentos_raw e
+JOIN empresas_raw emp ON emp.cnpj_basico = e.cnpj_basico
+WHERE e.cnpj_basico IN (SELECT cnpj_basico FROM matched)
+```
+
+Filtrar `razao_social`/`nome_fantasia` direto num `WHERE` pós-join,
+cruzando as duas tabelas de 70M+ linhas na mesma condição `OR`, impede o
+Postgres de usar qualquer índice GIN trigram e força varredura sequencial
+completa das duas tabelas — confirmado com `EXPLAIN` durante a
+implementação. Resolver o `cnpj_basico` primeiro, cada ramo do CTE
+usando seu próprio índice, evita isso.
+
+A migration `infra/postgres/migrations/20260804130000` adiciona um
+índice btree simples em `estabelecimentos_raw.cnpj_basico`, que faltava
+(só existia índice de expressão no CNPJ completo concatenado) e era
+necessário para o join com `empresas_raw` usar index scan em vez de
+sequential scan.
+
+**Limitação conhecida**: como a busca lê as tabelas brutas de staging
+diretamente (não uma tabela operacional materializada e menor), a
+primeira consulta a um padrão de acesso novo pode levar alguns segundos
+por cache frio (`shared_buffers` de 1GB não cobre os ~80GB de dado);
+consultas repetidas ao mesmo padrão ficam rápidas (cache quente). Isso
+deve melhorar quando `receita_staging` for materializado em tabelas
+operacionais menores (item 6 de `docs/NEXT_ARCHITECTURE_LEDGER.md`,
+ainda não implementado).
+
 ## Fontes automatizadas
 
 Fonte primaria:
