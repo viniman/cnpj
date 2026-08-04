@@ -103,3 +103,70 @@ export async function addCompaniesToList(listId: number, companies: CompanySearc
   }
   return response.json() as Promise<{ added: number; requested: number }>;
 }
+
+export interface EmailAccount {
+  id: number;
+  name: string;
+  fromName: string;
+  fromEmail: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  dailyLimit: number;
+  limitResetTimezone: string;
+  delayMode: 'fixed' | 'random';
+  delayFixedSeconds: number | null;
+  delayMinSeconds: number | null;
+  delayMaxSeconds: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmailAccountFormInput {
+  name: string;
+  fromName: string;
+  fromEmail: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPassword?: string;
+  dailyLimit: number;
+  limitResetTimezone: string;
+  delayMode: 'fixed' | 'random';
+  delayFixedSeconds?: number;
+  delayMinSeconds?: number;
+  delayMaxSeconds?: number;
+}
+
+async function parseOrThrow<T>(response: Response, fallbackMessage: string): Promise<T> {
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(body?.message || fallbackMessage);
+  }
+  return response.json();
+}
+
+export async function fetchEmailAccounts(): Promise<EmailAccount[]> {
+  const response = await fetch(`${API_BASE_URL}/email-accounts`, { cache: 'no-store' });
+  return parseOrThrow(response, 'Falha ao carregar contas de e-mail.');
+}
+
+export async function createEmailAccount(input: EmailAccountFormInput): Promise<EmailAccount> {
+  const response = await fetch(`${API_BASE_URL}/email-accounts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return parseOrThrow(response, 'Falha ao criar conta de e-mail.');
+}
+
+export async function deleteEmailAccount(id: number): Promise<void> {
+  await fetch(`${API_BASE_URL}/email-accounts/${id}`, { method: 'DELETE' });
+}
+
+export async function testEmailAccount(id: number): Promise<{ ok: boolean; message: string }> {
+  const response = await fetch(`${API_BASE_URL}/email-accounts/${id}/test`, { method: 'POST' });
+  return parseOrThrow(response, 'Falha ao testar conexão.');
+}
