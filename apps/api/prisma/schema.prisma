@@ -1,11 +1,39 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["app"]
 }
 
-// O schema operacional será modelado em próximas PRs.
-// O schema receita_staging permanece bruto e é lido como fonte de transformação.
+// O schema operacional é modelado aqui, no schema Postgres `app`.
+// O schema `receita_staging` permanece bruto, de propriedade de
+// infra/postgres/migrations, e é lido via SQL parametrizado a partir do
+// NestJS (ver CompaniesService), nao remodelado pelo Prisma.
+// Ver docs/NEXT_ARCHITECTURE_LEDGER.md para a decisao de separacao de schemas.
+
+model Organization {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  users     User[]
+
+  @@map("organizations")
+  @@schema("app")
+}
+
+model User {
+  id             Int          @id @default(autoincrement())
+  organizationId Int          @map("org_id")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  email          String       @unique
+  role           String       @default("admin")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@map("users")
+  @@schema("app")
+}
