@@ -60,4 +60,4 @@ efeito colateral de lista global.
 - `render_email_template` audita no workspace ativo e preserva rodape de
   compliance.
 - Teste de isolamento multi-workspace em `tests/test_email_templates.py`.
-- Sequencias passaram a consumir templates no workspace ativo na Fase 20.
+- Cadencias passaram a consumir templates no workspace ativo na Fase 20.

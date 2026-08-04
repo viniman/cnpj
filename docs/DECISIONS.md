@@ -1407,3 +1407,49 @@ Consequências:
   pena.
 - O tempo medido da carga completa após esta correção fica registrado em
   `docs/BASE_READINESS_AUDIT.md`.
+
+## ADR-052 - Execução da renomeação Sequências para Cadências
+
+Data: 2026-08-04
+
+Decisão:
+
+- Executada a renomeação de "Sequências"/"sequence" para "Cadências"/
+  "cadence" em todo o produto (issue #64): schema SQLite
+  (`radar_cnpj/database.py`, tabelas `cadences`/`cadence_steps`, coluna
+  `cadence_id`), backend (`radar_cnpj/server.py`,
+  `radar_cnpj/services.py`), frontend (`static/app.js`), testes
+  (`tests/test_cadences.py` e 6 suites relacionadas) e documentação viva
+  (specs renomeadas: `docs/CADENCE_CONTEXT_SPEC.md`,
+  `docs/CADENCE_SUPERVISION_SPEC.md`, mais referências em
+  `docs/ARCHITECTURE.md` e ~11 outras specs).
+- `docs/IMPLEMENTATION_HISTORY.md`, `docs/PHASE_HISTORY_INDEX.md` e as
+  ADRs já existentes neste arquivo (por exemplo, ADR-022) não foram
+  reescritos: preservam a terminologia "Sequências" como registro
+  histórico do que existia em cada fase, conforme
+  `docs/DEVELOPMENT_GUIDELINES.md`.
+- Usos genéricos não relacionados ao recurso não foram tocados:
+  "Consequências" (seções de ADR) e "sequencial"/"sequenciais"
+  (adjetivo).
+
+Racional:
+
+- `docs/NEXT_ARCHITECTURE_LEDGER.md` já determinava essa renomeação como
+  pré-requisito antes de consolidar o schema operacional em
+  NestJS/Prisma (`apps/api/prisma/schema.prisma` ainda vazio).
+- Fazer a renomeação agora, antes do schema operacional existir, evita
+  carregar a nomenclatura antiga para o produto novo.
+- Preservar a terminologia antiga em documentos históricos evita
+  reescrever registros que descrevem fielmente o que foi construído em
+  cada fase.
+
+Consequências:
+
+- Novo código e specs devem usar exclusivamente "cadência"/"cadence" e
+  seus derivados (`cadences`, `cadence_steps`, `cadence_id`).
+- Referências a "Sequências" em `docs/IMPLEMENTATION_HISTORY.md`,
+  `docs/PHASE_HISTORY_INDEX.md` e ADRs anteriores a esta são
+  intencionalmente históricas, não um recurso ativo do produto.
+- O schema operacional Prisma (próxima fase) já nasce com nomenclatura
+  `cadences`/`cadence_steps`/`cadence_enrollments`, sem herdar o nome
+  antigo.

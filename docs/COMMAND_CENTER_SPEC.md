@@ -13,7 +13,7 @@ ler tabelas de banco.
 ## Escopo
 
 - Caixa unica de pendencias humanas:
-  - aprovacoes de passos de sequencia em `approval_queue`
+  - aprovacoes de passos de cadencia em `approval_queue`
   - handoffs pendentes em `handoffs`
   - reunioes propostas/agendadas em `meetings`
 - Feed de atividade a partir de `agent_actions`.

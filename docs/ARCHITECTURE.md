@@ -76,7 +76,7 @@ flowchart LR
 - `radar_cnpj/company_enrichment.py`: extracao de sinais publicos de site, technology checker e maturidade digital.
 - `radar_cnpj/email_experiments.py`: regras puras de campanhas simuladas, UTM, funil e elegibilidade.
 - `radar_cnpj/email_templates.py`: renderizacao de templates versionados com variaveis e rodape de compliance.
-- `radar_cnpj/services.py`: tambem orquestra sequencias semi-supervisionadas,
+- `radar_cnpj/services.py`: tambem orquestra cadencias semi-supervisionadas,
   fila de aprovacao, ICP estruturado, fila SDR, logs do agente e Command
   Center no MVP local.
 - `radar_cnpj/scoring.py`: setor, segmento, score explicavel e estimativa simples.
@@ -108,7 +108,7 @@ Tabelas principais:
   comercial em modo simulado.
 - `email_templates`, `email_template_versions`: biblioteca de copy
   reutilizavel, versionada e renderizada no backend.
-- `sequences`, `sequence_steps`, `lead_journey`, `approval_queue`,
+- `cadences`, `cadence_steps`, `lead_journey`, `approval_queue`,
   `agent_actions`: cadencias semi-supervisionadas, estado por lead, revisao
   humana e auditoria de decisoes.
 - `icp_rules`, `lead_priority_queue`: regras estruturadas de cliente ideal e
@@ -130,9 +130,9 @@ Tabelas principais:
 - `workspace_metric_snapshots`: snapshots manuais das metricas executivas por
   workspace.
 - `workspace_onboarding_runs`: historico do wizard de onboarding operacional,
-  com os IDs de playbook, ICP, template, sequencia, OKR e configuracao criados.
+  com os IDs de playbook, ICP, template, cadencia, OKR e configuracao criados.
 - `playbook_execution_plans`: planos revisaveis para materializar playbooks em
-  ICP, template, sequencia e OKR, com diff, status e artefatos criados.
+  ICP, template, cadencia e OKR, com diff, status e artefatos criados.
 - `api_keys`, `credit_wallets`, `credit_transactions`: fundacao SaaS local com
   chaves por workspace, saldo de creditos e ledger append-only.
 - `saas_plans`, `workspace_plan_subscriptions`: catalogo local de planos e
@@ -153,9 +153,9 @@ Tabelas principais:
   qualquer envio simulado.
 - Templates recebem rodape de compliance no backend, nao por texto editavel na
   interface.
-- Sequencias nao executam passos sem item aprovado em `approval_queue`.
+- Cadencias nao executam passos sem item aprovado em `approval_queue`.
 - Aprovacoes rejeitadas nao geram registros em `sends`.
-- Cada acao de sequencia registra origem e motivo em `agent_actions`.
+- Cada acao de cadencia registra origem e motivo em `agent_actions`.
 - ICP e aplicado no backend antes de uma empresa entrar na fila SDR.
 - Priorizacao bloqueia supressao, opt-out, e-mail fraco e contato
   terceirizado conforme criterio estruturado.
@@ -205,7 +205,7 @@ Tabelas principais:
   leads, campanhas, funil e eventos.
 - Templates de e-mail e suas versoes leem `current_org_id(conn)` para criacao,
   listagem, detalhe, versionamento e renderizacao.
-- Sequencias, jornadas, aprovacoes e `agent_actions` de cadencia leem
+- Cadencias, jornadas, aprovacoes e `agent_actions` de cadencia leem
   `current_org_id(conn)` e bloqueiam IDs fora do contexto ativo.
 - ICP e fila SDR leem `current_org_id(conn)` para regras, listas, sugestoes,
   auditoria e decisoes humanas.
@@ -223,7 +223,7 @@ Tabelas principais:
   automatica.
 - O wizard de onboarding compoe servicos existentes e registra
   `workspace_onboarding_runs`; ele nao cria envio real nem contorna aprovacao
-  humana de sequencias.
+  humana de cadencias.
 - Planos de execucao de playbook separam preview de aplicacao: criar plano nao
   cria artefatos operacionais, e aplicar plano e uma acao explicita auditada no
   workspace ativo.

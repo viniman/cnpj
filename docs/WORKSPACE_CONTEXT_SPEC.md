@@ -94,7 +94,7 @@ Define o workspace ativo local.
   futura deve ser explicita e protegida por RBAC.
   Experimentos/campanhas simuladas foram migrados na Fase 18; templates de
   e-mail foram migrados na Fase 19;
-  sequencias/jornadas/aprovacoes foram migradas na Fase 20; ICP e fila SDR
+  cadencias/jornadas/aprovacoes foram migradas na Fase 20; ICP e fila SDR
   foram migrados na Fase 21; respostas, handoffs e reunioes foram migrados na
   Fase 22; Command Center e replay foram migrados na Fase 23; governanca do
   agente e custos foram migrados na Fase 24; playbooks e aplicacao ativa foram

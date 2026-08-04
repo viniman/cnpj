@@ -40,7 +40,8 @@ O plano alvo consolidado está em `docs/NEXT_ARCHITECTURE_LEDGER.md`.
 - Next.js será a interface premium de cliente e pode assumir o super admin no
   futuro.
 - SQLite será removido do fluxo principal após a migração para Postgres.
-- "Sequências" deve migrar para "Cadências" antes do novo schema operacional.
+- "Sequências" migrou para "Cadências" em todo o produto (issue #64), antes
+  do novo schema operacional.
 - Histórico mensal, sócios antigos e alertas de mudança são diferenciais de
   produto, não apenas detalhes técnicos.
 - Bootstrap Docker, migrations SQL de staging e migrations Prisma de produto
@@ -158,7 +159,7 @@ Fases:
 13. Migracao gradual dos modulos restantes para `current_org_id`.
 14. Experimentos comerciais simulados por workspace ativo.
 15. Templates de e-mail por workspace ativo.
-16. Sequencias, jornadas e aprovacoes por workspace ativo.
+16. Cadencias, jornadas e aprovacoes por workspace ativo.
 17. ICP e fila SDR por workspace ativo.
 18. Respostas, handoffs e reunioes por workspace ativo.
 19. Command Center e replay por workspace ativo.

@@ -119,7 +119,7 @@ Criar plano de execucao revisavel para um playbook:
 Invoke-RestMethod `
   -Method Post `
   -Uri "http://127.0.0.1:8000/api/playbooks/1/execution-plans" `
-  -Body '{"version_id":1,"apply_note":"Validar antes de criar ICP, template, sequencia e OKR"}' `
+  -Body '{"version_id":1,"apply_note":"Validar antes de criar ICP, template, cadencia e OKR"}' `
   -ContentType "application/json"
 ```
 
@@ -686,9 +686,9 @@ Tabelas:
 - `email_templates`
 - `email_template_versions`
 
-## Sequencias semi-supervisionadas
+## Cadencias semi-supervisionadas
 
-A aba `Sequencias` cria cadencias multi-step usando templates versionados, mas
+A aba `Cadencias` cria cadencias multi-step usando templates versionados, mas
 mantem aprovacao humana antes de qualquer execucao. Esta fase ainda nao envia
 e-mail real: aprovacoes criam envios simulados e registros de auditoria.
 
@@ -696,19 +696,19 @@ Fluxo:
 
 1. Crie uma lista com empresas elegiveis.
 2. Crie um template de primeiro contato e, opcionalmente, um follow-up.
-3. Va para `Sequencias`.
-4. Crie uma sequencia com os templates.
-5. Inscreva a lista na sequencia.
+3. Va para `Cadencias`.
+4. Crie uma cadencia com os templates.
+5. Inscreva a lista na cadencia.
 6. Revise cada item em `Aprovacoes pendentes`.
 7. Aprove ou rejeite com uma nota de decisao.
 8. Quando uma jornada ficar em espera, prepare o proximo passo.
 
-Criar sequencia:
+Criar cadencia:
 
 ```powershell
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://127.0.0.1:8000/api/sequences" `
+  -Uri "http://127.0.0.1:8000/api/cadences" `
   -Body '{"name":"Cadencia inicial","steps":[{"name":"Primeiro contato","template_id":1,"wait_days":0},{"name":"Follow-up","template_id":2,"wait_days":3}]}' `
   -ContentType "application/json"
 ```
@@ -718,7 +718,7 @@ Inscrever lista:
 ```powershell
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://127.0.0.1:8000/api/sequences/1/enroll" `
+  -Uri "http://127.0.0.1:8000/api/cadences/1/enroll" `
   -Body '{"list_id":1}' `
   -ContentType "application/json"
 ```
@@ -738,15 +738,15 @@ Preparar proximo passo de uma jornada:
 ```powershell
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://127.0.0.1:8000/api/sequences/journeys/1/prepare-next" `
+  -Uri "http://127.0.0.1:8000/api/cadences/journeys/1/prepare-next" `
   -Body '{}' `
   -ContentType "application/json"
 ```
 
 Tabelas:
 
-- `sequences`
-- `sequence_steps`
+- `cadences`
+- `cadence_steps`
 - `lead_journey`
 - `approval_queue`
 - `agent_actions`
@@ -1028,12 +1028,12 @@ Use isso para amostras. A base nacional completa deve ser processada com Postgre
 - `GET /api/templates/{id}`
 - `POST /api/templates/{id}/versions`
 - `POST /api/templates/render`
-- `POST /api/sequences`
-- `GET /api/sequences`
-- `GET /api/sequences/{id}`
-- `POST /api/sequences/{id}/enroll`
-- `GET /api/sequences/journeys`
-- `POST /api/sequences/journeys/{id}/prepare-next`
+- `POST /api/cadences`
+- `GET /api/cadences`
+- `GET /api/cadences/{id}`
+- `POST /api/cadences/{id}/enroll`
+- `GET /api/cadences/journeys`
+- `POST /api/cadences/journeys/{id}/prepare-next`
 - `GET /api/approvals`
 - `POST /api/approvals/{id}/approve`
 - `POST /api/approvals/{id}/reject`
@@ -1073,7 +1073,7 @@ python -m unittest discover -s tests
 - Enriquecimento por site e sinal complementar; nao substitui dado oficial da Receita.
 - Campanhas locais sao simuladas e nao chamam provedor externo.
 - Rodape de compliance de templates e injetado pelo backend.
-- Sequencias exigem aprovacao humana por passo antes de simular envio.
+- Cadencias exigem aprovacao humana por passo antes de simular envio.
 - Fila SDR so inclui empresas que passam pelo ICP estruturado no backend.
 - Opt-out detectado em resposta vira supressao imediata.
 - Respostas ambiguas ou quentes viram handoff humano.
@@ -1086,7 +1086,7 @@ python -m unittest discover -s tests
   nao chamam modelo externo.
 - Custos de IA ficam registrados por operacao/modelo/versao para auditoria.
 - Aplicar playbook grava uma referencia ativa do workspace; nao sobrescreve ICP,
-  sequencias, OKRs ou configuracoes do agente automaticamente.
+  cadencias, OKRs ou configuracoes do agente automaticamente.
 - Notificacoes guardam origem (`source_type` e `source_id`) e nao alteram o
   registro operacional original ao serem lidas ou dispensadas.
 - Comparacao multi-workspace usa metricas por `org_id` onde ja existe esse
@@ -1099,7 +1099,7 @@ python -m unittest discover -s tests
   campanhas, simulacoes, eventos e funil sao filtrados por contexto.
 - Templates de e-mail tambem respeitam o workspace ativo: criacao, listagem,
   versoes e renderizacao nao atravessam workspaces.
-- Sequencias, jornadas, aprovacoes humanas e acoes de cadencia tambem usam o
+- Cadencias, jornadas, aprovacoes humanas e acoes de cadencia tambem usam o
   workspace ativo; IDs de outro workspace sao recusados pelo backend.
 - ICP estruturado e fila SDR tambem usam o workspace ativo; regras, listas e
   sugestoes de outro workspace sao recusadas pelo backend.
@@ -1114,7 +1114,7 @@ python -m unittest discover -s tests
 - Clonar playbook entre workspaces cria uma copia independente e auditavel no
   destino; nao aplica automaticamente ICP, cadencia, OKR ou governanca.
 - Planos de execucao de playbook criam uma previa auditavel antes de
-  materializar ICP, template, sequencia e OKR; apenas a acao explicita de
+  materializar ICP, template, cadencia e OKR; apenas a acao explicita de
   aplicar o plano cria esses artefatos.
 - A fundacao SaaS tambem usa o workspace ativo: chaves de API, carteira e
   ledger de creditos nao atravessam empresas. Token completo aparece apenas na
@@ -1122,7 +1122,7 @@ python -m unittest discover -s tests
 - A API publica local usa a organizacao da chave, aplica escopo, rate limit e
   saldo antes de consultar empresas, e registra usos aceitos/bloqueados.
 - O onboarding operacional cria uma nova empresa pronta para revisao no Command
-  Center: workspace, playbook aplicado, ICP, template, sequencia, OKR e default
+  Center: workspace, playbook aplicado, ICP, template, cadencia, OKR e default
   de agente, sem envio real.
 - Auditoria operacional tambem usa o workspace ativo; `/api/audit` mostra os
   eventos da empresa selecionada na topbar.

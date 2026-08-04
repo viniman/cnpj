@@ -3,7 +3,7 @@
 ## Objetivo
 
 Transformar um playbook aplicado em uma proposta operacional revisavel antes
-de criar ICP, template, sequencia e OKR. O operador deve conseguir ver o que
+de criar ICP, template, cadencia e OKR. O operador deve conseguir ver o que
 sera criado, entender o impacto e aplicar explicitamente.
 
 ## Escopo
@@ -14,7 +14,7 @@ sera criado, entender o impacto e aplicar explicitamente.
   - aplicacao do playbook;
   - ICP;
   - template de primeiro contato;
-  - sequencia semi-supervisionada;
+  - cadencia semi-supervisionada;
   - OKR inicial.
 - Registrar um `diff_json` simples com contagens atuais e artefatos propostos.
 - Aplicar plano por acao explicita, criando artefatos pelos servicos existentes.
@@ -35,7 +35,7 @@ sera criado, entender o impacto e aplicar explicitamente.
 Playbook nao deve alterar operacao de forma invisivel. Entre escolher um
 playbook e criar artefatos operacionais existe um plano explicito, auditavel e
 aplicado por humano. A aplicacao continua usando os mesmos servicos de ICP,
-template, sequencia e OKR, preservando compliance e aprovacao humana.
+template, cadencia e OKR, preservando compliance e aprovacao humana.
 
 ## Implementado nesta fase
 
@@ -53,10 +53,10 @@ template, sequencia e OKR, preservando compliance e aprovacao humana.
 
 ## Criterios de aceite
 
-- Criar plano nao cria ICP, template, sequencia nem OKR.
+- Criar plano nao cria ICP, template, cadencia nem OKR.
 - Plano mostra playbook, versao, proposta e diff simples.
 - Aplicar plano cria os artefatos no workspace ativo.
-- Sequencia criada exige aprovacao humana.
+- Cadencia criada exige aprovacao humana.
 - Plano aplicado registra artefatos criados.
 - Reaplicar plano aplicado e recusado.
 - Plano de outro workspace e recusado.

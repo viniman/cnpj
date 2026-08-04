@@ -22,7 +22,7 @@ e auditoria clara.
 ## Fora do escopo desta fase
 
 - Mesclar alteracoes entre clones.
-- Aplicar automaticamente ICP, templates, sequencias, OKRs ou configuracoes.
+- Aplicar automaticamente ICP, templates, cadencias, OKRs ou configuracoes.
 - Marketplace global de playbooks.
 - Permissoes/RBAC para restringir quem pode clonar.
 

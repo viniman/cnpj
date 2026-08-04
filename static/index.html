@@ -26,7 +26,7 @@
           <button class="nav-item" data-view="enrichment">Enriquecimento</button>
           <button class="nav-item" data-view="experiments">Experimentos</button>
           <button class="nav-item" data-view="templates">Templates</button>
-          <button class="nav-item" data-view="sequences">Sequencias</button>
+          <button class="nav-item" data-view="cadences">Cadencias</button>
           <button class="nav-item" data-view="icp">ICP SDR</button>
           <button class="nav-item" data-view="replies">Respostas</button>
           <button class="nav-item" data-view="hygiene">Higiene</button>
@@ -975,41 +975,41 @@
           </section>
         </section>
 
-        <section id="sequences" class="view">
+        <section id="cadences" class="view">
           <div class="content-grid">
             <section class="panel">
               <div class="panel-head">
-                <h2>Nova sequencia</h2>
-                <button id="refreshSequencesBtn" class="button">Atualizar</button>
+                <h2>Nova cadencia</h2>
+                <button id="refreshCadencesBtn" class="button">Atualizar</button>
               </div>
               <div class="form-grid">
                 <label>
                   Nome
-                  <input id="sequenceName" class="input" placeholder="Cadencia inicial B2B" />
+                  <input id="cadenceName" class="input" placeholder="Cadencia inicial B2B" />
                 </label>
                 <label>
                   Lista para inscricao
-                  <select id="sequenceList" class="input"></select>
+                  <select id="cadenceList" class="input"></select>
                 </label>
                 <label>
                   Template passo 1
-                  <select id="sequenceStepTemplate1" class="input" data-template-select></select>
+                  <select id="cadenceStepTemplate1" class="input" data-template-select></select>
                 </label>
                 <label>
                   Template passo 2 opcional
-                  <select id="sequenceStepTemplate2" class="input" data-template-select></select>
+                  <select id="cadenceStepTemplate2" class="input" data-template-select></select>
                 </label>
                 <label>
                   Espera passo 2 em dias
-                  <input id="sequenceStep2Wait" class="input" type="number" min="0" value="3" />
+                  <input id="cadenceStep2Wait" class="input" type="number" min="0" value="3" />
                 </label>
                 <label>
                   Observacao
-                  <input id="sequenceDescription" class="input" placeholder="Objetivo da cadencia" />
+                  <input id="cadenceDescription" class="input" placeholder="Objetivo da cadencia" />
                 </label>
               </div>
               <div class="toolbar panel-toolbar">
-                <button id="createSequenceBtn" class="button primary">Criar sequencia</button>
+                <button id="createCadenceBtn" class="button primary">Criar cadencia</button>
                 <p class="muted">Cada passo gera aprovacao humana antes de qualquer simulacao.</p>
               </div>
             </section>
@@ -1033,9 +1033,9 @@
 
           <section class="panel">
             <div class="panel-head">
-              <h2>Sequencias</h2>
+              <h2>Cadencias</h2>
             </div>
-            <div id="sequencesTable" class="table-wrap"></div>
+            <div id="cadencesTable" class="table-wrap"></div>
           </section>
 
           <section class="panel">
