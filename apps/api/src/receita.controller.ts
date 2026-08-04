@@ -7,7 +7,7 @@ export class ReceitaController {
     return {
       schema: 'receita_staging',
       mode: 'postgres-staging-read-model',
-      next: 'Implementar Prisma service e endpoints de busca normalizados.',
+      search_endpoint: 'GET /companies/search',
     };
   }
 }
