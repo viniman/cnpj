@@ -501,7 +501,7 @@ def init_db():
                 FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE CASCADE
             );
 
-            CREATE TABLE IF NOT EXISTS sequences (
+            CREATE TABLE IF NOT EXISTS cadences (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
                 campaign_id INTEGER,
@@ -514,9 +514,9 @@ def init_db():
                 FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE SET NULL
             );
 
-            CREATE TABLE IF NOT EXISTS sequence_steps (
+            CREATE TABLE IF NOT EXISTS cadence_steps (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sequence_id INTEGER NOT NULL,
+                cadence_id INTEGER NOT NULL,
                 step_number INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 step_type TEXT NOT NULL DEFAULT 'email',
@@ -525,8 +525,8 @@ def init_db():
                 template_version_id INTEGER NOT NULL,
                 require_approval INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
-                UNIQUE (sequence_id, step_number),
-                FOREIGN KEY (sequence_id) REFERENCES sequences(id) ON DELETE CASCADE,
+                UNIQUE (cadence_id, step_number),
+                FOREIGN KEY (cadence_id) REFERENCES cadences(id) ON DELETE CASCADE,
                 FOREIGN KEY (template_id) REFERENCES email_templates(id),
                 FOREIGN KEY (template_version_id) REFERENCES email_template_versions(id)
             );
@@ -535,7 +535,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
                 lead_id INTEGER NOT NULL,
-                sequence_id INTEGER NOT NULL,
+                cadence_id INTEGER NOT NULL,
                 current_step_id INTEGER,
                 current_step_number INTEGER NOT NULL DEFAULT 1,
                 status TEXT NOT NULL,
@@ -544,11 +544,11 @@ def init_db():
                 block_reason TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                UNIQUE (org_id, lead_id, sequence_id),
+                UNIQUE (org_id, lead_id, cadence_id),
                 FOREIGN KEY (org_id) REFERENCES organizations(id),
                 FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE,
-                FOREIGN KEY (sequence_id) REFERENCES sequences(id) ON DELETE CASCADE,
-                FOREIGN KEY (current_step_id) REFERENCES sequence_steps(id) ON DELETE SET NULL
+                FOREIGN KEY (cadence_id) REFERENCES cadences(id) ON DELETE CASCADE,
+                FOREIGN KEY (current_step_id) REFERENCES cadence_steps(id) ON DELETE SET NULL
             );
 
             CREATE TABLE IF NOT EXISTS approval_queue (
@@ -569,7 +569,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
                 lead_id INTEGER,
-                sequence_id INTEGER,
+                cadence_id INTEGER,
                 action_type TEXT NOT NULL,
                 source TEXT NOT NULL,
                 reason TEXT NOT NULL,
@@ -577,7 +577,7 @@ def init_db():
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (org_id) REFERENCES organizations(id),
                 FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL,
-                FOREIGN KEY (sequence_id) REFERENCES sequences(id) ON DELETE SET NULL
+                FOREIGN KEY (cadence_id) REFERENCES cadences(id) ON DELETE SET NULL
             );
 
             CREATE TABLE IF NOT EXISTS icp_rules (
@@ -749,7 +749,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL,
                 lead_id INTEGER,
-                sequence_id INTEGER,
+                cadence_id INTEGER,
                 agent_action_id INTEGER,
                 config_version_id INTEGER,
                 operation TEXT NOT NULL,
@@ -762,7 +762,7 @@ def init_db():
                 created_at TEXT NOT NULL,
                 FOREIGN KEY (org_id) REFERENCES organizations(id),
                 FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE SET NULL,
-                FOREIGN KEY (sequence_id) REFERENCES sequences(id) ON DELETE SET NULL,
+                FOREIGN KEY (cadence_id) REFERENCES cadences(id) ON DELETE SET NULL,
                 FOREIGN KEY (agent_action_id) REFERENCES agent_actions(id) ON DELETE SET NULL,
                 FOREIGN KEY (config_version_id) REFERENCES agent_config_versions(id) ON DELETE SET NULL
             );
@@ -866,7 +866,7 @@ def init_db():
                 playbook_application_id INTEGER,
                 icp_rule_id INTEGER,
                 template_id INTEGER,
-                sequence_id INTEGER,
+                cadence_id INTEGER,
                 objective_id INTEGER,
                 agent_config_id INTEGER,
                 summary_json TEXT NOT NULL,
@@ -876,7 +876,7 @@ def init_db():
                 FOREIGN KEY (playbook_application_id) REFERENCES workspace_playbook_applications(id),
                 FOREIGN KEY (icp_rule_id) REFERENCES icp_rules(id),
                 FOREIGN KEY (template_id) REFERENCES email_templates(id),
-                FOREIGN KEY (sequence_id) REFERENCES sequences(id),
+                FOREIGN KEY (cadence_id) REFERENCES cadences(id),
                 FOREIGN KEY (objective_id) REFERENCES objectives(id),
                 FOREIGN KEY (agent_config_id) REFERENCES agent_config_versions(id)
             );
@@ -1090,8 +1090,8 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_events_campaign_type ON events(campaign_id, event_type);
             CREATE INDEX IF NOT EXISTS idx_email_templates_status ON email_templates(status);
             CREATE INDEX IF NOT EXISTS idx_email_template_versions_active ON email_template_versions(template_id, is_active);
-            CREATE INDEX IF NOT EXISTS idx_sequences_status ON sequences(status);
-            CREATE INDEX IF NOT EXISTS idx_sequence_steps_sequence ON sequence_steps(sequence_id, step_number);
+            CREATE INDEX IF NOT EXISTS idx_cadences_status ON cadences(status);
+            CREATE INDEX IF NOT EXISTS idx_cadence_steps_cadence ON cadence_steps(cadence_id, step_number);
             CREATE INDEX IF NOT EXISTS idx_lead_journey_status ON lead_journey(status);
             CREATE INDEX IF NOT EXISTS idx_approval_queue_status ON approval_queue(status);
             CREATE INDEX IF NOT EXISTS idx_agent_actions_created ON agent_actions(created_at);

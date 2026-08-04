@@ -15,7 +15,7 @@ from .services import (
     apply_playbook,
     apply_playbook_execution_plan,
     apply_saas_plan_subscription,
-    approve_sequence_step,
+    approve_cadence_step,
     audit_events,
     create_icp_rule,
     create_agent_config,
@@ -33,7 +33,7 @@ from .services import (
     create_playbook,
     create_playbook_execution_plan,
     create_playbook_version,
-    create_sequence,
+    create_cadence,
     create_saved_filter,
     create_workspace,
     create_workspace_snapshot,
@@ -43,7 +43,7 @@ from .services import (
     decide_handoff,
     decide_priority_queue_item,
     enrich_company,
-    enroll_sequence_from_list,
+    enroll_cadence_from_list,
     export_list,
     get_campaign,
     get_company,
@@ -55,7 +55,7 @@ from .services import (
     get_workspace_scoring_config,
     get_score_config_version_diff,
     lead_timeline,
-    get_sequence,
+    get_cadence,
     import_source,
     create_okr,
     generate_notifications,
@@ -81,7 +81,7 @@ from .services import (
     list_priority_queue,
     list_reply_classifications,
     list_saved_filters,
-    list_sequences,
+    list_cadences,
     list_workspace_score_config_versions,
     prepare_next_journey_step,
     public_openapi_spec,
@@ -90,7 +90,7 @@ from .services import (
     remove_company_from_list,
     record_campaign_event,
     record_inbound_reply,
-    reject_sequence_step,
+    reject_cadence_step,
     render_email_template,
     rescore_workspace_companies,
     rollback_workspace_score_config_version,
@@ -306,16 +306,16 @@ class RadarHandler(SimpleHTTPRequestHandler):
                         self.send_error_json("Template nao encontrado", 404)
                     else:
                         self.send_json(template)
-                elif parsed.path == "/api/sequences":
-                    self.send_json(list_sequences(conn))
-                elif parsed.path == "/api/sequences/journeys":
+                elif parsed.path == "/api/cadences":
+                    self.send_json(list_cadences(conn))
+                elif parsed.path == "/api/cadences/journeys":
                     self.send_json(list_journeys(conn, params))
-                elif len(parts) == 3 and parts[1] == "sequences":
-                    sequence = get_sequence(conn, int(parts[2]))
-                    if not sequence:
-                        self.send_error_json("Sequencia nao encontrada", 404)
+                elif len(parts) == 3 and parts[1] == "cadences":
+                    cadence = get_cadence(conn, int(parts[2]))
+                    if not cadence:
+                        self.send_error_json("Cadencia nao encontrada", 404)
                     else:
-                        self.send_json(sequence)
+                        self.send_json(cadence)
                 elif parsed.path == "/api/approvals":
                     self.send_json(list_approvals(conn, params))
                 elif parsed.path == "/api/agent-actions":
@@ -428,16 +428,16 @@ class RadarHandler(SimpleHTTPRequestHandler):
                     self.send_json_commit(conn, create_email_template_version(conn, int(parts[2]), data))
                 elif parsed.path == "/api/templates/render":
                     self.send_json_commit(conn, render_email_template(conn, data))
-                elif parsed.path == "/api/sequences":
-                    self.send_json_commit(conn, create_sequence(conn, data), 201)
-                elif len(parts) == 4 and parts[1] == "sequences" and parts[3] == "enroll":
-                    self.send_json_commit(conn, enroll_sequence_from_list(conn, int(parts[2]), int(data.get("list_id") or 0)))
-                elif len(parts) == 5 and parts[1] == "sequences" and parts[2] == "journeys" and parts[4] == "prepare-next":
+                elif parsed.path == "/api/cadences":
+                    self.send_json_commit(conn, create_cadence(conn, data), 201)
+                elif len(parts) == 4 and parts[1] == "cadences" and parts[3] == "enroll":
+                    self.send_json_commit(conn, enroll_cadence_from_list(conn, int(parts[2]), int(data.get("list_id") or 0)))
+                elif len(parts) == 5 and parts[1] == "cadences" and parts[2] == "journeys" and parts[4] == "prepare-next":
                     self.send_json_commit(conn, prepare_next_journey_step(conn, int(parts[3])))
                 elif len(parts) == 4 and parts[1] == "approvals" and parts[3] == "approve":
-                    self.send_json_commit(conn, approve_sequence_step(conn, int(parts[2]), data.get("note") or ""))
+                    self.send_json_commit(conn, approve_cadence_step(conn, int(parts[2]), data.get("note") or ""))
                 elif len(parts) == 4 and parts[1] == "approvals" and parts[3] == "reject":
-                    self.send_json_commit(conn, reject_sequence_step(conn, int(parts[2]), data.get("note") or ""))
+                    self.send_json_commit(conn, reject_cadence_step(conn, int(parts[2]), data.get("note") or ""))
                 elif parsed.path == "/api/icp-rules":
                     self.send_json_commit(conn, create_icp_rule(conn, data), 201)
                 elif parsed.path == "/api/saved-filters":
