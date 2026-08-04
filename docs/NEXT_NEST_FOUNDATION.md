@@ -91,6 +91,21 @@ Issue #70 tornou `/listas` funcional:
   existente ou nova). `/listas` lista as listas salvas. `/listas/[id]`
   mostra e permite remover empresas de uma lista.
 
+Issue #72 tornou `/config/email` funcional:
+
+- Modelo Prisma `EmailAccount`: remetente, credenciais SMTP, limite
+  diário de envios, fuso horário de redefinição, modo de atraso entre
+  envios (fixo em segundos ou faixa aleatória min-max).
+- A senha SMTP é criptografada em repouso (AES-256-GCM,
+  `apps/api/src/common/crypto.util.ts`, chave via
+  `EMAIL_CREDENTIALS_KEY`) e a API nunca retorna o valor em texto puro
+  em nenhum endpoint, nem no `create`/`update`.
+- `POST /email-accounts/:id/test` valida a conexão SMTP de verdade via
+  `nodemailer.verify()` — testado contra o SMTP real do AWS SES.
+- UI em `/config/email`: cards com as contas configuradas, formulário de
+  criação com os campos de throttle, botão "Testar conexão" com
+  resultado inline.
+
 ## Próximas PRs
 
 1. ~~Definir schema operacional inicial no Prisma.~~ Feito (issue #66):
@@ -100,8 +115,9 @@ Issue #70 tornou `/listas` funcional:
 3. ~~Criar página Next SSR de busca.~~ Feito parcialmente (issue #68):
    `/empresas` busca client-side; SSR pode vir depois se necessário.
 4. ~~Listas (Prisma + endpoints + UI).~~ Feito (issue #70).
-5. Config de conta de e-mail (SMTP AWS SES + limite diário/atraso) —
-   próxima issue.
-6. Campanhas + motor de envio — depende de 4 (feito) e 5.
+5. ~~Config de conta de e-mail (SMTP AWS SES + limite diário/atraso).~~
+   Feito (issue #72).
+6. Campanhas + motor de envio — depende de 4 e 5 (ambos feitos), próxima
+   issue.
 7. Migrar gradualmente fluxos de usuário final para Next.
 8. Manter Python para ETL/super admin até substituição explícita.

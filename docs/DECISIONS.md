@@ -1550,3 +1550,45 @@ Consequências:
 - Novas páginas de produto devem seguir o shell e os tokens visuais
   definidos na issue #68 (`apps/web/tailwind.config.ts`,
   `apps/web/components/sidebar.tsx`).
+
+## ADR-055 - Credenciais SMTP criptografadas em repouso, nunca retornadas em texto puro
+
+Data: 2026-08-04
+
+Decisão:
+
+- `EmailAccount.smtpPasswordEncrypted` guarda a senha SMTP cifrada com
+  AES-256-GCM (`apps/api/src/common/crypto.util.ts`), IV aleatório por
+  chamada, chave derivada de `EMAIL_CREDENTIALS_KEY` (variável de
+  ambiente, nunca commitada — `apps/api/.env.example` traz só um
+  placeholder e o comando para gerar uma chave real).
+- Nenhum endpoint de `EmailAccountsController` retorna a senha em texto
+  puro, nem no `POST` de criação nem no `PATCH` de atualização — as
+  respostas usam uma lista explícita de campos públicos
+  (`PUBLIC_FIELDS` em `email-accounts.service.ts`) que exclui a senha.
+  A senha só é descriptografada no servidor, dentro de
+  `testConnection`, para abrir a conexão SMTP real.
+- `POST /email-accounts/:id/test` valida a conexão de verdade via
+  `nodemailer.verify()`, não apenas checando formato dos campos.
+
+Racional:
+
+- São credenciais reais de envio de e-mail (AWS SES) que, vazadas,
+  permitem enviar e-mail em nome do domínio da Real Grana. Guardar em
+  texto puro seria incompatível com qualquer padrão mínimo de segurança,
+  mesmo num MVP interno sem autenticação de usuário ainda.
+- AES-256-GCM foi escolhido por ser autenticado (detecta adulteração do
+  ciphertext, não só decifra) e nativo do módulo `crypto` do Node, sem
+  dependência externa nova.
+
+Consequências:
+
+- Perder `EMAIL_CREDENTIALS_KEY` torna todas as senhas salvas
+  irrecuperáveis (não há como decifrar sem a chave); é preciso recriar
+  as contas de e-mail. Aceitável para o estágio atual (poucas contas,
+  MVP interno), mas deve virar um segredo gerenciado de verdade (ex.:
+  AWS Secrets Manager) antes de produção com clientes externos.
+- Qualquer novo endpoint que leia `EmailAccount` deve reusar
+  `PUBLIC_FIELDS` (ou equivalente) em vez de retornar o registro
+  Prisma completo, para não reintroduzir vazamento de senha por
+  descuido.

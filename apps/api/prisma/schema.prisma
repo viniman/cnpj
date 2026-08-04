@@ -76,3 +76,29 @@ model ListCompany {
   @@map("list_companies")
   @@schema("app")
 }
+
+// Senha SMTP fica criptografada (AES-256-GCM, ver crypto.util.ts) e a
+// API nunca retorna o texto puro. Limite diario e atraso entre envios
+// mapeados a partir da tela "Contas de e-mail" do Snov.io (ADR-054).
+model EmailAccount {
+  id                    Int      @id @default(autoincrement())
+  name                  String
+  fromName              String   @map("from_name")
+  fromEmail             String   @map("from_email")
+  smtpHost              String   @map("smtp_host")
+  smtpPort              Int      @map("smtp_port")
+  smtpSecure            Boolean  @default(true) @map("smtp_secure")
+  smtpUser              String   @map("smtp_user")
+  smtpPasswordEncrypted String   @map("smtp_password_encrypted")
+  dailyLimit            Int      @default(100) @map("daily_limit")
+  limitResetTimezone    String   @default("UTC") @map("limit_reset_timezone")
+  delayMode             String   @default("random") @map("delay_mode")
+  delayFixedSeconds     Int?     @map("delay_fixed_seconds")
+  delayMinSeconds       Int?     @map("delay_min_seconds")
+  delayMaxSeconds       Int?     @map("delay_max_seconds")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("email_accounts")
+  @@schema("app")
+}
