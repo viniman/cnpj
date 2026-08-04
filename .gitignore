@@ -12,6 +12,8 @@ data/postgres/
 data/npm-cache/
 
 .env
+.env.local
+.env*.local
 .DS_Store
 node_modules/
 .next/

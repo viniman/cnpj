@@ -58,12 +58,38 @@ O schema `receita_staging` continua bruto e não é remodelado pelo Prisma.
 `docs/ARCHITECTURE.md` para o desenho da query e o índice adicionado para
 viabilizar o join.
 
+## Frontend do produto (Radar CNPJ)
+
+`apps/web` deixou de ser só a fundação SSR e passou a ser o início real da
+plataforma Radar CNPJ (produto SaaS da empresa Radar, ver ADR-050 em
+`docs/DECISIONS.md`), sem autenticação ainda (uso interno). Issue #68
+adicionou:
+
+- Tailwind CSS (`tailwind.config.ts`, `postcss.config.mjs`) — não existia
+  antes.
+- Shell com navegação lateral: `Empresas`, `Listas`, `Campanhas`,
+  `Config. de e-mail` (`components/sidebar.tsx`).
+- `/empresas`: página funcional que consome `GET /companies/search` do
+  lado do cliente (`NEXT_PUBLIC_API_URL`), com filtros de nome/CNPJ, UF,
+  CNAE e situação cadastral.
+- `/listas`, `/campanhas`, `/config/email`: placeholders premium
+  ("Em construção"), aguardando as issues seguintes.
+
+Referência de produto usada no design: mapeamento dos módulos Leads,
+Localizador e Campanhas do Snov.io (não copiado literalmente — layout
+próprio, mais limpo).
+
 ## Próximas PRs
 
 1. ~~Definir schema operacional inicial no Prisma.~~ Feito (issue #66):
    `app.organizations`, `app.users`.
 2. ~~Criar service Nest para busca de empresas no Postgres.~~ Feito (issue
    #66): `GET /companies/search`.
-3. Criar página Next SSR de busca.
-4. Migrar gradualmente fluxos de usuário final para Next.
-5. Manter Python para ETL/super admin até substituição explícita.
+3. ~~Criar página Next SSR de busca.~~ Feito parcialmente (issue #68):
+   `/empresas` busca client-side; SSR pode vir depois se necessário.
+4. Listas (Prisma + endpoints + UI) — issue em andamento.
+5. Config de conta de e-mail (SMTP AWS SES + limite diário/atraso) —
+   issue em andamento.
+6. Campanhas + motor de envio — depende de 4 e 5.
+7. Migrar gradualmente fluxos de usuário final para Next.
+8. Manter Python para ETL/super admin até substituição explícita.

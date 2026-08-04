@@ -1505,3 +1505,48 @@ Consequências:
   (item 6 de `docs/NEXT_ARCHITECTURE_LEDGER.md`).
 - Novos índices em `receita_staging` devem seguir o mesmo padrão: nova
   migration timestampada, nunca editar uma já aplicada (ADR-049).
+
+## ADR-054 - MVP do produto Radar CNPJ: listas, campanhas e config de e-mail
+
+Data: 2026-08-04
+
+Decisão:
+
+- O `apps/web` passa a construir a plataforma real do produto Radar CNPJ
+  (SaaS da empresa Radar, ADR-050), priorizando um MVP funcional antes de
+  autenticação: busca/filtro de empresas (CNAE, porte, UF, situação),
+  listas salvas a partir de um filtro, e disparo de campanhas de e-mail
+  via SMTP (AWS SES) com controle de limite diário e atraso entre envios.
+- Uso inicial é interno, para montar listas e cadências da Real Grana
+  (empresa piloto, ver ADR-050), não é aberto a clientes externos ainda.
+- Referência de produto: mapeamento dos módulos Leads (listas),
+  Localizador (busca por filtro) e Campanhas do Snov.io, adaptado para a
+  unidade de dado ser a empresa (CNPJ), não a pessoa/lead. Layout próprio
+  a partir de padrões atuais de SaaS B2B, não uma cópia do Snov.io.
+- Tailwind CSS adotado como sistema de estilo do `apps/web` (issue #68);
+  não existia até então.
+- Sequência de entrega: (1) design system e shell, (2) listas, (3) config
+  de conta de e-mail, (4) campanhas e motor de envio — nessa ordem porque
+  campanhas depende das duas anteriores existirem.
+
+Racional:
+
+- O usuário já tem contas de e-mail e credenciais SMTP da AWS SES
+  configuradas e quer validar o disparo real o quanto antes; autenticação
+  não bloqueia esse objetivo enquanto o uso for interno.
+- Reaproveitar o desenho de produto do Snov.io (testado, maduro) reduz
+  risco de reinventar UX de prospecção do zero, mas a unidade de dado
+  diferente (empresa via CNPJ oficial, não pessoa via scraping) exige
+  adaptação, não cópia direta.
+
+Consequências:
+
+- O motor de envio (issue futura, item 4 desta sequência) deve reusar os
+  princípios de compliance já documentados no projeto (supressão e
+  opt-out, registro de origem, auditoria de envio — ver "Regra de
+  segurança do produto" em `docs/PRODUCT_ROADMAP.md`), mesmo sem
+  autenticação de usuário ainda.
+- Autenticação/RBAC real fica para depois deste MVP, não antes.
+- Novas páginas de produto devem seguir o shell e os tokens visuais
+  definidos na issue #68 (`apps/web/tailwind.config.ts`,
+  `apps/web/components/sidebar.tsx`).
