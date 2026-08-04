@@ -19,6 +19,24 @@ O projeto foi montado para uso interno em localhost. Ele ja inclui dashboard, bu
 - `docs/RELEASE_VERSIONING.md`: checklist de fechamento da base inicial,
   versionamento semântico e preparação da release `v0.1.0`.
 
+## API NestJS (produto operacional, em construcao)
+
+Em paralelo ao MVP Python abaixo, `apps/api` e o backend NestJS que vai
+assumir a API operacional do produto. Setup completo em
+`docs/NEXT_NEST_FOUNDATION.md`.
+
+Endpoints disponiveis hoje:
+
+```text
+GET /health
+GET /receita/status
+GET /companies/search?q=&uf=&cnae=&situacao=&page=&pageSize=
+```
+
+`GET /companies/search` busca em `receita_staging` (dado oficial ja
+importado, ver `docs/ARCHITECTURE.md`) e exige ao menos um filtro
+(`q`, `uf`, `cnae` ou `situacao`).
+
 ## Centro de Comando
 
 A aba `Comando` agrega a operacao em uma tela unica:

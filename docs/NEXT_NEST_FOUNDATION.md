@@ -49,16 +49,21 @@ downgrade/breaking change inadequado para esta fundação.
 
 ## Banco
 
-O Prisma começa com `DATABASE_URL` em `apps/api/.env.example`.
+O `DATABASE_URL` em `apps/api/.env` aponta para o schema Postgres `app`
+(`?schema=app`), usando o preview feature `multiSchema` do Prisma.
 
-O schema `receita_staging` continua bruto e não deve ser remodelado diretamente
-pelo Prisma. As próximas PRs devem criar modelos operacionais em schema próprio
-ou no schema público, lendo `receita_staging` como fonte de transformação.
+O schema `receita_staging` continua bruto e não é remodelado pelo Prisma.
+`CompaniesService` (issue #66) lê `receita_staging` via SQL parametrizado
+(`prisma.$queryRaw`), não via modelos Prisma — ver
+`docs/ARCHITECTURE.md` para o desenho da query e o índice adicionado para
+viabilizar o join.
 
 ## Próximas PRs
 
-1. Definir schema operacional inicial no Prisma.
-2. Criar service Nest para busca de empresas no Postgres.
+1. ~~Definir schema operacional inicial no Prisma.~~ Feito (issue #66):
+   `app.organizations`, `app.users`.
+2. ~~Criar service Nest para busca de empresas no Postgres.~~ Feito (issue
+   #66): `GET /companies/search`.
 3. Criar página Next SSR de busca.
 4. Migrar gradualmente fluxos de usuário final para Next.
 5. Manter Python para ETL/super admin até substituição explícita.
