@@ -106,6 +106,30 @@ Issue #72 tornou `/config/email` funcional:
   criação com os campos de throttle, botão "Testar conexão" com
   resultado inline.
 
+Issue #74 tornou `/campanhas` funcional — a última peça do MVP:
+
+- Modelos Prisma `Campaign`, `CampaignRecipient` (snapshot por empresa no
+  momento da criação, mesma lógica de `ListCompany`) e
+  `SuppressionEntry`.
+- Campanha nasce em `draft`; só envia de verdade quando o usuário clica
+  em "Iniciar campanha" e confirma um aviso explícito — nunca automático
+  (ver ADR-056 em `docs/DECISIONS.md`).
+- Motor de envio (`CampaignSenderService`, `@nestjs/schedule`, tick a
+  cada 15s): respeita o limite diário e o atraso (fixo/aleatório) da
+  conta, verifica supressão antes de cada envio, envia via nodemailer,
+  registra o resultado por destinatário. Sem Redis/BullMQ ainda (item 7
+  do `NEXT_ARCHITECTURE_LEDGER.md`).
+- `{{razaoSocial}}`, `{{nomeFantasia}}`, `{{municipioNome}}` substituídas
+  no assunto/corpo a partir do snapshot do destinatário
+  (`campaigns/template.util.ts`).
+- `GET /unsubscribe` com token HMAC por destinatário
+  (`unsubscribe-token.util.ts`) adiciona à `SuppressionEntry`; link
+  incluído automaticamente no rodapé de cada e-mail.
+- UI: `/campanhas` (lista com métricas), `/campanhas/novo` (formulário),
+  `/campanhas/[id]` (métricas, tabela de destinatários com erro
+  detalhado, iniciar/pausar com confirmação, atualização automática por
+  polling enquanto ativa).
+
 ## Próximas PRs
 
 1. ~~Definir schema operacional inicial no Prisma.~~ Feito (issue #66):
@@ -117,7 +141,13 @@ Issue #72 tornou `/config/email` funcional:
 4. ~~Listas (Prisma + endpoints + UI).~~ Feito (issue #70).
 5. ~~Config de conta de e-mail (SMTP AWS SES + limite diário/atraso).~~
    Feito (issue #72).
-6. Campanhas + motor de envio — depende de 4 e 5 (ambos feitos), próxima
-   issue.
+6. ~~Campanhas + motor de envio.~~ Feito (issue #74). MVP funcional
+   completo: buscar empresas, salvar em lista, configurar conta SMTP,
+   criar e disparar campanha.
 7. Migrar gradualmente fluxos de usuário final para Next.
 8. Manter Python para ETL/super admin até substituição explícita.
+9. Fila de envio de verdade (Redis/BullMQ) quando o volume justificar —
+   o worker por `@Interval` atual é suficiente para o MVP mas processa
+   no máximo um envio por campanha ativa a cada tick.
+10. Autenticação/RBAC real, e então escopo por organização em
+    List/Campaign/EmailAccount (hoje globais).

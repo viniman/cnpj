@@ -1592,3 +1592,63 @@ Consequências:
   `PUBLIC_FIELDS` (ou equivalente) em vez de retornar o registro
   Prisma completo, para não reintroduzir vazamento de senha por
   descuido.
+
+## ADR-056 - Campanhas nascem em draft; motor de envio por polling sem fila ainda
+
+Data: 2026-08-04
+
+Decisão:
+
+- `Campaign.status` começa em `draft`. O envio real só começa quando o
+  usuário chama `POST /campaigns/:id/start` explicitamente — a UI exige
+  uma confirmação textual explícita ("Isso vai enviar e-mails de
+  verdade para N destinatário(s)...") antes de chamar esse endpoint.
+  Nada é enviado na criação da campanha.
+- `CampaignSenderService` usa `@nestjs/schedule` (`@Interval`, tick de
+  15s) em vez de uma fila real (Redis/BullMQ). Cada tick processa no
+  máximo um envio por campanha ativa, o que já é suficiente para
+  respeitar limite diário e atraso configurados por conta — a fila real
+  fica para quando o volume justificar (item 7 do
+  `NEXT_ARCHITECTURE_LEDGER.md`).
+- Toda tentativa de envio verifica `SuppressionEntry` pelo e-mail antes
+  de disparar. `GET /unsubscribe?email=&token=` (token HMAC-SHA256
+  derivado de `EMAIL_CREDENTIALS_KEY`, ver
+  `campaigns/unsubscribe-token.util.ts`) adiciona à supressão sem exigir
+  autenticação, e o link é incluído automaticamente no rodapé de cada
+  e-mail enviado.
+- Destinatários sem e-mail no snapshot da lista nunca viram `pending`
+  (entram direto como `skipped_no_email`), então o worker nunca tenta
+  enviar para eles.
+- Variáveis de personalização (`{{razaoSocial}}` etc.) são resolvidas a
+  partir do snapshot de `CampaignRecipient`, não de um novo join com
+  `receita_staging`.
+
+Racional:
+
+- Isso é exatamente a "Regra de segurança do produto" já registrada em
+  `docs/PRODUCT_ROADMAP.md`: supressão/opt-out e auditoria de envio não
+  podem ser enfraquecidas por nenhuma camada nova, mesmo num motor de
+  envio construído rápido para o MVP.
+- Um envio automático na criação da campanha seria fácil de disparar por
+  engano (ex.: clicar "criar" pensando estar só salvando um rascunho);
+  exigir uma ação e uma confirmação separadas reduz esse risco.
+- `@Interval` é suficiente para o volume esperado no MVP interno (uso
+  por poucas contas/campanhas simultâneas) e evita a complexidade
+  operacional de rodar Redis agora só para isso.
+
+Consequências:
+
+- Testado o motor de ponta a ponta com credenciais SMTP propositalmente
+  inválidas (nunca com uma conta real): o worker tentou o envio de
+  verdade, recebeu a rejeição real da AWS SES, marcou o destinatário
+  como `failed` com a mensagem de erro, e a campanha foi concluída
+  automaticamente por falta de pendentes — validando o caminho completo
+  sem nenhum risco de entrega real.
+- Rodar múltiplas instâncias do `apps/api` ao mesmo tempo poderia levar
+  dois processos a tentar processar a mesma campanha no mesmo tick
+  (sem lock distribuído); aceitável para o MVP com uma instância só,
+  deve ser revisto ao migrar para fila real.
+- Qualquer novo canal de envio (ex.: LinkedIn, WhatsApp) deve seguir o
+  mesmo padrão: nascer pausado/rascunho, checar supressão antes de cada
+  envio, e nunca automatizar o primeiro disparo sem confirmação
+  explícita do usuário.

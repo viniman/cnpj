@@ -170,3 +170,87 @@ export async function testEmailAccount(id: number): Promise<{ ok: boolean; messa
   const response = await fetch(`${API_BASE_URL}/email-accounts/${id}/test`, { method: 'POST' });
   return parseOrThrow(response, 'Falha ao testar conexão.');
 }
+
+export type CampaignStatus = 'draft' | 'active' | 'paused' | 'completed';
+
+export interface CampaignCounts {
+  pending: number;
+  sent: number;
+  failed: number;
+  skipped_no_email: number;
+  skipped_suppressed: number;
+  total: number;
+}
+
+export interface CampaignSummary {
+  id: number;
+  name: string;
+  subject: string;
+  status: CampaignStatus;
+  createdAt: string;
+  list: { name: string };
+  emailAccount: { name: string };
+  counts: CampaignCounts;
+}
+
+export interface CampaignRecipient {
+  id: number;
+  razaoSocial: string;
+  nomeFantasia: string | null;
+  municipioNome: string | null;
+  email: string | null;
+  status: string;
+  sentAt: string | null;
+  errorMessage: string | null;
+}
+
+export interface CampaignDetail extends CampaignSummary {
+  bodyHtml: string;
+  recipients: CampaignRecipient[];
+}
+
+export interface CreateCampaignInput {
+  name: string;
+  listId: number;
+  emailAccountId: number;
+  subject: string;
+  bodyHtml: string;
+}
+
+export async function fetchCampaigns(): Promise<CampaignSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/campaigns`, { cache: 'no-store' });
+  return parseOrThrow(response, 'Falha ao carregar campanhas.');
+}
+
+export async function fetchCampaign(id: number): Promise<CampaignDetail> {
+  const response = await fetch(`${API_BASE_URL}/campaigns/${id}`, { cache: 'no-store' });
+  return parseOrThrow(response, 'Falha ao carregar campanha.');
+}
+
+export async function createCampaign(input: CreateCampaignInput): Promise<CampaignDetail> {
+  const response = await fetch(`${API_BASE_URL}/campaigns`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return parseOrThrow(response, 'Falha ao criar campanha.');
+}
+
+export async function startCampaign(id: number): Promise<void> {
+  await fetch(`${API_BASE_URL}/campaigns/${id}/start`, { method: 'POST' });
+}
+
+export async function pauseCampaign(id: number): Promise<void> {
+  await fetch(`${API_BASE_URL}/campaigns/${id}/pause`, { method: 'POST' });
+}
+
+export async function deleteCampaign(id: number): Promise<void> {
+  await fetch(`${API_BASE_URL}/campaigns/${id}`, { method: 'DELETE' });
+}
+
+export const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, { label: string; className: string }> = {
+  draft: { label: 'Rascunho', className: 'bg-zinc-100 text-zinc-600' },
+  active: { label: 'Ativa', className: 'bg-emerald-50 text-emerald-700' },
+  paused: { label: 'Pausada', className: 'bg-amber-50 text-amber-700' },
+  completed: { label: 'Concluída', className: 'bg-blue-50 text-blue-700' },
+};

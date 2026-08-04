@@ -47,6 +47,7 @@ model List {
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
   companies   ListCompany[]
+  campaigns   Campaign[]
 
   @@map("lists")
   @@schema("app")
@@ -96,9 +97,67 @@ model EmailAccount {
   delayFixedSeconds     Int?     @map("delay_fixed_seconds")
   delayMinSeconds       Int?     @map("delay_min_seconds")
   delayMaxSeconds       Int?     @map("delay_max_seconds")
+  lastSentAt            DateTime? @map("last_sent_at")
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
+  campaigns             Campaign[]
 
   @@map("email_accounts")
+  @@schema("app")
+}
+
+// Nasce em draft; so envia de verdade quando o usuario ativa
+// explicitamente (nunca automatico). Ver CampaignSenderService para o
+// motor de envio e ADR-056 em docs/DECISIONS.md para as decisoes de
+// throttle/supressao.
+model Campaign {
+  id             Int      @id @default(autoincrement())
+  name           String
+  listId         Int      @map("list_id")
+  list           List     @relation(fields: [listId], references: [id])
+  emailAccountId Int      @map("email_account_id")
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id])
+  subject        String
+  bodyHtml       String   @map("body_html")
+  status         String   @default("draft")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  recipients     CampaignRecipient[]
+
+  @@map("campaigns")
+  @@schema("app")
+}
+
+// Snapshot dos campos de exibicao/e-mail no momento da criacao da
+// campanha, na mesma logica de ListCompany. Empresas sem e-mail entram
+// como skipped_no_email e nunca sao processadas pelo worker.
+model CampaignRecipient {
+  id            Int      @id @default(autoincrement())
+  campaignId    Int      @map("campaign_id")
+  campaign      Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  listCompanyId Int      @map("list_company_id")
+  razaoSocial   String   @map("razao_social")
+  nomeFantasia  String?  @map("nome_fantasia")
+  municipioNome String?  @map("municipio_nome")
+  email         String?
+  status        String   @default("pending")
+  sentAt        DateTime? @map("sent_at")
+  errorMessage  String?  @map("error_message")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("campaign_recipients")
+  @@schema("app")
+}
+
+// Checada antes de qualquer envio (ADR-054: supressao/opt-out nao pode
+// ser enfraquecida por nenhuma camada nova). Alimentada pelo link de
+// descadastro (GET /unsubscribe) e, futuramente, por bounces.
+model SuppressionEntry {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  reason    String   @default("unsubscribed")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("suppression_entries")
   @@schema("app")
 }
